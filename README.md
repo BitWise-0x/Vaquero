@@ -5,6 +5,8 @@
   <img src="https://img.shields.io/badge/Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Apple Silicon"/>
   <br>
   <br>
+  <img src="assets/FaceSort.png" alt="FaceSort icon: a buffalo inside an amber viewfinder" width="128"/>
+  <br>
   <code><strong>FaceSort</strong></code>
 </h1>
 
@@ -85,12 +87,14 @@ Pick a folder of reference photos, a folder to scan and a destination, then **Sc
 - **Move or copy**: **Execute** moves the matches out of the scanned folder, or copies them and leaves the originals
 - **Progress and cancel**: scan, move and copy all run in the background with a progress bar, a DONE or CANCELLED status line, and a Cancel that stops cleanly after the current file
 - **Readable logs**: a log view with a buffalo banner, amber section headings, live progress bars for the model download, scan and move or copy, color-coded matches, warnings and errors, and file names that open the photo or video when clicked; a fresh log file for every scan
-- **bitwise0x.com theme**: dark surfaces with the sodium amber accent, the same palette as the site
+- **Single window**: folders, scan and output settings in grouped panels above a tall log; Copy or Move picked with one radio choice
+- **bitwise0x.com theme**: dark surfaces with the sodium amber accent, the same palette as the site; the icon is the buffalo (namesake of the `buffalo_l` model pack) inside an amber viewfinder
+- **Mac menu**: **FaceSort > About**, **Check for Updates…**, **Settings…** (⌘,) and **Quit** (⌘Q) in the application menu
 - **Apple Silicon native**: Core ML execution on the Neural Engine and GPU, with parallel file decoding feeding the model
 - **Model on first launch**: the face model downloads from the repo's releases with a progress bar; any other InsightFace pack in the models folder appears in the Model dropdown
 - **Updates**: **FaceSort > Check for Updates…** (or the help dialog) downloads the latest release's DMG and restarts the app; FaceSort also checks quietly at launch unless that is turned off in **FaceSort > Settings…** (⌘,). Releases get their DMG from `release-app.sh`
 - **Standalone app**: `build.sh` produces `FaceSort.app`
-- **Built-in help**: the **?** button (top right) opens a guide to every setting, the buttons and how to read the results
+- **Built-in help**: the **?** button (top right) opens a guide to every setting, the buttons and how to read the results, one bulleted section per panel with the setting names in light amber
 
 <br>
 

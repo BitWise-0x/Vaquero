@@ -193,7 +193,8 @@ class Window(QWidget):
         super().__init__()
         self.setWindowTitle("FaceSort")
         self.settings = QSettings("BitWise", "FaceSort")
-        menubar = QMenuBar(self)
+        # parentless: macOS only turns a parentless QMenuBar (or a QMainWindow's) into the native top-of-screen bar
+        self.menubar = menubar = QMenuBar()
         settings_menu = menubar.addMenu("Settings")
         settings_menu.addSection("If the destination has a file with the same name")
         self.conflict_group = QActionGroup(self)

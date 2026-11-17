@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v0.21.0 (2026-11-17)
+
+### Documentation
+
+- Download button sits right above the screenshot
+  ([`9602232`](https://github.com/BitWise-0x/Vaquero/commit/960223272fdd76f7e0fbb5fe82def6132cc46b49))
+
+- Drawn download button with Download in bold over a small Apple Silicon line
+  ([`fb4cbc2`](https://github.com/BitWise-0x/Vaquero/commit/fb4cbc29a8c9844bb123e96c1efb28663619e422))
+
+### Features
+
+- Vaquero asks for folder access at launch and before a scan, with steps to allow it
+  ([`34c41d9`](https://github.com/BitWise-0x/Vaquero/commit/34c41d9854b832f712f1e240bfe086d46de193ee))
+
+
 ## v0.20.3 (2026-11-17)
 
 ### Bug Fixes

@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.16.0 (2026-11-17)
+
+### Documentation
+
+- Screenshots at 0.15.0
+  ([`3523cbb`](https://github.com/BitWise-0x/facesort/commit/3523cbb82c178e654a0a5bdd3c28d5e2b94e3574))
+
+### Features
+
+- About and README state that FaceSort is fully private and runs on your own Mac
+  ([`bf8f586`](https://github.com/BitWise-0x/facesort/commit/bf8f58644983b1df3717547c8724a3b6ff22f1b3))
+
+
 ## v0.15.0 (2026-11-17)
 
 ### Features

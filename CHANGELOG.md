@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.17.1 (2026-11-17)
+
+### Bug Fixes
+
+- FaceSort settings carry over to Vaquero
+  ([`2e7b38a`](https://github.com/BitWise-0x/facesort/commit/2e7b38afa14d77a0fa1718635d9f26acd217ab93))
+
+
 ## v0.17.0 (2026-11-17)
 
 ### Bug Fixes

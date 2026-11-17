@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.7.0 (2026-11-17)
+
+### Features
+
+- App icon, drag-to-Applications DMG, release-app.sh to attach it to a release
+  ([`f5aad72`](https://github.com/BitWise-0x/facesort/commit/f5aad72e9ef8d489640dc799718ae2dd972b5019))
+
+
 ## v0.6.0 (2026-11-17)
 
 ### Features

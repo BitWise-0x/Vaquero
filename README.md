@@ -73,7 +73,7 @@ Vaquero runs on an open-source AI model, right on your machine. No photo, face o
    This is needed once. Updates from inside the app open without it.
 4. When you first scan a folder on an external drive, a network share, or in Desktop, Documents or Downloads, macOS asks whether Vaquero may access it. Click **Allow**.
 
-Requires an Apple Silicon Mac with macOS 14 or later. The first launch downloads the face model (about 190 MB).
+Requires an Apple Silicon Mac with macOS 14 or later. The first launch downloads the face model (about 290 MB).
 
 Pick the reference photos, a folder to scan and a destination, then **Scan**. Check the matches, choose **Copy** or **Move**, then **Execute**.
 
@@ -192,9 +192,9 @@ Vaquero uses `buffalo_l`, a face model pack from [InsightFace](https://github.co
 
 Model packs live in `~/Library/Application Support/Vaquero/models/<pack>/`; when run from source, the repo's `models/<pack>/` is read too. Neither is committed: the files are large, and the InsightFace pretrained weights are licensed for non-commercial research use only.
 
-On first launch, with no pack installed, the app downloads `buffalo_l.zip` from this repo's [`models-buffalo_l`](https://github.com/BitWise-0x/Vaquero/releases/tag/models-buffalo_l) release and unpacks it there, showing "Downloading face detection model, please wait..." with a progress bar under the buttons and in the log. Scanning waits until it finishes. The release is pinned: the app always takes that tag, and the zip on it is replaced by hand to change the model.
+On first launch, with no pack installed, the app downloads `buffalo_l.zip` from InsightFace's own [v0.7 release](https://github.com/deepinsight/insightface/releases/tag/v0.7), checks it against a SHA-256 pinned in `vaquero/remote.py`, and unpacks `det_10g.onnx` and `w600k_r50.onnx` there. Scanning waits until it finishes.
 
-Model and update downloads resume: a partial file stays in `~/Library/Application Support/Vaquero/downloads/` when the app quits or the download is cancelled, and the next attempt continues from it. A finished download is checked against GitHub's SHA-256 digest of the asset. Downloads need no GitHub account.
+Model and update downloads resume: a partial file stays in `~/Library/Application Support/Vaquero/downloads/` when the app quits or the download is cancelled, and the next attempt continues from it. A finished download is checked against its SHA-256. Downloads need no GitHub account.
 
 A pack needs a detector (`det_*` or `scrfd*`) and a recognizer (`w600k*` or `glintr*`); other files are ignored.
 
@@ -202,7 +202,6 @@ A pack needs a detector (`det_*` or `scrfd*`) and a recognizer (`w600k*` or `gli
 |---|---|---|---|
 | `buffalo_l` | `det_10g.onnx`, `w600k_r50.onnx` | 183 MB | ArcFace R50, WebFace600K |
 
-The two files come from the InsightFace [`buffalo_l.zip`](https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip) release.
 
 <br>
 
@@ -234,7 +233,6 @@ uv sync
 uv run vaquero    # run from source
 uv run pytest      # tests
 ./build.sh         # dist/Vaquero.app and dist/Vaquero-<version>-arm64.dmg
-./release-app.sh   # after a release: build at the release tag and attach the DMG to that GitHub release
 uv run python scripts/make_icon.py   # redraw assets/Vaquero.icns, Vaquero.png and the log's buffalo.png
 QT_QPA_PLATFORM=offscreen uv run python scripts/screenshots.py   # re-render docs/screenshots
 ```
@@ -254,7 +252,7 @@ Every push to `main` runs `.github/workflows/release.yml`, which uses [python-se
 | `BREAKING CHANGE:` footer | minor while on 0.x, major after |
 | anything else (`docs:`, `chore:`, `test:`, ...) | none |
 
-A release sets the version in `pyproject.toml` and `vaquero/__init__.py`, relocks `uv.lock`, updates `CHANGELOG.md`, commits them as `chore(release): X.Y.Z`, tags `vX.Y.Z` and creates the GitHub release. Pull before the next local commit. The app shows its version in **Vaquero > About Vaquero**, in each scan log, and in the `.app` bundle's Info.plist (set by `build.sh`).
+A release sets the version in `pyproject.toml` and `vaquero/__init__.py`, relocks `uv.lock`, updates `CHANGELOG.md`, commits them as `chore(release): X.Y.Z`, tags `vX.Y.Z` and creates the GitHub release. A macOS runner then builds the DMG and attaches it to that release. Pull before the next local commit. The app shows its version in **Vaquero > About Vaquero**, in each scan log, and in the `.app` bundle's Info.plist (set by `build.sh`).
 
 <br>
 

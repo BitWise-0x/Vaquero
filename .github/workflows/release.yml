@@ -2,7 +2,8 @@
 # stays a minor while the version is 0.x). python-semantic-release sets the version in pyproject.toml and
 # vaquero/__init__.py, relocks uv.lock, writes CHANGELOG.md, commits them as chore(release), tags vX.Y.Z and
 # creates the GitHub release with the notes. A push with no fix, perf or feat commit releases nothing.
-# Nothing is tagged by hand. The app is built locally (build.sh), not here.
+# Nothing is tagged by hand. A release's DMG is built on a macOS runner and attached to that release, where the
+# app's Check for Updates and the README's download link find it.
 name: Release
 
 on:
@@ -22,6 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+      tag: ${{ steps.release.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -31,8 +35,28 @@ jobs:
       - name: Pin the branch to the pushed commit
         run: git reset --hard ${{ github.sha }}
       - name: Release
+        id: release
         uses: python-semantic-release/python-semantic-release@b700dbeb1f431a0fcc30a79f3f0869407fe07278 # v10.7.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           git_committer_name: github-actions
           git_committer_email: actions@users.noreply.github.com
+
+  dmg:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: macos-14  # Apple Silicon, the only architecture the app ships for
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Build the app and DMG
+        run: ./build.sh
+      - name: Attach the DMG to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: gh release upload "$TAG" "dist/Vaquero-${TAG#v}-arm64.dmg" --clobber

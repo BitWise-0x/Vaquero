@@ -19,8 +19,6 @@ from pathlib import Path
 log = logging.getLogger("vaquero")
 
 REPO = "BitWise-0x/Vaquero"
-MODELS_TAG = "models-buffalo_l"
-MODELS_ASSET = "buffalo_l.zip"
 DEFAULT_PACK = "buffalo_l"
 
 LOG_DIR = Path.home() / "Library" / "Logs" / "Vaquero"
@@ -55,6 +53,17 @@ class Release:
     tag: str
     version: tuple[int, ...]
     assets: dict[str, Asset]
+
+
+# the face model comes straight from InsightFace's own release, pinned to this exact file
+MODEL_ARCHIVE = Asset(
+    name="buffalo_l.zip",
+    size=288_621_354,
+    url="https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip",
+    digest="sha256:80ffe37d8a5940d59a7384c201a2a38d4741f2f3c51eef46ebb28218a7b0ca2f",
+)
+# the archive also holds age, gender and landmark models that Vaquero does not use
+MODEL_FILES = ("det_10g.onnx", "w600k_r50.onnx")
 
 
 def parse_version(text: str) -> tuple[int, ...]:
@@ -162,21 +171,18 @@ def ensure_models(progress: Callable[[int, int], None], cancelled: Callable[[], 
     pack = MODELS_DIR / DEFAULT_PACK
     if pack.is_dir() and pack_models(pack):
         return pack
-    rel = release(MODELS_TAG)
-    if MODELS_ASSET not in rel.assets:
-        raise RemoteError(f"release {MODELS_TAG} has no {MODELS_ASSET}")
-    archive = download(rel.assets[MODELS_ASSET], progress, cancelled)
+    archive = download(MODEL_ARCHIVE, progress, cancelled)
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=SUPPORT_DIR) as tmp:
         staging = Path(tmp) / DEFAULT_PACK
         with zipfile.ZipFile(archive) as z:
             for member in z.namelist():
                 name = Path(member).name
-                if name.endswith(".onnx"):
+                if name in MODEL_FILES:
                     staging.mkdir(exist_ok=True)
                     (staging / name).write_bytes(z.read(member))
         if not pack_models(staging):
-            raise RemoteError(f"{MODELS_ASSET} does not hold a detector and recognizer")
+            raise RemoteError(f"{MODEL_ARCHIVE.name} does not hold {' and '.join(MODEL_FILES)}")
         if pack.exists():
             shutil.rmtree(pack)
         staging.rename(pack)

@@ -16,6 +16,7 @@ from PySide6.QtCore import QSettings, QTimer
 from PySide6.QtWidgets import QApplication, QDialog
 
 from vaquero import app as ui
+from vaquero import remote
 from vaquero import theme
 from vaquero.engine import ScanResult
 
@@ -85,7 +86,7 @@ def main() -> None:
         QApplication.processEvents()
         w.bytes_text = "Downloading face detection model, please wait..."
         w._set_busy(True)
-        w._on_bytes(118_000_000, 191_308_057)
+        w._on_bytes(180_000_000, remote.MODEL_ARCHIVE.size)
         grab(qa, w, "first-launch.png")
 
         # mid-scan

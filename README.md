@@ -22,6 +22,12 @@
 
 ---
 
+## Install
+
+Open `FaceSort-<version>-arm64.dmg` and drag **FaceSort** onto **Applications**. FaceSort runs on Apple Silicon Macs with macOS 14 or later (onnxruntime publishes no Intel macOS builds). The first launch downloads the face model (about 190 MB).
+
+<br>
+
 ## Quick Start
 
 ```sh
@@ -47,7 +53,7 @@ Pick a folder of reference photos, a folder to scan and a destination, then **Sc
 - **Readable logs**: color-coded log view (matches, warnings, errors, completions), and a fresh log file for every scan
 - **Apple Silicon native**: Core ML execution on the Neural Engine and GPU, with parallel file decoding feeding the model
 - **Model on first launch**: the face model downloads from the repo's releases with a progress bar; any other InsightFace pack in the models folder appears in the Model dropdown
-- **Updates**: **Check for updates** in the help dialog downloads the latest release and restarts the app
+- **Updates**: **Check for updates** in the help dialog downloads the latest release's DMG and restarts the app; releases get their DMG from `release-app.sh`
 - **Standalone app**: `build.sh` produces `FaceSort.app`
 - **Built-in help**: the **?** button (top left) opens a guide to every setting, the buttons and how to read the results
 
@@ -197,7 +203,7 @@ Decoding the same photos took 3.05 s, more than inference, so files decode on a 
 
 ## Requirements
 
-- macOS on Apple Silicon
+- macOS 14 or later on Apple Silicon
 - Python 3.12 and [uv](https://docs.astral.sh/uv/)
 - The GitHub CLI (`gh`), logged in with access to this repository, for the first-launch model download and updates
 
@@ -209,7 +215,9 @@ Decoding the same photos took 3.05 s, more than inference, so files decode on a 
 uv sync
 uv run facesort    # run from source
 uv run pytest      # tests
-./build.sh         # dist/FaceSort.app
+./build.sh         # dist/FaceSort.app and dist/FaceSort-<version>-arm64.dmg
+./release-app.sh   # after a release: build at the release tag and attach the DMG to that GitHub release
+uv run python scripts/make_icon.py   # redraw assets/FaceSort.icns
 ```
 
 Detection (SCRFD) and recognition (ArcFace) run directly on the ONNX models, with no dependency on the `insightface` Python package.

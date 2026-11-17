@@ -1,4 +1,5 @@
-"""Draws the FaceSort app icon: assets/FaceSort.icns for the bundle, assets/FaceSort.png for the window header.
+"""Draws the FaceSort art: assets/FaceSort.icns for the bundle, assets/FaceSort.png for the window header,
+assets/buffalo.png for the log banner (the buffalo_l model pack's namesake).
 
 Run: uv run python scripts/make_icon.py
 """
@@ -15,6 +16,9 @@ SIZE = 1024
 OUT = Path(__file__).resolve().parent.parent / "assets" / "FaceSort.icns"
 PNG = OUT.with_suffix(".png")
 PNG_SIZE = 256
+BUFFALO = OUT.with_name("buffalo.png")
+BUFFALO_SIZE = 128
+AMBER = "#efb146"
 
 
 def draw() -> QImage:
@@ -65,6 +69,46 @@ def draw() -> QImage:
     return img
 
 
+def draw_buffalo() -> QImage:
+    """Front-facing buffalo head: light hooked horns, shaggy mane and beard, amber face."""
+    img = QImage(SIZE, SIZE, QImage.Format.Format_ARGB32)
+    img.fill(Qt.GlobalColor.transparent)
+    p = QPainter(img)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    horn = QPen(QColor("#e7ece8"), 78, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+    p.setPen(horn)
+    for side in (-1, 1):
+        path = QPainterPath(QPointF(512 + side * 150, 340))
+        path.cubicTo(QPointF(512 + side * 340, 470), QPointF(512 + side * 470, 380), QPointF(512 + side * 400, 180))
+        p.drawPath(path)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QColor(AMBER))
+    for side in (-1, 1):  # ears
+        p.save()
+        p.translate(512 + side * 255, 420)
+        p.rotate(side * -20)
+        p.drawEllipse(QPointF(0, 0), 95, 48)
+        p.restore()
+    head = QPainterPath(QPointF(330, 300))
+    head.cubicTo(QPointF(420, 250), QPointF(604, 250), QPointF(694, 300))
+    head.cubicTo(QPointF(700, 520), QPointF(660, 700), QPointF(620, 800))
+    head.cubicTo(QPointF(590, 880), QPointF(434, 880), QPointF(404, 800))
+    head.cubicTo(QPointF(364, 700), QPointF(324, 520), QPointF(330, 300))
+    p.drawPath(head)
+    p.setBrush(QColor("#7a4a12"))  # mane over the forehead, beard under the chin
+    for x, y, r in ((400, 290, 80), (470, 250, 88), (554, 250, 88), (624, 290, 80), (512, 320, 90),
+                    (470, 880, 52), (554, 880, 52), (512, 905, 58)):
+        p.drawEllipse(QPointF(x, y), r, r)
+    p.setBrush(QColor("#a96a19"))  # muzzle
+    p.drawEllipse(QPointF(512, 760), 118, 92)
+    p.setBrush(QColor("#0c0f0e"))
+    for side in (-1, 1):
+        p.drawEllipse(QPointF(512 + side * 92, 480), 30, 36)  # eyes
+        p.drawEllipse(QPointF(512 + side * 48, 770), 20, 28)  # nostrils
+    p.end()
+    return img
+
+
 def main() -> None:
     QGuiApplication(sys.argv)
     master = draw()
@@ -83,7 +127,10 @@ def main() -> None:
     master.scaled(PNG_SIZE, PNG_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation).save(
         str(PNG)
     )
-    print(f"wrote {OUT} and {PNG}")
+    draw_buffalo().scaled(
+        BUFFALO_SIZE, BUFFALO_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+    ).save(str(BUFFALO))
+    print(f"wrote {OUT}, {PNG} and {BUFFALO}")
 
 
 if __name__ == "__main__":

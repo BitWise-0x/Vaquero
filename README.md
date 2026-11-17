@@ -11,14 +11,47 @@
 <p align="center">
   <img src="https://img.shields.io/badge/versioning-semantic--release-e10079?style=flat-square&logo=semantic-release" alt="semantic-release"/>
   <img src="https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square&logo=apple" alt="macOS"/>
-  <img src="https://img.shields.io/badge/inference-Core_ML-blue?style=flat-square" alt="Core ML"/>
+  <img src="https://img.shields.io/badge/inference-Core_ML-efb146?style=flat-square" alt="Core ML"/>
   <img src="https://img.shields.io/badge/models-InsightFace_buffalo__l-orange?style=flat-square" alt="InsightFace buffalo_l"/>
 </p>
 
 <p align="center">
-  Find every photo and video of one person in a folder and move or copy them out, by face.<br>
-  Single-window macOS app running SCRFD detection and ArcFace recognition on the Apple Neural Engine through Core ML.
+  Take control of your photo library by face: point FaceSort at a few photos of someone, and it finds every photo and video of them in a folder of thousands, then copies or moves them where they belong.<br>
+  Single-window macOS app running SCRFD detection and ArcFace recognition on the Apple Neural Engine through Core ML. Everything runs on your Mac; no photo leaves it.
 </p>
+
+<p align="center">
+  <img src="docs/screenshots/results.png" alt="FaceSort after a scan: folders, scan and output settings, and a log listing the matches" width="760"/>
+</p>
+
+---
+
+## What It's For
+
+Camera rolls, phone backups, shared drives and chat exports pile up into folders where the photos of any one person are scattered among thousands of others. Sorting them by hand means opening every file. FaceSort does the looking:
+
+- **Build a folder per person**: collect every photo of a family member, a friend or yourself from years of backups into one place
+- **Pull someone out of a shared dump**: an event, a trip or a group chat export, filtered down to the photos one person is in
+- **Gather training or reference sets**: every usable photo of a subject, for an album, a slideshow or a face-swap reference folder
+- **Clean up**: move a person's photos out of a mixed folder, or copy them and leave the original untouched
+
+It is seeded, not trained: five to fifteen clear photos of the person are enough. Nothing changes on disk until you review the matches and click **Execute**, and every move or copy is journaled so it can be undone.
+
+<br>
+
+## Screenshots
+
+| First launch | Scanning |
+|---|---|
+| <img src="docs/screenshots/first-launch.png" alt="First launch: the face model downloading, with a progress bar in the log" width="420"/> | <img src="docs/screenshots/scanning.png" alt="A scan in progress: live count, matches found and the log's progress bar" width="420"/> |
+| The face model downloads from the repo into the log, with a progress bar | The scan counts files and matches live; the log shows its own progress bar |
+
+| Help | Settings |
+|---|---|
+| <img src="docs/screenshots/help.png" alt="The help dialog explaining every setting" width="420"/> | <img src="docs/screenshots/settings.png" alt="Settings: update check at launch, logs and models folders" width="420"/> |
+| **?** explains what FaceSort does and every setting | **FaceSort > Settings…** (⌘,) |
+
+The screenshots use sample folders and files; `scripts/screenshots.py` renders them from the real window.
 
 ---
 
@@ -51,7 +84,7 @@ Pick a folder of reference photos, a folder to scan and a destination, then **Sc
 - **Name conflicts**: when the destination already has the name, keep both (Finder-style `name 2.jpg`) or overwrite, set by **Name exists**; every move and copy is journaled for undo
 - **Move or copy**: **Execute** moves the matches out of the scanned folder, or copies them and leaves the originals
 - **Progress and cancel**: scan, move and copy all run in the background with a progress bar, a DONE or CANCELLED status line, and a Cancel that stops cleanly after the current file
-- **Readable logs**: color-coded log view (matches, warnings, errors, completions), and a fresh log file for every scan
+- **Readable logs**: a log view with a buffalo banner, amber section headings, live progress bars for the model download, scan and move or copy, color-coded matches, warnings and errors, and file names that open the photo or video when clicked; a fresh log file for every scan
 - **bitwise0x.com theme**: dark surfaces with the sodium amber accent, the same palette as the site
 - **Apple Silicon native**: Core ML execution on the Neural Engine and GPU, with parallel file decoding feeding the model
 - **Model on first launch**: the face model downloads from the repo's releases with a progress bar; any other InsightFace pack in the models folder appears in the Model dropdown
@@ -126,10 +159,10 @@ flowchart LR
 
 ## Progress, Cancel and Logs
 
-- The progress bar tracks both the scan and the move; the line below it shows the count while running, then **DONE** or **CANCELLED** with a summary.
+- The progress bar tracks the model download, the scan and the move or copy; the line below it shows the count while running, then **DONE** or **CANCELLED** with a summary. The log draws the same progress as a bar of its own, updated in place.
 - **Cancel** stops a scan, move or copy after the current file. A cancelled scan keeps the results it reached, and its matches can still be moved or copied. A cancelled move or copy leaves every file either fully done and journaled or untouched.
 - Closing the window during a run cancels it and waits up to 30 s for the current file before quitting.
-- Each **Scan** clears the log view and starts a new log file; the move or copy that follows writes to the same file. The log is split into amber-headed sections (Setup, Scanning, Matches, Result, Move or Copy). The view colors matches green, review matches and warnings orange, errors red and completions amber, and every file name is a link that opens the photo or video; the log files stay plain text with `== Section ==` lines.
+- The log opens with a small buffalo, the namesake of the `buffalo_l` model pack, with the version and engine. Each **Scan** clears the log view and starts a new log file; the move or copy that follows writes to the same file. The log is split into amber-headed sections (Setup, Scanning, Matches, Result, Move or Copy). The view colors matches green, review matches and warnings orange, errors red and completions amber, and every file name is a link that opens the photo or video; the log files stay plain text with `== Section ==` lines.
 
 <br>
 
@@ -176,7 +209,7 @@ Logs and scan reports go to `~/Library/Logs/FaceSort` (**Show logs folder** in t
 
 Model packs live in `~/Library/Application Support/FaceSort/models/<pack>/`; when run from source, the repo's `models/<pack>/` is read too. Neither is committed: the files are large, and the InsightFace pretrained weights are licensed for non-commercial research use only.
 
-On first launch, with no pack installed, the app downloads `buffalo_l.zip` from the repo's `models-buffalo_l` release and unpacks it there, showing "Downloading face detection model, please wait..." with a progress bar. Scanning waits until it finishes. The release is pinned: the app always takes that tag, and the zip on it is replaced by hand to change the model.
+On first launch, with no pack installed, the app downloads `buffalo_l.zip` from the repo's `models-buffalo_l` release and unpacks it there, showing "Downloading face detection model, please wait..." with a progress bar under the buttons and in the log. Scanning waits until it finishes. The release is pinned: the app always takes that tag, and the zip on it is replaced by hand to change the model.
 
 Model and update downloads resume: a partial file stays in `~/Library/Application Support/FaceSort/downloads/` when the app quits or the download is cancelled, and the next attempt continues from it. A finished download is checked against GitHub's SHA-256 digest of the asset. The repository is private, so downloads authenticate with the GitHub CLI's login on this Mac.
 
@@ -220,7 +253,8 @@ uv run facesort    # run from source
 uv run pytest      # tests
 ./build.sh         # dist/FaceSort.app and dist/FaceSort-<version>-arm64.dmg
 ./release-app.sh   # after a release: build at the release tag and attach the DMG to that GitHub release
-uv run python scripts/make_icon.py   # redraw assets/FaceSort.icns and FaceSort.png
+uv run python scripts/make_icon.py   # redraw assets/FaceSort.icns, FaceSort.png and the log's buffalo.png
+QT_QPA_PLATFORM=offscreen uv run python scripts/screenshots.py   # re-render docs/screenshots
 ```
 
 Detection (SCRFD) and recognition (ArcFace) run directly on the ONNX models, with no dependency on the `insightface` Python package.

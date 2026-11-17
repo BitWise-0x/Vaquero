@@ -16,6 +16,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, QSettings, Qt, QThread, QUrl, Signal
 from PySide6.QtGui import (
     QAction,
+    QImage,
     QCloseEvent,
     QDesktopServices,
     QIcon,
@@ -23,6 +24,7 @@ from PySide6.QtGui import (
     QTextBlockFormat,
     QTextCharFormat,
     QTextCursor,
+    QTextDocument,
 )
 from PySide6.QtWidgets import (
     QApplication,
@@ -171,6 +173,22 @@ AUTO_UPDATE_KEY = "check_updates_on_launch"
 # worker signals reach the window through the event loop, so every widget update runs on the main thread;
 # PySide otherwise calls a Python slot directly on the emitting worker thread, and a widget repaint there crashes
 QUEUED = Qt.ConnectionType.QueuedConnection
+
+BAR_CELLS = 30
+BUFFALO_URL = QUrl("facesort:buffalo")
+
+
+def progress_bar_html(label: str, done: int, total: int, detail: str) -> str:
+    """A text progress bar for the log: amber filled cells, dim empty ones, the percentage and a detail."""
+    frac = min(done / total, 1.0) if total else 0.0
+    filled = round(frac * BAR_CELLS)
+    return (
+        f'<span style="color:{theme.FG_SOFT}">{html.escape(label)}</span>&nbsp;&nbsp;'
+        f'<span style="color:{theme.SIGNAL}">{"█" * filled}</span>'
+        f'<span style="color:{theme.LINE_STRONG}">{"█" * (BAR_CELLS - filled)}</span>&nbsp;&nbsp;'
+        f'<b style="color:{theme.SIGNAL}">{frac:.0%}</b>&nbsp;&nbsp;'
+        f'<span style="color:{TIME_COLOR}">{html.escape(detail)}</span>'
+    )
 
 LEVEL_COLORS = {logging.WARNING: theme.REVIEW, logging.ERROR: theme.ERROR}
 TIME_COLOR = theme.DIM
@@ -507,6 +525,9 @@ class Window(QMainWindow):
         handler = QtLogHandler()
         handler.record_emitted.connect(self._append_log, QUEUED)
         log.addHandler(handler)
+        self.progress_line: QTextCursor | None = None
+        self.progress_pct = -1
+        self._banner()
         self.resize(960, 860)
 
     def _folder_row(self, grid: QGridLayout, row: int, label: str, key: str, default: str = "") -> QLineEdit:
@@ -574,6 +595,7 @@ class Window(QMainWindow):
         thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._on_thread_finished, QUEUED)
         self.thread, self.job = thread, job
+        self.progress_line = None  # each job draws its own progress line in the log
         self.progress.setValue(0)
         self._set_busy(True)
         thread.start()
@@ -643,18 +665,21 @@ class Window(QMainWindow):
         job.finished.connect(self._on_models_ready, QUEUED)
         self._run(job)
         self.status.setText("Downloading face detection model, please wait...")
-        log.info("first launch: downloading the %s model pack", DEFAULT_PACK)
+        section("Face model")
+        log.info("Downloading face detection model (%s), please wait...", DEFAULT_PACK)
 
     def _on_bytes(self, done: int, total: int) -> None:
         self.progress.setMaximum(max(total // 1024, 1))
         self.progress.setValue(done // 1024)
         self.status.setText(f"{self.bytes_text} {done / 1e6:.0f} of {total / 1e6:.0f} MB")
+        self._log_progress("download", done, total, f"{done / 1e6:.0f} of {total / 1e6:.0f} MB")
 
     def _on_models_ready(self, _: object) -> None:
         self.packs = model_packs()
         self.model.clear()
         self.model.addItems(list(self.packs))
         self._set_busy(False)
+        log.info("face detection model installed, ready to scan")
         self._done("face detection model installed")
 
     def check_updates(self, quiet: bool = False) -> None:
@@ -798,6 +823,7 @@ class Window(QMainWindow):
         self.progress.setMaximum(total)
         self.progress.setValue(done)
         self.status.setText(f"Scanned: {done} of {total}")
+        self._log_progress("scan", done, total, f"{done} of {total} files")
         self._show_found(self.live_found)
 
     def _start_log(self, path: Path) -> None:
@@ -809,6 +835,8 @@ class Window(QMainWindow):
         self.file_log.setFormatter(FileFormatter("%(asctime)s %(levelname)s %(message)s"))
         log.addHandler(self.file_log)
         self.log_view.clear()
+        self.progress_line = None
+        self._banner()
         section("Setup")
         log.info("FaceSort %s, log file: %s", __version__, path, extra={"link": path, "link_text": str(path)})
 
@@ -873,6 +901,7 @@ class Window(QMainWindow):
         self.progress.setMaximum(total)
         self.progress.setValue(done)
         self.status.setText(f"{self._transfer_verb().capitalize()} {done} of {total}")
+        self._log_progress(self.transfer_mode.value, done, total, f"{done} of {total} files")
 
     def _on_transfer_finished(self, done: int, failed: int, cancelled: bool) -> None:
         verb = self._transfer_verb()
@@ -882,24 +911,67 @@ class Window(QMainWindow):
         self._update_match_count()
         self._done(f"{verb} {done}, {failed} failed. Undo list in {self.journal.name}", cancelled)
 
-    def _append_log(self, line: str, heading: bool) -> None:
-        """Add one log line as its own block; headings get space above them."""
-        bar = self.log_view.verticalScrollBar()
-        at_bottom = bar.value() >= bar.maximum() - 4
+    def _new_block(self, top: int = 0, bottom: int = 0) -> QTextCursor:
+        """A cursor in a fresh block at the end of the log, with the given spacing."""
         doc = self.log_view.document()
         cursor = QTextCursor(doc)
         cursor.movePosition(QTextCursor.MoveOperation.End)
         block = QTextBlockFormat()
-        block.setTopMargin(10 if heading and not doc.isEmpty() else 0)
-        block.setBottomMargin(2 if heading else 0)
+        block.setTopMargin(top if not doc.isEmpty() else 0)
+        block.setBottomMargin(bottom)
         if doc.isEmpty():
             cursor.setBlockFormat(block)
         else:
             # a fresh char format, so a link at the end of the last line does not carry over
             cursor.insertBlock(block, QTextCharFormat())
-        cursor.insertHtml(line)
+        return cursor
+
+    def _keep_scrolled(self, write: Callable[[], None]) -> None:
+        bar = self.log_view.verticalScrollBar()
+        at_bottom = bar.value() >= bar.maximum() - 4
+        write()
         if at_bottom:
             bar.setValue(bar.maximum())
+
+    def _append_log(self, line: str, heading: bool) -> None:
+        """Add one log line as its own block; headings get space above them."""
+        self._keep_scrolled(lambda: self._new_block(10 if heading else 0, 2 if heading else 0).insertHtml(line))
+
+    def _log_progress(self, label: str, done: int, total: int, detail: str) -> None:
+        """Draw the job's progress line in the log, then redraw it in place as the percentage moves."""
+        pct = done * 100 // total if total else 0
+        if self.progress_line is not None and pct == self.progress_pct and done != total:
+            return
+        self.progress_pct = pct
+        line = progress_bar_html(label, done, total, detail)
+
+        def write() -> None:
+            if self.progress_line is None:
+                self.progress_line = self._new_block(4, 4)
+                self.progress_line.insertHtml(line)
+                return
+            # the cursor follows its block as later lines are added below it
+            self.progress_line.movePosition(QTextCursor.MoveOperation.StartOfBlock)
+            self.progress_line.movePosition(QTextCursor.MoveOperation.EndOfBlock, QTextCursor.MoveMode.KeepAnchor)
+            self.progress_line.insertHtml(line)
+
+        self._keep_scrolled(write)
+
+    def _banner(self) -> None:
+        """The buffalo_l mascot, name, version and engine at the top of the log."""
+        doc = self.log_view.document()
+        doc.addResource(QTextDocument.ResourceType.ImageResource, BUFFALO_URL, QImage(str(asset("buffalo.png"))))
+        pack = self.model.currentText() or DEFAULT_PACK
+        banner = (
+            '<table cellspacing="0" cellpadding="0"><tr>'
+            f'<td valign="middle"><img src="{BUFFALO_URL.toString()}" width="44" height="44"></td>'
+            '<td valign="middle" style="padding-left:12px">'
+            f'<span style="color:{theme.SIGNAL}; font-size:15pt; font-weight:700">FaceSort</span>'
+            f'&nbsp;&nbsp;<span style="color:{TIME_COLOR}">{__version__}</span><br>'
+            f'<span style="color:{theme.MUTED}">{html.escape(pack)} · SCRFD detection · ArcFace recognition · Core ML</span>'
+            "</td></tr></table>"
+        )
+        self._new_block(0, 6).insertHtml(banner)
 
     def _transfer_verb(self) -> str:
         return "moved" if self.transfer_mode is Transfer.MOVE else "copied"

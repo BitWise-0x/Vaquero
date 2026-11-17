@@ -1,31 +1,36 @@
 <h1 align="center">
   <img src="assets/Vaquero.png" alt="Vaquero icon: a buffalo inside an amber viewfinder" width="160"/>
   <br>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/wordmark-light.png">
+    <img src="assets/wordmark-dark.png" alt="Vaquero" width="380">
+  </picture>
+</h1>
+
+<h3 align="center">Find and round up every photo, by face.</h3>
+
+<p align="center">
+  Point Vaquero at a few photos of someone.<br>
+  It finds every photo and video of them, then copies, moves or organizes them as you see fit.<br>
+  Runs on an open-source AI model, right on your Mac, fully private.
+</p>
+
+<p align="center">
+  <a href="https://github.com/BitWise-0x/Vaquero/releases/latest"><img src="https://img.shields.io/badge/Download-for_macOS-efb146?style=for-the-badge&logo=apple&logoColor=0c0f0e&labelColor=efb146" alt="Download for macOS" height="44"/></a>
   <br>
+  <sub>Apple Silicon · macOS 14 or later · <a href="#install">install steps</a></sub>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
   <img src="https://img.shields.io/badge/Qt-41CD52?style=for-the-badge&logo=qt&logoColor=white" alt="Qt"/>
   <img src="https://img.shields.io/badge/ONNX_Runtime-efb146?style=for-the-badge&logo=onnx&logoColor=0c0f0e" alt="ONNX Runtime"/>
   <img src="https://img.shields.io/badge/Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Apple Silicon"/>
   <br>
-  <br>
-  Vaquero
-</h1>
-
-<p align="center">
   <img src="https://img.shields.io/badge/versioning-semantic--release-e10079?style=flat-square&logo=semantic-release" alt="semantic-release"/>
   <img src="https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square&logo=apple" alt="macOS"/>
   <img src="https://img.shields.io/badge/inference-Core_ML-efb146?style=flat-square" alt="Core ML"/>
   <img src="https://img.shields.io/badge/models-InsightFace_buffalo__l-orange?style=flat-square" alt="InsightFace buffalo_l"/>
-</p>
-
-<p align="center">
-  <strong>Find and round up every photo, by face.</strong>
-</p>
-
-<p align="center">
-  Point Vaquero at a few photos of someone.<br>
-  It finds every photo and video of them, then copies, moves or organizes them as you see fit.<br>
-  Runs on an open-source AI model, right on your Mac.
 </p>
 
 <p align="center">

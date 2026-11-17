@@ -1,5 +1,6 @@
 """Draws the Vaquero art: assets/Vaquero.icns for the bundle, assets/Vaquero.png for the window header,
-assets/buffalo.png for the log banner (the buffalo_l model pack's namesake).
+assets/buffalo.png for the log banner (the buffalo_l model pack's namesake), and the README wordmark in a light
+and a dark version (assets/wordmark-light.png, assets/wordmark-dark.png).
 
 Run: uv run python scripts/make_icon.py
 """
@@ -10,7 +11,18 @@ import tempfile
 from pathlib import Path
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QBrush, QColor, QGuiApplication, QImage, QLinearGradient, QPainter, QPainterPath, QPen
+from PySide6.QtGui import (
+    QBrush,
+    QColor,
+    QFont,
+    QFontMetrics,
+    QGuiApplication,
+    QImage,
+    QLinearGradient,
+    QPainter,
+    QPainterPath,
+    QPen,
+)
 
 SIZE = 1024
 OUT = Path(__file__).resolve().parent.parent / "assets" / "Vaquero.icns"
@@ -19,6 +31,7 @@ PNG_SIZE = 256
 BUFFALO = OUT.with_name("buffalo.png")
 BUFFALO_SIZE = 128
 AMBER = "#efb146"
+WORDMARK_PX = 220
 BUFFALO_IN_FRAME = 0.54  # the mascot's scale inside the icon's viewfinder
 
 
@@ -101,6 +114,26 @@ def paint_buffalo(p: QPainter) -> None:
         p.drawEllipse(QPointF(512 + side * 48, 770), 20, 28)  # nostrils
 
 
+def draw_wordmark(color: str) -> QImage:
+    """'Vaquero' in heavy type, drawn at 2x for sharp display at about 100 px tall."""
+    font = QFont("Helvetica Neue")
+    font.setPixelSize(WORDMARK_PX)
+    font.setWeight(QFont.Weight.Bold)
+    metrics = QFontMetrics(font)
+    rect = metrics.tightBoundingRect("Vaquero")
+    pad = WORDMARK_PX // 10
+    img = QImage(rect.width() + 2 * pad, rect.height() + 2 * pad, QImage.Format.Format_ARGB32)
+    img.fill(Qt.GlobalColor.transparent)
+    p = QPainter(img)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+    p.setFont(font)
+    p.setPen(QColor(color))
+    p.drawText(pad - rect.left(), pad - rect.top(), "Vaquero")
+    p.end()
+    return img
+
+
 def main() -> None:
     QGuiApplication(sys.argv)
     master = draw()
@@ -122,7 +155,9 @@ def main() -> None:
     draw_buffalo().scaled(
         BUFFALO_SIZE, BUFFALO_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
     ).save(str(BUFFALO))
-    print(f"wrote {OUT}, {PNG} and {BUFFALO}")
+    for name, color in (("wordmark-light.png", "#e7ece8"), ("wordmark-dark.png", "#0c0f0e")):
+        draw_wordmark(color).save(str(OUT.with_name(name)))
+    print(f"wrote {OUT}, {PNG}, {BUFFALO} and the wordmarks")
 
 
 if __name__ == "__main__":

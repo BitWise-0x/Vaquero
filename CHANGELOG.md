@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.11.0 (2026-11-17)
+
+### Features
+
+- Buffalo banner and live progress bars in the log; README with purpose and screenshots
+  ([`d036293`](https://github.com/BitWise-0x/facesort/commit/d036293a555412b56dc2b92dfec83958ee750a0c))
+
+
 ## v0.10.1 (2026-11-17)
 
 ### Bug Fixes

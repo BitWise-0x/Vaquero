@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.2.2 (2026-11-17)
+
+### Bug Fixes
+
+- Settings button in the window and a native menu bar via QMainWindow
+  ([`cac9568`](https://github.com/BitWise-0x/facesort/commit/cac956853412815d71604c2e48d2e5ce54d5d82e))
+
+
 ## v0.2.1 (2026-11-17)
 
 ### Bug Fixes

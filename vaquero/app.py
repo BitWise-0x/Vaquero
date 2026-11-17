@@ -370,11 +370,15 @@ class TaskWorker(QObject):
 
 def migrate_settings(settings: QSettings) -> None:
     """Copy the FaceSort-era settings (folders, options) into a still-empty Vaquero settings store."""
+    old = QSettings("BitWise", remote.LEGACY_NAME)
+    # without this, macOS lists the system-wide preferences too, and no store ever looks empty
+    for store in (settings, old):
+        store.setFallbacksEnabled(False)
     if settings.allKeys():
         return
-    old = QSettings("BitWise", remote.LEGACY_NAME)
     for key in old.allKeys():
         settings.setValue(key, old.value(key))
+    settings.sync()  # written now, not at a clean exit that a crash or force quit would skip
 
 
 class Window(QMainWindow):

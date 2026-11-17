@@ -19,11 +19,11 @@
 </p>
 
 <p align="center">
-  <strong>Find and round up every photo. By face.</strong>
+  <strong>Find and round up every photo, by face.</strong>
 </p>
 
 <p align="center">
-  Take control of your photo library by face: point Vaquero at a few photos of someone, and it finds every photo and video of them in a folder of thousands, then copies or moves them where they belong.<br>
+  Take control of your photo library by face: point Vaquero at a few photos of someone, and it finds every photo and video of them in a folder of thousands, then copies, moves or organizes them as you see fit.<br>
   Single-window macOS app running SCRFD detection and ArcFace recognition on the Apple Neural Engine through Core ML. Fully private: everything runs on your own Mac.
 </p>
 
@@ -120,7 +120,7 @@ flowchart LR
     pick["Pick a few photos<br>of the person"] --> learn["Vaquero learns<br>their face"]
     learn --> scan["It looks through every<br>photo and video in a folder"]
     scan --> review["You check<br>the matches"]
-    review --> done["Copy or move them<br>into their own folder"]
+    review --> done["Copy, move or organize<br>them as you see fit"]
 ```
 
 Each photo in the scanned folder goes through the same check:

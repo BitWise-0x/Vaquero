@@ -20,6 +20,7 @@ MUTED = "#a2aaa6"
 DIM = "#6b7470"
 SIGNAL = "#efb146"
 SIGNAL_DIM = "#a96a19"
+SIGNAL_LIGHT = "#f7d08a"  # setting names in the help text, a lighter amber than headings
 ON_SIGNAL = "#0c0f0e"
 
 # log line colors

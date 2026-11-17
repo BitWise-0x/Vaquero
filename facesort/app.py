@@ -100,34 +100,43 @@ You give it a few photos of the person. It learns their face from those, checks 
 files against it, and lists the matches. Nothing moves until you click <b>Execute</b>.</p>
 
 <h3>Folders</h3>
-<p><b>Reference faces</b>: a folder of photos of the person to find. Five to fifteen clear photos from different
-angles work best. The largest face in each photo is used. A photo whose largest face is someone else is dropped
-and noted in the log.</p>
-<p><b>Folder to scan</b>: where to look for the person.</p>
-<p><b>Destination</b>: where the matches go. Created if it does not exist. It is never scanned.</p>
+<ul>
+<li><span class="term">Reference faces</span>: a folder of photos of the person to find. Five to fifteen clear photos
+from different angles work best. The largest face in each photo is used. A photo whose largest face is someone else
+is dropped and noted in the log.</li>
+<li><span class="term">Folder to scan</span>: where to look for the person.</li>
+<li><span class="term">Destination</span>: where the matches go. Created if it does not exist. It is never scanned.</li>
+</ul>
 
 <h3>Scan</h3>
-<p><b>Model</b>: the face model pack. <code>buffalo_l</code> is the default.</p>
-<p><b>Scan subfolders</b>: also look inside folders within the scan folder. Hidden folders are skipped.
-Matches from subfolders all land directly in the destination.</p>
-<p><b>Include videos</b> and <b>frames</b>: scan videos too, judging each on that many frames spread evenly
-through it. More frames catch a person who appears briefly, and take longer.</p>
-<p><b>Match threshold</b>: how similar a face must be to count as a match (default {threshold:.2f}).
+<ul>
+<li><span class="term">Model</span>: the face model pack. <code>buffalo_l</code> is the default.</li>
+<li><span class="term">Match threshold</span>: how similar a face must be to count as a match (default {threshold:.2f}).
 Raise it to drop doubtful matches, lower it to catch hard shots (small, blurred, side-on faces).
-Changing it after a scan updates the matches without scanning again.</p>
+Changing it after a scan updates the matches without scanning again.</li>
+<li><span class="term">Scan subfolders</span>: also look inside folders within the scan folder. Hidden folders are
+skipped. Matches from subfolders all land directly in the destination.</li>
+<li><span class="term">Include videos</span> and <span class="term">frames</span>: scan videos too, judging each on
+that many frames spread evenly through it. More frames catch a person who appears briefly, and take longer.</li>
+</ul>
 
 <h3>Output</h3>
-<p><b>Move</b> or <b>Copy</b>: what Execute does with the matches. Move takes them out of the scanned folder;
-Copy leaves the originals where they are.</p>
-<p><b>Name exists</b>: what happens when the destination already has a file with the same name.
+<ul>
+<li><span class="term">Move</span> or <span class="term">Copy</span>: what Execute does with the matches. Move takes
+them out of the scanned folder; Copy leaves the originals where they are.</li>
+<li><span class="term">Name exists</span>: what happens when the destination already has a file with the same name.
 <i>Keep both</i> adds the new file with a number (<code>IMG_1 2.png</code>).
-<i>Overwrite</i> replaces the existing file, which cannot be undone.</p>
+<i>Overwrite</i> replaces the existing file, which cannot be undone.</li>
+</ul>
 
 <h3>Buttons</h3>
-<p><b>Scan</b>: checks every file and lists the matches. Moves nothing.<br>
-<b>Cancel</b>: stops a scan, move or copy after the current file.<br>
-<b>Execute</b>: moves or copies the matches to the destination, per <b>Move</b> / <b>Copy</b>.<br>
-<b>Quit</b>: stops anything running after the current file and closes FaceSort. A model or update download picks up where it stopped the next time.</p>
+<ul>
+<li><span class="term">Scan</span>: checks every file and lists the matches. Moves nothing.</li>
+<li><span class="term">Cancel</span>: stops a scan, move or copy after the current file.</li>
+<li><span class="term">Execute</span>: moves or copies the matches to the destination, per <b>Move</b> / <b>Copy</b>.</li>
+<li><span class="term">Quit</span>: stops anything running after the current file and closes FaceSort. A model or
+update download picks up where it stopped the next time.</li>
+</ul>
 
 <h3>Reading the results</h3>
 <p>Below the progress bar, <b>Scanned</b> counts files done and <b>Matches found</b> counts matches so far.
@@ -141,12 +150,16 @@ matches on its own. A real match usually matches most of them (13/13); a lookali
 <span style="color:{error}">red</span> an error, <b style="color:{done}">amber</b> section headings and a finished scan, move or copy.</p>
 
 <h3>Files</h3>
-<p>In <code>~/Library/Logs/FaceSort</code> (<b>Show logs folder</b> below, or <b>FaceSort &gt; Settings</b>):<br>
-<code>facesort-&lt;time&gt;.log</code>: the log of one scan and its move.<br>
-<code>facesort-scan-&lt;time&gt;.csv</code>: every scanned file with its score.</p>
-<p>In <code>~/Library/Application Support/FaceSort</code>:<br>
-<code>facesort-moves.csv</code>: every moved or copied file's old and new location, for undoing.<br>
-<code>models/</code>: the face model, downloaded on first launch.</p>
+<p>In <code>~/Library/Logs/FaceSort</code> (<b>Show logs folder</b> below, or <b>FaceSort &gt; Settings</b>):</p>
+<ul>
+<li><span class="term">facesort-&lt;time&gt;.log</span>: the log of one scan and its move or copy.</li>
+<li><span class="term">facesort-scan-&lt;time&gt;.csv</span>: every scanned file with its score.</li>
+</ul>
+<p>In <code>~/Library/Application Support/FaceSort</code>:</p>
+<ul>
+<li><span class="term">facesort-moves.csv</span>: every moved or copied file's old and new location, for undoing.</li>
+<li><span class="term">models/</span>: the face model, downloaded on first launch.</li>
+</ul>
 
 <h3>Updates</h3>
 <p><b>Check for updates</b> below, or <b>FaceSort &gt; Check for Updates</b>, compares this version with the latest release, then downloads it and
@@ -607,7 +620,10 @@ class Window(QMainWindow):
         layout = QVBoxLayout(dialog)
         text = QTextBrowser()
         text.setOpenExternalLinks(True)
-        text.document().setDefaultStyleSheet(f"h2, h3 {{ color: {theme.SIGNAL}; }}")
+        text.document().setDefaultStyleSheet(
+            f"h2, h3 {{ color: {theme.SIGNAL}; }} .term {{ color: {theme.SIGNAL_LIGHT}; font-weight: 600; }}"
+            " li { margin-bottom: 4px; }"
+        )
         text.setHtml(HELP_HTML.format(
             version=__version__, review=REVIEW_BELOW, threshold=DEFAULT_THRESHOLD,
             match=MATCH_COLOR, warn=LEVEL_COLORS[logging.WARNING], error=LEVEL_COLORS[logging.ERROR], done=DONE_COLOR,

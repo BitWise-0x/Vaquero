@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.4.0 (2026-11-17)
+
+### Features
+
+- Help dialog behind a ? button; name-exists choice joins the options row, Settings menu removed
+  ([`ed79b0e`](https://github.com/BitWise-0x/facesort/commit/ed79b0ea4ca3b94b8a00cc5b0a702f5bd4789927))
+
+
 ## v0.3.0 (2026-11-17)
 
 ### Features

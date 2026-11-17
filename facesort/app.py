@@ -13,25 +13,37 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QSettings, Qt, QThread, Signal
-from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence
+from PySide6.QtCore import QObject, QSettings, Qt, QThread, QUrl, Signal
+from PySide6.QtGui import (
+    QAction,
+    QCloseEvent,
+    QDesktopServices,
+    QIcon,
+    QKeySequence,
+    QTextBlockFormat,
+    QTextCharFormat,
+    QTextCursor,
+)
 from PySide6.QtWidgets import (
     QApplication,
+    QButtonGroup,
     QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
     QFileDialog,
+    QFormLayout,
     QGridLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMainWindow,
     QMessageBox,
-    QPlainTextEdit,
     QProgressBar,
     QPushButton,
+    QRadioButton,
     QSpinBox,
     QTextBrowser,
     QToolButton,
@@ -41,12 +53,22 @@ from PySide6.QtWidgets import (
 
 from facesort import __version__, remote, theme
 from facesort.remote import DEFAULT_PACK, LOG_DIR, MODELS_DIR, SUPPORT_DIR, RemoteError, parse_version
-from facesort.engine import DEFAULT_VIDEO_FRAMES, Conflict, FaceMatcher, ScanResult, list_media, move_matches, pack_models, scan
+from facesort.engine import (
+    DEFAULT_VIDEO_FRAMES,
+    Conflict,
+    FaceMatcher,
+    ScanResult,
+    Transfer,
+    list_media,
+    pack_models,
+    scan,
+    transfer_matches,
+)
 
 log = logging.getLogger("facesort")
 
 DEFAULT_THRESHOLD = 0.35
-# matches below this are lookalike territory: logged as "review" so they get a look before Execute move
+# matches below this are lookalike territory: logged as "review" so they get a look before Execute
 REVIEW_BELOW = 0.45
 CLOSE_WAIT_MS = 30_000
 
@@ -71,51 +93,57 @@ def model_packs() -> dict[str, Path]:
 
 HELP_HTML = """
 <h2>FaceSort {version}</h2>
-<p>FaceSort finds every photo and video of one person in a folder and moves them to another folder.
+<p>FaceSort finds every photo and video of one person in a folder and moves or copies them to another folder.
 You give it a few photos of the person. It learns their face from those, checks every face in the scanned
-files against it, and lists the matches. Nothing moves until you click <b>Execute move</b>.</p>
+files against it, and lists the matches. Nothing moves until you click <b>Execute</b>.</p>
 
 <h3>Folders</h3>
 <p><b>Reference faces</b>: a folder of photos of the person to find. Five to fifteen clear photos from different
 angles work best. The largest face in each photo is used. A photo whose largest face is someone else is dropped
 and noted in the log.</p>
 <p><b>Folder to scan</b>: where to look for the person.</p>
-<p><b>Move matches to</b>: where the matches go. Created if it does not exist. It is never scanned.</p>
+<p><b>Destination</b>: where the matches go. Created if it does not exist. It is never scanned.</p>
 
-<h3>Options</h3>
+<h3>Scan</h3>
 <p><b>Model</b>: the face model pack. <code>buffalo_l</code> is the default.</p>
 <p><b>Scan subfolders</b>: also look inside folders within the scan folder. Hidden folders are skipped.
 Matches from subfolders all land directly in the destination.</p>
 <p><b>Include videos</b> and <b>frames</b>: scan videos too, judging each on that many frames spread evenly
 through it. More frames catch a person who appears briefly, and take longer.</p>
-<p><b>Name exists</b>: what happens when the destination already has a file with the same name.
-<i>Keep both</i> moves the file in with a number added (<code>IMG_1 2.png</code>).
-<i>Overwrite</i> replaces the existing file, which cannot be undone.</p>
 <p><b>Match threshold</b>: how similar a face must be to count as a match (default {threshold:.2f}).
 Raise it to drop doubtful matches, lower it to catch hard shots (small, blurred, side-on faces).
 Changing it after a scan updates the matches without scanning again.</p>
 
+<h3>Output</h3>
+<p><b>Move</b> or <b>Copy</b>: what Execute does with the matches. Move takes them out of the scanned folder;
+Copy leaves the originals where they are.</p>
+<p><b>Name exists</b>: what happens when the destination already has a file with the same name.
+<i>Keep both</i> adds the new file with a number (<code>IMG_1 2.png</code>).
+<i>Overwrite</i> replaces the existing file, which cannot be undone.</p>
+
 <h3>Buttons</h3>
 <p><b>Scan</b>: checks every file and lists the matches. Moves nothing.<br>
-<b>Cancel</b>: stops a scan or a move after the current file.<br>
-<b>Execute move</b>: moves the matches to the destination.<br>
+<b>Cancel</b>: stops a scan, move or copy after the current file.<br>
+<b>Execute</b>: moves or copies the matches to the destination, per <b>Move</b> / <b>Copy</b>.<br>
 <b>Quit</b>: stops anything running after the current file and closes FaceSort. A model or update download picks up where it stopped the next time.</p>
 
 <h3>Reading the results</h3>
 <p>Below the progress bar, <b>Scanned</b> counts files done and <b>Matches found</b> counts matches so far.
 The line ends with <b>DONE</b> or <b>CANCELLED</b>.</p>
-<p>In the log, each match shows its score and <code>refs N/M</code>: how many of the M reference photos it
+<p>The log is split into sections: <b>Setup</b>, <b>Scanning</b>, <b>Matches</b>, <b>Result</b>, then
+<b>Move</b> or <b>Copy</b>. Click a file name in the log to open the photo or video.</p>
+<p>Each match shows its score and <code>refs N/M</code>: how many of the M reference photos it
 matches on its own. A real match usually matches most of them (13/13); a lookalike only a few (0/13, 1/13).</p>
 <p>Log colors: <span style="color:{match}">green</span> a match,
 <span style="color:{warn}">orange</span> a <i>review</i> match (score below {review:.2f}, where lookalikes appear) or a warning,
-<span style="color:{error}">red</span> an error, <b style="color:{done}">amber</b> a finished scan or move.</p>
+<span style="color:{error}">red</span> an error, <b style="color:{done}">amber</b> section headings and a finished scan, move or copy.</p>
 
 <h3>Files</h3>
 <p>In <code>~/Library/Logs/FaceSort</code> (<b>Show logs folder</b> below, or <b>FaceSort &gt; Settings</b>):<br>
 <code>facesort-&lt;time&gt;.log</code>: the log of one scan and its move.<br>
 <code>facesort-scan-&lt;time&gt;.csv</code>: every scanned file with its score.</p>
 <p>In <code>~/Library/Application Support/FaceSort</code>:<br>
-<code>facesort-moves.csv</code>: every moved file's old and new location, for undoing a move.<br>
+<code>facesort-moves.csv</code>: every moved or copied file's old and new location, for undoing.<br>
 <code>models/</code>: the face model, downloaded on first launch.</p>
 
 <h3>Updates</h3>
@@ -126,14 +154,14 @@ FaceSort also checks when it opens and asks only when an update exists; turn tha
 
 
 class QtLogHandler(logging.Handler, QObject):
-    record_emitted = Signal(str)
+    record_emitted = Signal(str, bool)  # line HTML, is a section heading
 
     def __init__(self) -> None:
         logging.Handler.__init__(self)
         QObject.__init__(self)
 
     def emit(self, record: logging.LogRecord) -> None:
-        self.record_emitted.emit(colorize(record))
+        self.record_emitted.emit(colorize(record), getattr(record, "section", False))
 
 
 READY = "Pick the folders, then Scan. Nothing moves until Execute move."
@@ -149,22 +177,52 @@ MATCH_COLOR = theme.MATCH
 DONE_COLOR = theme.SIGNAL
 
 
+def section(title: str) -> None:
+    """Start a log section: an amber heading in the log view, a ruled line in the log file."""
+    log.info("%s", title, extra={"section": True})
+
+
+class FileFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        if getattr(record, "section", False):
+            return f"\n== {record.getMessage()} =="
+        return super().format(record)
+
+
+def _linked(msg: str, record: logging.LogRecord) -> str:
+    """Escape msg and turn the record's link_text (the last occurrence) into a link that opens record.link."""
+    text = html.escape(msg)
+    target: Path | None = getattr(record, "link", None)
+    if target is None:
+        return text
+    label = html.escape(getattr(record, "link_text", target.name))
+    at = text.rfind(label)
+    if at < 0:
+        return text
+    href = html.escape(QUrl.fromLocalFile(str(target)).toString(), quote=True)
+    anchor = f'<a href="{href}" style="color:{theme.FG}">{label}</a>'
+    return text[:at] + anchor + text[at + len(label):]
+
+
 def colorize(record: logging.LogRecord) -> str:
-    """One log line as HTML: dim time, level-colored text, green matches, bold amber completions."""
+    """One log line as HTML: dim time, level-colored text, green matches, amber headings and completions."""
+    msg = record.getMessage()
+    if getattr(record, "section", False):
+        return f'<span style="color:{DONE_COLOR}; font-weight:700">{html.escape(msg.upper())}</span>'
     stamp = datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
-    msg = html.escape(record.getMessage())
+    text = _linked(msg, record)
     level = html.escape(record.levelname)
+    kind = msg.split(" ", 1)[0]
     if record.levelno >= logging.WARNING:
-        body = f'<span style="color:{LEVEL_COLORS.get(record.levelno, LEVEL_COLORS[logging.ERROR])}">{level} {msg}</span>'
-    elif msg.startswith("match "):
-        body = f'<span style="color:{MATCH_COLOR}">{msg}</span>'
-    elif msg.startswith("review "):
-        body = f'<span style="color:{LEVEL_COLORS[logging.WARNING]}">{msg}</span>'
+        body = f'<span style="color:{LEVEL_COLORS.get(record.levelno, LEVEL_COLORS[logging.ERROR])}">{level} {text}</span>'
+    elif kind in ("match", "review"):
+        color = MATCH_COLOR if kind == "match" else LEVEL_COLORS[logging.WARNING]
+        body = f'<span style="color:{color}; font-weight:600">{kind}</span>{text[len(kind):]}'
     elif " done:" in msg:
-        body = f'<b style="color:{DONE_COLOR}">{msg}</b>'
+        body = f'<b style="color:{DONE_COLOR}">{text}</b>'
     else:
-        body = msg
-    return f'<span style="color:{TIME_COLOR}">{stamp}</span> {body}'
+        body = text
+    return f'<span style="color:{TIME_COLOR}">{stamp}</span>&nbsp; {body}'
 
 
 class ScanWorker(QObject):
@@ -202,7 +260,8 @@ class ScanWorker(QObject):
                 self.finished.emit([], True, self.ref_count)
                 return
             total = len(list_media(self.folder, self.include_videos, self.recursive, self.dest))
-            log.info("scanning %d files in %s", total, self.folder)
+            section("Scanning")
+            log.info("%d files in %s", total, self.folder)
             results: list[ScanResult] = []
             with self.report.open("w", newline="") as fh:
                 w = csv.writer(fh)
@@ -230,14 +289,14 @@ class ScanWorker(QObject):
             self.failed.emit(str(e))
 
 
-class MoveWorker(QObject):
+class TransferWorker(QObject):
     progress = Signal(int, int)
-    finished = Signal(int, int, bool)  # moved, failed, cancelled
+    finished = Signal(int, int, bool)  # done, failed, cancelled
     failed = Signal(str)
 
-    def __init__(self, paths: list[Path], dest: Path, journal: Path, conflict: Conflict) -> None:
+    def __init__(self, paths: list[Path], dest: Path, journal: Path, conflict: Conflict, mode: Transfer) -> None:
         super().__init__()
-        self.paths, self.dest, self.journal, self.conflict = paths, dest, journal, conflict
+        self.paths, self.dest, self.journal, self.conflict, self.mode = paths, dest, journal, conflict, mode
         self._cancel = False
 
     def cancel(self) -> None:
@@ -245,12 +304,12 @@ class MoveWorker(QObject):
 
     def run(self) -> None:
         try:
-            moved, failed = move_matches(
-                self.paths, self.dest, self.journal, self.progress.emit, lambda: self._cancel, self.conflict
+            done, failed = transfer_matches(
+                self.paths, self.dest, self.journal, self.progress.emit, lambda: self._cancel, self.conflict, self.mode
             )
-            self.finished.emit(moved, failed, self._cancel)
+            self.finished.emit(done, failed, self._cancel)
         except Exception as e:  # surfaced in the UI and log, the worker thread must not die silently
-            log.exception("move failed")
+            log.exception("%s failed", self.mode.value)
             self.failed.emit(str(e))
 
 
@@ -300,10 +359,12 @@ class Window(QMainWindow):
         self.quiet_update_check = False
         self.results: list[ScanResult] = []
         self.thread: QThread | None = None
-        self.job: ScanWorker | MoveWorker | TaskWorker | None = None
+        self.job: ScanWorker | TransferWorker | TaskWorker | None = None
         self.journal = SUPPORT_DIR / "facesort-moves.csv"
         self.file_log: logging.FileHandler | None = None
         self.bytes_text = ""
+        self.transfer_mode = Transfer.MOVE
+        self.scan_root: Path | None = None
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -323,11 +384,14 @@ class Window(QMainWindow):
         help_btn.clicked.connect(self.show_help)
         top.addWidget(help_btn)
         outer.addLayout(top)
-        grid = QGridLayout()
-        outer.addLayout(grid, 1)
+        folders = QGroupBox("Folders")
+        grid = QGridLayout(folders)
         self.refs = self._folder_row(grid, 0, "Reference faces", "refs")
         self.source = self._folder_row(grid, 1, "Folder to scan", "source")
-        self.dest = self._folder_row(grid, 2, "Move matches to", "dest")
+        self.dest = self._folder_row(grid, 2, "Destination", "dest")
+        grid.setColumnStretch(1, 1)
+        outer.addWidget(folders)
+
         self.packs = model_packs()
         self.model = QComboBox()
         self.model.addItems(list(self.packs))
@@ -335,86 +399,111 @@ class Window(QMainWindow):
         if saved in self.packs:
             self.model.setCurrentText(saved)
         self.model.currentTextChanged.connect(lambda v: self.settings.setValue("model", v))
-        grid.addWidget(QLabel("Model"), 3, 0)
-        grid.addWidget(self.model, 3, 1, 1, 2)
-
-        opts = QHBoxLayout()
         self.subfolders = QCheckBox("Scan subfolders")
         self.subfolders.setChecked(self.settings.value("subfolders", False, type=bool))
-        self.videos = QCheckBox("Include videos")
+        self.videos = QCheckBox("Include videos,")
         self.videos.setChecked(self.settings.value("videos", True, type=bool))
         self.frames = QSpinBox()
         self.frames.setRange(1, 60)
         self.frames.setValue(self.settings.value("frames", DEFAULT_VIDEO_FRAMES, type=int))
-        self.frames.setSuffix(" frames")
+        self.frames.setSuffix(" frames each")
         self.videos.toggled.connect(self.frames.setEnabled)
         self.frames.setEnabled(self.videos.isChecked())
-        self.conflict = QComboBox()
-        self.conflict.addItem("Keep both", Conflict.KEEP_BOTH.value)
-        self.conflict.addItem("Overwrite", Conflict.OVERWRITE.value)
-        self.conflict.setToolTip("When the destination already has a file with the same name: keep both, the moved one numbered (name 2.jpg), or overwrite it")
-        saved_conflict = self.conflict.findData(self.settings.value("conflict", Conflict.KEEP_BOTH.value, type=str))
-        self.conflict.setCurrentIndex(max(saved_conflict, 0))
-        self.conflict.currentIndexChanged.connect(lambda _: self.settings.setValue("conflict", self.conflict.currentData()))
         self.threshold = QDoubleSpinBox()
         self.threshold.setRange(0.2, 0.9)
         self.threshold.setSingleStep(0.01)
         self.threshold.setDecimals(2)
         self.threshold.setValue(self.settings.value("threshold", DEFAULT_THRESHOLD, type=float))
         self.threshold.valueChanged.connect(self._update_match_count)
-        opts.addWidget(self.subfolders)
-        opts.addWidget(self.videos)
-        opts.addWidget(self.frames)
-        opts.addWidget(QLabel("Name exists"))
-        opts.addWidget(self.conflict)
-        opts.addStretch()
-        opts.addWidget(QLabel("Match threshold"))
-        opts.addWidget(self.threshold)
-        grid.addLayout(opts, 4, 0, 1, 3)
+        scan_box = QGroupBox("Scan")
+        scan_form = QFormLayout(scan_box)
+        scan_form.addRow("Model", self.model)
+        scan_form.addRow("Match threshold", self.threshold)
+        scan_form.addRow("", self.subfolders)
+        videos_row = QHBoxLayout()
+        videos_row.addWidget(self.videos)
+        videos_row.addWidget(self.frames)
+        videos_row.addStretch()
+        scan_form.addRow("", videos_row)
+
+        self.transfer_move = QRadioButton("Move")
+        self.transfer_copy = QRadioButton("Copy")
+        self.transfer = QButtonGroup(self)
+        self.transfer.addButton(self.transfer_move)
+        self.transfer.addButton(self.transfer_copy)
+        copying = self.settings.value("transfer", Transfer.MOVE.value, type=str) == Transfer.COPY.value
+        (self.transfer_copy if copying else self.transfer_move).setChecked(True)
+        self.transfer_copy.toggled.connect(
+            lambda on: self.settings.setValue("transfer", (Transfer.COPY if on else Transfer.MOVE).value)
+        )
+        self.conflict = QComboBox()
+        self.conflict.addItem("Keep both", Conflict.KEEP_BOTH.value)
+        self.conflict.addItem("Overwrite", Conflict.OVERWRITE.value)
+        self.conflict.setToolTip("When the destination already has a file with the same name: keep both, the new one numbered (name 2.jpg), or overwrite it")
+        saved_conflict = self.conflict.findData(self.settings.value("conflict", Conflict.KEEP_BOTH.value, type=str))
+        self.conflict.setCurrentIndex(max(saved_conflict, 0))
+        self.conflict.currentIndexChanged.connect(lambda _: self.settings.setValue("conflict", self.conflict.currentData()))
+        out_box = QGroupBox("Output")
+        out_form = QFormLayout(out_box)
+        transfer_row = QHBoxLayout()
+        transfer_row.addWidget(self.transfer_move)
+        transfer_row.addWidget(self.transfer_copy)
+        transfer_row.addStretch()
+        out_form.addRow("Matches", transfer_row)
+        out_form.addRow("Name exists", self.conflict)
+        settings_row = QHBoxLayout()
+        settings_row.addWidget(scan_box, 3)
+        settings_row.addWidget(out_box, 2)
+        outer.addLayout(settings_row)
 
         buttons = QHBoxLayout()
         self.scan_btn = QPushButton("Scan")
         self.cancel_btn = QPushButton("Cancel")
-        self.move_btn = QPushButton("Execute move")
+        self.execute_btn = QPushButton("Execute")
         self.cancel_btn.setEnabled(False)
-        self.move_btn.setEnabled(False)
-        self.quit_btn = QPushButton("Quit")
-        self.quit_btn.clicked.connect(self.close)
-        for b in (self.scan_btn, self.cancel_btn, self.move_btn):
-            b.setMinimumHeight(36)
+        self.execute_btn.setEnabled(False)
+        for b in (self.scan_btn, self.cancel_btn, self.execute_btn):
+            b.setMinimumHeight(38)
             buttons.addWidget(b)
         self.scan_btn.clicked.connect(self.start_scan)
         self.cancel_btn.clicked.connect(self.cancel_job)
-        self.move_btn.clicked.connect(self.execute_move)
-        grid.addLayout(buttons, 5, 0, 1, 3)
+        self.execute_btn.clicked.connect(self.execute)
+        outer.addLayout(buttons)
 
         self.progress = QProgressBar()
         self.progress.setTextVisible(False)  # the status line below carries the counts
-        grid.addWidget(self.progress, 6, 0, 1, 3)
+        outer.addWidget(self.progress)
         self.status = QLabel(READY)
         self.found = QLabel()
         self.found.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         status_row = QHBoxLayout()
         status_row.addWidget(self.status, 1)
         status_row.addWidget(self.found)
-        grid.addLayout(status_row, 7, 0, 1, 3)
+        outer.addLayout(status_row)
         self.live_found = 0
-        self.log_view = QPlainTextEdit()
-        self.log_view.setReadOnly(True)
-        self.log_view.setMaximumBlockCount(5000)
-        grid.addWidget(self.log_view, 8, 0, 1, 3)
-        grid.setRowStretch(8, 1)
+
+        log_box = QGroupBox("Log")
+        log_layout = QVBoxLayout(log_box)
+        self.log_view = QTextBrowser()
+        self.log_view.setOpenLinks(False)
+        self.log_view.anchorClicked.connect(self._open_link)
+        self.log_view.document().setMaximumBlockCount(5000)
+        self.log_view.setMinimumHeight(300)
+        log_layout.addWidget(self.log_view)
+        outer.addWidget(log_box, 1)
+
         bottom = QHBoxLayout()
         bottom.addStretch()
+        self.quit_btn = QPushButton("Quit")
+        self.quit_btn.clicked.connect(self.close)
         self.quit_btn.setMinimumHeight(36)
         bottom.addWidget(self.quit_btn)
-        grid.addLayout(bottom, 9, 0, 1, 3)
-        grid.setColumnStretch(1, 1)
+        outer.addLayout(bottom)
 
         handler = QtLogHandler()
-        handler.record_emitted.connect(self.log_view.appendHtml)
+        handler.record_emitted.connect(self._append_log, QUEUED)
         log.addHandler(handler)
-        self.resize(820, 560)
+        self.resize(960, 860)
 
     def _folder_row(self, grid: QGridLayout, row: int, label: str, key: str, default: str = "") -> QLineEdit:
         edit = QLineEdit(self.settings.value(key, default, type=str))
@@ -437,19 +526,19 @@ class Window(QMainWindow):
         named = {
             "Reference faces": self.refs,
             "Folder to scan": self.source,
-            "Move matches to": self.dest,
+            "Destination": self.dest,
         }
         paths = {}
         for name, edit in named.items():
             p = Path(edit.text().strip()).expanduser()
-            if not edit.text().strip() or (name != "Move matches to" and not p.is_dir()):
+            if not edit.text().strip() or (name != "Destination" and not p.is_dir()):
                 self.status.setText(f"{name}: not a folder")
                 return None
             paths[name] = p
-        if paths["Move matches to"].resolve() == paths["Folder to scan"].resolve():
+        if paths["Destination"].resolve() == paths["Folder to scan"].resolve():
             self.status.setText("Destination must differ from the folder being scanned")
             return None
-        return paths["Reference faces"], paths["Folder to scan"], paths["Move matches to"]
+        return paths["Reference faces"], paths["Folder to scan"], paths["Destination"]
 
     def _matches(self) -> list[ScanResult]:
         t = self.threshold.value()
@@ -461,14 +550,14 @@ class Window(QMainWindow):
             m = self._matches()
             self._show_found(len(m))
             self.status.setText(f"{len(m)} matches of {len(self.results)} scanned at threshold {self.threshold.value():.2f}")
-            self.move_btn.setEnabled(bool(m))
+            self.execute_btn.setEnabled(bool(m))
 
     def _set_busy(self, busy: bool) -> None:
         self.scan_btn.setEnabled(not busy)
         self.cancel_btn.setEnabled(busy)
-        self.move_btn.setEnabled(not busy and bool(self._matches()))
+        self.execute_btn.setEnabled(not busy and bool(self._matches()))
 
-    def _run(self, job: ScanWorker | MoveWorker | TaskWorker) -> None:
+    def _run(self, job: ScanWorker | TransferWorker | TaskWorker) -> None:
         """Run job on a fresh thread; the thread and job are deleted once it ends."""
         thread = QThread()
         job.moveToThread(thread)
@@ -492,6 +581,7 @@ class Window(QMainWindow):
         layout = QVBoxLayout(dialog)
         text = QTextBrowser()
         text.setOpenExternalLinks(True)
+        text.document().setDefaultStyleSheet(f"h2, h3 {{ color: {theme.SIGNAL}; }}")
         text.setHtml(HELP_HTML.format(
             version=__version__, review=REVIEW_BELOW, threshold=DEFAULT_THRESHOLD,
             match=MATCH_COLOR, warn=LEVEL_COLORS[logging.WARNING], error=LEVEL_COLORS[logging.ERROR], done=DONE_COLOR,
@@ -635,7 +725,7 @@ class Window(QMainWindow):
         QMessageBox.about(
             self,
             "About FaceSort",
-            f"<h3>FaceSort {__version__}</h3>"
+            f"<h3 style='color:{theme.SIGNAL}'>FaceSort {__version__}</h3>"
             "<p>Finds every photo and video of one person in a folder by face and moves them out.</p>"
             "<p>Detection: SCRFD · Recognition: ArcFace (InsightFace model packs)<br>"
             "Inference: ONNX Runtime with Core ML on Apple Silicon</p>"
@@ -663,7 +753,15 @@ class Window(QMainWindow):
         LOG_DIR.mkdir(parents=True, exist_ok=True)
         self._start_log(LOG_DIR / f"facesort-{stamp}.log")
         report = LOG_DIR / f"facesort-scan-{stamp}.csv"
-        log.info("scan report: %s", report)
+        log.info("scan report: %s", report, extra={"link": report, "link_text": str(report)})
+        log.info(
+            "model %s, threshold %.2f, subfolders %s, videos %s",
+            self.model.currentText(),
+            self.threshold.value(),
+            "on" if self.subfolders.isChecked() else "off",
+            f"{self.frames.value()} frames each" if self.videos.isChecked() else "off",
+        )
+        self.scan_root = source
         job = ScanWorker(
             pack,
             refs,
@@ -704,10 +802,11 @@ class Window(QMainWindow):
             log.removeHandler(self.file_log)
             self.file_log.close()
         self.file_log = logging.FileHandler(path, encoding="utf-8")
-        self.file_log.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        self.file_log.setFormatter(FileFormatter("%(asctime)s %(levelname)s %(message)s"))
         log.addHandler(self.file_log)
         self.log_view.clear()
-        log.info("FaceSort %s, log file: %s", __version__, path)
+        section("Setup")
+        log.info("FaceSort %s, log file: %s", __version__, path, extra={"link": path, "link_text": str(path)})
 
     def _done(self, text: str, cancelled: bool = False) -> None:
         self.status.setText(f"<b>{'CANCELLED' if cancelled else 'DONE'}</b>: {text}")
@@ -718,9 +817,14 @@ class Window(QMainWindow):
         self._update_match_count()
         matches = self._matches()
         review = sum(r.score < REVIEW_BELOW for r in matches)
+        section(f"Matches ({len(matches)})")
         for r in sorted(matches, key=lambda r: -r.score):
             kind = "review" if r.score < REVIEW_BELOW else "match"
-            log.info("%s %.3f refs %d/%d %s", kind, r.score, r.agree, refs, r.path)
+            shown = str(r.path.relative_to(self.scan_root)) if self.scan_root and r.path.is_relative_to(self.scan_root) else str(r.path)
+            log.info(
+                "%s %.3f · refs %d/%d · %s", kind, r.score, r.agree, refs, shown, extra={"link": r.path, "link_text": shown}
+            )
+        section("Result")
         log.info("scan done: %d matches of %d%s", len(matches), len(results), " (cancelled)" if cancelled else "")
         if review:
             log.warning(
@@ -738,32 +842,70 @@ class Window(QMainWindow):
         self._set_busy(False)
         self.status.setText(f"Failed: {msg}")
 
-    def execute_move(self) -> None:
+    def execute(self) -> None:
         dirs = self._dirs()
         matches = self._matches()
         if dirs is None or not matches:
             return
         dest = dirs[2]
-        self.journal.parent.mkdir(parents=True, exist_ok=True)
-        log.info("moving %d files to %s (journal %s)", len(matches), dest, self.journal)
+        mode = Transfer.COPY if self.transfer_copy.isChecked() else Transfer.MOVE
         conflict = Conflict(self.conflict.currentData())
-        log.info("name conflicts: %s", "keep both" if conflict is Conflict.KEEP_BOTH else "overwrite")
-        job = MoveWorker([r.path for r in matches], dest, self.journal, conflict)
-        job.progress.connect(self._on_move_progress, QUEUED)
-        job.finished.connect(self._on_move_finished, QUEUED)
+        self.journal.parent.mkdir(parents=True, exist_ok=True)
+        section(mode.value.capitalize())
+        log.info("%sing %d files to %s", mode.value, len(matches), dest, extra={"link": dest, "link_text": str(dest)})
+        log.info(
+            "name conflicts: %s, journal %s",
+            "keep both" if conflict is Conflict.KEEP_BOTH else "overwrite",
+            self.journal,
+            extra={"link": self.journal, "link_text": str(self.journal)},
+        )
+        job = TransferWorker([r.path for r in matches], dest, self.journal, conflict, mode)
+        self.transfer_mode = mode
+        job.progress.connect(self._on_transfer_progress, QUEUED)
+        job.finished.connect(self._on_transfer_finished, QUEUED)
         self._run(job)
 
-    def _on_move_progress(self, done: int, total: int) -> None:
+    def _on_transfer_progress(self, done: int, total: int) -> None:
         self.progress.setMaximum(total)
         self.progress.setValue(done)
-        self.status.setText(f"Moved {done} of {total}")
+        self.status.setText(f"{self._transfer_verb().capitalize()} {done} of {total}")
 
-    def _on_move_finished(self, moved: int, failed: int, cancelled: bool) -> None:
-        log.info("move done: %d moved, %d failed%s", moved, failed, " (cancelled)" if cancelled else "")
+    def _on_transfer_finished(self, done: int, failed: int, cancelled: bool) -> None:
+        verb = self._transfer_verb()
+        log.info("%s done: %d %s, %d failed%s", self.transfer_mode.value, done, verb, failed, " (cancelled)" if cancelled else "")
         self.results = [r for r in self.results if r.path.exists()]
         self._set_busy(False)
         self._update_match_count()
-        self._done(f"moved {moved}, {failed} failed. Undo list in {self.journal.name}", cancelled)
+        self._done(f"{verb} {done}, {failed} failed. Undo list in {self.journal.name}", cancelled)
+
+    def _append_log(self, line: str, heading: bool) -> None:
+        """Add one log line as its own block; headings get space above them."""
+        bar = self.log_view.verticalScrollBar()
+        at_bottom = bar.value() >= bar.maximum() - 4
+        doc = self.log_view.document()
+        cursor = QTextCursor(doc)
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        block = QTextBlockFormat()
+        block.setTopMargin(10 if heading and not doc.isEmpty() else 0)
+        block.setBottomMargin(2 if heading else 0)
+        if doc.isEmpty():
+            cursor.setBlockFormat(block)
+        else:
+            # a fresh char format, so a link at the end of the last line does not carry over
+            cursor.insertBlock(block, QTextCharFormat())
+        cursor.insertHtml(line)
+        if at_bottom:
+            bar.setValue(bar.maximum())
+
+    def _transfer_verb(self) -> str:
+        return "moved" if self.transfer_mode is Transfer.MOVE else "copied"
+
+    def _open_link(self, url: QUrl) -> None:
+        path = Path(url.toLocalFile())
+        if not path.exists():
+            self.status.setText(f"No longer there: {path}")
+            return
+        QDesktopServices.openUrl(url)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (Qt override)
         if self.job and self.thread:

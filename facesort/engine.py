@@ -334,45 +334,57 @@ def _free_name(dst: Path) -> Path:
     return candidate
 
 
-def move_matches(
+class Transfer(StrEnum):
+    MOVE = "move"
+    COPY = "copy"
+
+
+def transfer_matches(
     paths: list[Path],
     dest: Path,
     journal: Path,
     progress: Callable[[int, int], None] = lambda done, total: None,
     cancelled: Callable[[], bool] = lambda: False,
     conflict: Conflict = Conflict.KEEP_BOTH,
+    mode: Transfer = Transfer.MOVE,
 ) -> tuple[int, int]:
-    """Move files into dest; returns (moved, failed). The journal records src,dst,action per file for undo.
+    """Move or copy files into dest; returns (done, failed).
 
-    A name already in dest is kept alongside under a numbered name, or overwritten, per conflict.
-    Cancelling stops between files, so no file is ever left half moved."""
+    The journal records src,dst,action per file for undo: action is moved or copied, plus ", renamed" when the
+    name was taken and both were kept, or ", overwrote" when the existing file was replaced.
+    Cancelling stops between files, so no file is ever left half moved or copied."""
     dest.mkdir(parents=True, exist_ok=True)
-    moved = failed = 0
+    verb = "moved" if mode is Transfer.MOVE else "copied"
+    done = failed = 0
     with journal.open("a", newline="") as fh:
         w = csv.writer(fh)
         for i, src in enumerate(paths, 1):
             if cancelled():
-                log.warning("move cancelled after %d of %d files", i - 1, len(paths))
-                return moved, failed
+                log.warning("%s cancelled after %d of %d files", mode.value, i - 1, len(paths))
+                return done, failed
             progress(i - 1, len(paths))
-            dst, action = dest / src.name, "moved"
+            dst, action = dest / src.name, verb
             if dst.exists():
                 if conflict is Conflict.OVERWRITE:
-                    action = "overwrote"
-                    log.warning("overwriting existing %s", dst)
+                    action = f"{verb}, overwrote"
+                    log.warning("overwriting existing %s", dst, extra={"link": dst, "link_text": str(dst)})
                 else:
-                    dst, action = _free_name(dst), "renamed"
+                    dst, action = _free_name(dst), f"{verb}, renamed"
             try:
-                shutil.move(str(src), str(dst))
+                if mode is Transfer.MOVE:
+                    shutil.move(str(src), str(dst))
+                else:
+                    shutil.copy2(src, dst)
             except OSError as e:
-                log.error("move failed %s -> %s: %s", src, dst, e)
+                log.error("%s failed %s -> %s: %s", mode.value, src, dst, e)
                 failed += 1
                 continue
             w.writerow([str(src), str(dst), action])
-            moved += 1
-            if action == "renamed":
-                log.info("moved %s, name taken, kept both as %s", src.name, dst.name)
+            done += 1
+            link = {"link": dst, "link_text": dst.name}
+            if action.endswith("renamed"):
+                log.info("%s %s, name taken, kept both as %s", verb, src.name, dst.name, extra=link)
             else:
-                log.info("moved %s", src.name)
+                log.info("%s %s", verb, dst.name, extra=link)
     progress(len(paths), len(paths))
-    return moved, failed
+    return done, failed

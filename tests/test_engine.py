@@ -4,7 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from facesort.engine import Conflict, list_media, move_matches, pack_models
+from facesort.engine import (
+    Conflict,
+    Transfer,
+    list_media,
+    pack_models,
+    transfer_matches,
+)
 
 
 def touch(p: Path, data: bytes = b"x") -> Path:
@@ -53,7 +59,7 @@ def test_move_keep_both_renames_and_journals(tmp_path: Path) -> None:
     journal = tmp_path / "moves.csv"
 
     ticks: list[tuple[int, int]] = []
-    moved, failed = move_matches([a, b], dest, journal, lambda d, t: ticks.append((d, t)))
+    moved, failed = transfer_matches([a, b], dest, journal, lambda d, t: ticks.append((d, t)))
 
     assert (moved, failed) == (2, 0)
     assert ticks[-1] == (2, 2)
@@ -62,7 +68,7 @@ def test_move_keep_both_renames_and_journals(tmp_path: Path) -> None:
     assert (dest / "a 3.jpg").read_bytes() == b"new"
     assert not a.exists() and not b.exists()
     assert list(csv.reader(journal.open())) == [
-        [str(a), str(dest / "a 3.jpg"), "renamed"],
+        [str(a), str(dest / "a 3.jpg"), "moved, renamed"],
         [str(b), str(dest / "b.jpg"), "moved"],
     ]
 
@@ -73,10 +79,24 @@ def test_move_overwrite_replaces(tmp_path: Path) -> None:
     touch(dest / "a.jpg", b"old")
     journal = tmp_path / "moves.csv"
 
-    assert move_matches([a], dest, journal, conflict=Conflict.OVERWRITE) == (1, 0)
+    assert transfer_matches([a], dest, journal, conflict=Conflict.OVERWRITE) == (1, 0)
     assert (dest / "a.jpg").read_bytes() == b"new"
     assert sorted(p.name for p in dest.iterdir()) == ["a.jpg"]
-    assert list(csv.reader(journal.open())) == [[str(a), str(dest / "a.jpg"), "overwrote"]]
+    assert list(csv.reader(journal.open())) == [[str(a), str(dest / "a.jpg"), "moved, overwrote"]]
+
+
+
+def test_copy_keeps_the_source(tmp_path: Path) -> None:
+    src, dest = tmp_path / "src", tmp_path / "dest"
+    a = touch(src / "a.jpg", b"new")
+    touch(dest / "a.jpg", b"old")
+    journal = tmp_path / "moves.csv"
+
+    assert transfer_matches([a], dest, journal, mode=Transfer.COPY) == (1, 0)
+    assert a.read_bytes() == b"new"
+    assert (dest / "a.jpg").read_bytes() == b"old"
+    assert (dest / "a 2.jpg").read_bytes() == b"new"
+    assert list(csv.reader(journal.open())) == [[str(a), str(dest / "a 2.jpg"), "copied, renamed"]]
 
 
 MODEL_DIR = Path(__file__).resolve().parent.parent / "models" / "buffalo_l"

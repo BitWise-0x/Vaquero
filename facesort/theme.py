@@ -56,6 +56,23 @@ QCheckBox::indicator {{
 }}
 QCheckBox::indicator:hover {{ border-color: {SIGNAL}; }}
 QCheckBox::indicator:checked {{ background: {SIGNAL}; border-color: {SIGNAL}; image: url("{check_icon}"); }}
+QGroupBox {{
+    border: 1px solid {LINE_STRONG}; border-radius: 8px; margin-top: 12px; padding: 14px 10px 8px 10px;
+}}
+QGroupBox::title {{
+    subcontrol-origin: margin; subcontrol-position: top left; left: 10px; padding: 0 4px;
+    color: {SIGNAL}; font-weight: 600;
+}}
+QRadioButton {{ spacing: 6px; }}
+QRadioButton::indicator {{
+    width: 16px; height: 16px; border: 1px solid {LINE_STRONG}; border-radius: 8px; background: {FIELD};
+}}
+QRadioButton::indicator:hover {{ border-color: {SIGNAL}; }}
+QRadioButton::indicator:checked {{
+    border-color: {SIGNAL};
+    background: qradialgradient(cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5,
+        stop:0 {ON_SIGNAL}, stop:0.32 {ON_SIGNAL}, stop:0.42 {SIGNAL}, stop:1 {SIGNAL});
+}}
 QProgressBar {{ background: {RAISED}; border: none; border-radius: 3px; max-height: 6px; }}
 QProgressBar::chunk {{ background: {SIGNAL}; border-radius: 3px; }}
 QMenuBar, QMenu {{ background: {SURFACE}; }}

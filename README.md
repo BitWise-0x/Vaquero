@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  Find every photo and video of one person in a folder and move them out, by face.<br>
+  Find every photo and video of one person in a folder and move or copy them out, by face.<br>
   Single-window macOS app running SCRFD detection and ArcFace recognition on the Apple Neural Engine through Core ML.
 </p>
 
@@ -35,7 +35,7 @@ uv sync
 uv run facesort    # downloads the face model on first launch, see Models
 ```
 
-Pick a folder of reference photos, a folder to scan and a destination, then **Scan**. Review the match count and log, adjust the threshold if needed, then **Execute move**.
+Pick a folder of reference photos, a folder to scan and a destination, then **Scan**. Review the match count and log, adjust the threshold if needed, pick **Move** or **Copy**, then **Execute**.
 
 <br>
 
@@ -48,8 +48,9 @@ Pick a folder of reference photos, a folder to scan and a destination, then **Sc
 - **Live threshold**: changing the match threshold after a scan updates the match count without rescanning
 - **Lookalike flagging**: matches below 0.45 are logged as `review`, with how many reference photos each one agrees with
 - **Tight crops handled**: a face filling the whole frame, which the detector misses at normal scale, is found on a padded retry
-- **Name conflicts**: when the destination already has the name, keep both (Finder-style `name 2.jpg`) or overwrite, set by **Name exists**; every move is journaled for undo
-- **Progress and cancel**: scan and move both run in the background with a progress bar, a DONE or CANCELLED status line, and a Cancel that stops cleanly after the current file
+- **Name conflicts**: when the destination already has the name, keep both (Finder-style `name 2.jpg`) or overwrite, set by **Name exists**; every move and copy is journaled for undo
+- **Move or copy**: **Execute** moves the matches out of the scanned folder, or copies them and leaves the originals
+- **Progress and cancel**: scan, move and copy all run in the background with a progress bar, a DONE or CANCELLED status line, and a Cancel that stops cleanly after the current file
 - **Readable logs**: color-coded log view (matches, warnings, errors, completions), and a fresh log file for every scan
 - **bitwise0x.com theme**: dark surfaces with the sodium amber accent, the same palette as the site
 - **Apple Silicon native**: Core ML execution on the Neural Engine and GPU, with parallel file decoding feeding the model
@@ -68,7 +69,7 @@ graph TD
 
     subgraph Worker thread
         worker["<b>ScanWorker</b><br>QThread · cancellable"]
-        mover["<b>MoveWorker</b><br>QThread · cancellable<br>journaled moves"]
+        mover["<b>TransferWorker</b><br>QThread · cancellable<br>journaled moves and copies"]
         prefetch["<b>Prefetch pool</b><br>4 threads<br>image decode · video frame sampling"]
         matcher["<b>FaceMatcher</b><br>reference centroid<br>cosine scoring"]
     end
@@ -78,7 +79,7 @@ graph TD
         rec["<b>ArcFace</b><br>w600k_r50.onnx<br>512-d embedding"]
     end
 
-    disk[("<b>Next to the app</b><br>facesort-*.log<br>facesort-scan-*.csv<br>facesort-moves.csv")]
+    disk[("<b>~/Library</b><br>facesort-*.log<br>facesort-scan-*.csv<br>facesort-moves.csv")]
 
     ui -->|"Scan"| worker
     worker --> prefetch
@@ -87,7 +88,7 @@ graph TD
     det -->|"aligned 112x112 crop"| rec
     rec -->|"embedding"| matcher
     worker -->|"progress · results"| ui
-    ui -->|"Execute move"| mover
+    ui -->|"Execute"| mover
     mover -->|"progress"| ui
     mover --> disk
     worker --> disk
@@ -119,16 +120,16 @@ flowchart LR
 1. **References**: the largest face in each reference photo is embedded with ArcFace. Their mean is the reference centroid; any reference below 0.4 similarity to it is a different person and is dropped.
 2. **Detection**: SCRFD finds every face and its five landmarks. When it finds none, it retries once on the image with a 25% border, which brings a face that fills the frame into the size range it detects. Each face is aligned to the ArcFace template and embedded.
 3. **Scoring**: a file's score is its best face's cosine similarity to the centroid. Videos take the best across their sampled frames.
-4. **Moving**: files at or above the threshold move to the destination. Nothing moves until **Execute move**.
+4. **Moving or copying**: files at or above the threshold move or copy to the destination. Nothing changes until **Execute**.
 
 <br>
 
 ## Progress, Cancel and Logs
 
 - The progress bar tracks both the scan and the move; the line below it shows the count while running, then **DONE** or **CANCELLED** with a summary.
-- **Cancel** stops a scan or a move after the current file. A cancelled scan keeps the results it reached, and its matches can still be moved. A cancelled move leaves every file either fully moved and journaled or untouched.
+- **Cancel** stops a scan, move or copy after the current file. A cancelled scan keeps the results it reached, and its matches can still be moved or copied. A cancelled move or copy leaves every file either fully done and journaled or untouched.
 - Closing the window during a run cancels it and waits up to 30 s for the current file before quitting.
-- Each **Scan** clears the log view and starts a new log file; the move that follows writes to the same file. The view colors matches green, review matches and warnings orange, errors red and completions amber; the log files stay plain text.
+- Each **Scan** clears the log view and starts a new log file; the move or copy that follows writes to the same file. The log is split into amber-headed sections (Setup, Scanning, Matches, Result, Move or Copy). The view colors matches green, review matches and warnings orange, errors red and completions amber, and every file name is a link that opens the photo or video; the log files stay plain text with `== Section ==` lines.
 
 <br>
 
@@ -138,8 +139,9 @@ flowchart LR
 |---|---|---|
 | Reference faces | | Folder of photos of the person to find |
 | Folder to scan | | Folder searched for that person |
-| Move matches to | | Destination; created if missing |
-| Name exists | Keep both | A name already in the destination: keep both, the moved file numbered (`IMG_1 2.png`), or overwrite |
+| Destination | | Where matches go; created if missing |
+| Move / Copy | Move | What **Execute** does with the matches |
+| Name exists | Keep both | A name already in the destination: keep both, the new file numbered (`IMG_1 2.png`), or overwrite |
 | Model | `buffalo_l` | Installed model pack |
 | Scan subfolders | off | Also scan subfolders; matches land flat in the destination |
 | Include videos | on | Score `.mov`, `.mp4`, `.m4v`, `.avi`, `.mkv` |
@@ -164,9 +166,9 @@ Logs and scan reports go to `~/Library/Logs/FaceSort` (**Show logs folder** in t
 
 | File | Contents |
 |---|---|
-| `facesort-<timestamp>.log` | Log of one scan and the move that follows it; each scan starts a new one |
+| `facesort-<timestamp>.log` | Log of one scan and the move or copy that follows it; each scan starts a new one |
 | `facesort-scan-<timestamp>.csv` | Every scanned file with its score, face count and reference agreement (`ref_agree`, `N/M`) |
-| `facesort-moves.csv` | `source,destination,action` per moved file, for undo; action is `moved`, `renamed` (kept both) or `overwrote` (the replaced file is gone) |
+| `facesort-moves.csv` | `source,destination,action` per moved or copied file, for undo; action is `moved` or `copied`, plus `, renamed` (kept both) or `, overwrote` (the replaced file is gone) |
 
 <br>
 

@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <strong>Round up every photo, sorted by face.</strong>
+  <strong>Find and round up every photo. By face.</strong>
 </p>
 
 <p align="center">
@@ -112,66 +112,41 @@ Pick a folder of reference photos, a folder to scan and a destination, then **Sc
 
 <br>
 
-## Architecture
+## How It Works
 
 ```mermaid
-graph TD
-    ui["<b>Window</b><br>PySide6<br>folders · options · log"]
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#efb146", "primaryTextColor": "#0c0f0e", "primaryBorderColor": "#a96a19", "lineColor": "#efb146", "secondaryColor": "#1b221f", "tertiaryColor": "#1b221f", "edgeLabelBackground": "#1b221f", "fontSize": "16px"}}}%%
+flowchart LR
+    pick["Pick a few photos<br>of the person"] --> learn["Vaquero learns<br>their face"]
+    learn --> scan["It looks through every<br>photo and video in a folder"]
+    scan --> review["You check<br>the matches"]
+    review --> done["Copy or move them<br>into their own folder"]
+```
 
-    subgraph Worker thread
-        worker["<b>ScanWorker</b><br>QThread · cancellable"]
-        mover["<b>TransferWorker</b><br>QThread · cancellable<br>journaled moves and copies"]
-        prefetch["<b>Prefetch pool</b><br>4 threads<br>image decode · video frame sampling"]
-        matcher["<b>FaceMatcher</b><br>reference centroid<br>cosine scoring"]
-    end
+Each photo in the scanned folder goes through the same check:
 
-    subgraph Core ML via ONNX Runtime
-        det["<b>SCRFD</b><br>det_10g.onnx<br>faces + 5 landmarks"]
-        rec["<b>ArcFace</b><br>w600k_r50.onnx<br>512-d embedding"]
-    end
-
-    disk[("<b>~/Library</b><br>vaquero-*.log<br>vaquero-scan-*.csv<br>vaquero-moves.csv")]
-
-    ui -->|"Scan"| worker
-    worker --> prefetch
-    prefetch -->|"decoded frames"| matcher
-    matcher --> det
-    det -->|"aligned 112x112 crop"| rec
-    rec -->|"embedding"| matcher
-    worker -->|"progress · results"| ui
-    ui -->|"Execute"| mover
-    mover -->|"progress"| ui
-    mover --> disk
-    worker --> disk
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#efb146", "primaryTextColor": "#0c0f0e", "primaryBorderColor": "#a96a19", "lineColor": "#efb146", "secondaryColor": "#1b221f", "tertiaryColor": "#1b221f", "edgeLabelBackground": "#1b221f", "fontSize": "16px"}}}%%
+flowchart LR
+    photo["A photo<br>or video"] --> faces{"Any faces<br>in it?"}
+    faces -->|"no"| stays["Stays where it is"]
+    faces -->|"yes"| same{"Is one of them<br>the person?"}
+    same -->|"no"| stays
+    same -->|"yes"| match["Listed as a match,<br>ready to copy or move"]
+    classDef quiet fill:#1b221f,stroke:#2e3733,color:#e7ece8
+    class stays quiet
 ```
 
 <br>
 
-## How It Works
+## Under the Hood
 
-```mermaid
-flowchart LR
-    refs["Reference<br>photos"] --> largest["Largest face<br>per photo"]
-    largest --> centroid["Mean<br>embedding"]
-    centroid --> outlier{"Each ref within<br>0.4 of mean?"}
-    outlier -->|"no"| drop["Dropped<br>(logged)"]
-    outlier -->|"yes"| final["Reference<br>centroid"]
+1. **References**: the largest face in each reference photo is embedded with ArcFace. Their mean is the reference face; any reference below 0.4 similarity to it is a different person and is dropped.
+2. **Detection**: SCRFD finds every face and its five landmarks. When it finds none, it retries once on the image with a 25% border, which brings a face that fills the frame into the size range it detects. Each face is aligned and embedded.
+3. **Scoring**: a file's score is its best face's cosine similarity to the reference face. Videos take the best across their sampled frames.
+4. **Copying or moving**: files at or above the threshold copy or move to the destination when you click **Execute**.
 
-    files["Files to scan"] --> detect["Detect faces"]
-    detect -->|"none found"| pad["Retry with<br>25% border"]
-    detect --> faces["Every face<br>in file / frames"]
-    pad --> faces
-    faces --> score["Best cosine<br>similarity"]
-    final --> score
-    score --> thr{"≥ threshold?"}
-    thr -->|"yes"| move["Move to<br>destination"]
-    thr -->|"no"| stay["Left in place"]
-```
-
-1. **References**: the largest face in each reference photo is embedded with ArcFace. Their mean is the reference centroid; any reference below 0.4 similarity to it is a different person and is dropped.
-2. **Detection**: SCRFD finds every face and its five landmarks. When it finds none, it retries once on the image with a 25% border, which brings a face that fills the frame into the size range it detects. Each face is aligned to the ArcFace template and embedded.
-3. **Scoring**: a file's score is its best face's cosine similarity to the centroid. Videos take the best across their sampled frames.
-4. **Moving or copying**: files at or above the threshold move or copy to the destination. Nothing changes until **Execute**.
+Both models run through ONNX Runtime on the Neural Engine and GPU. A pool of 4 threads decodes files ahead of the model, and scans, moves and copies run off the window's thread so it stays responsive.
 
 <br>
 

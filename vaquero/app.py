@@ -179,7 +179,7 @@ class QtLogHandler(logging.Handler, QObject):
         self.record_emitted.emit(colorize(record), getattr(record, "section", False))
 
 
-INTRO = "Round up every photo, sorted by face."
+SLOGAN = "Find and round up every photo. By face."
 READY = "Ready"
 AUTO_UPDATE_KEY = "check_updates_on_launch"
 
@@ -430,8 +430,8 @@ class Window(QMainWindow):
         help_btn.clicked.connect(self.show_help)
         top.addWidget(help_btn)
         outer.addLayout(top)
-        intro = QLabel(INTRO)
-        intro.setStyleSheet(f"color: {theme.MUTED}")
+        intro = QLabel(SLOGAN)
+        intro.setStyleSheet(f"color: {theme.FG_SOFT}; font-size: 16pt;")
         outer.addSpacing(4)
         outer.addWidget(intro)
         outer.addSpacing(10)
@@ -793,7 +793,7 @@ class Window(QMainWindow):
             self,
             "About Vaquero",
             f"<h3 style='color:{theme.SIGNAL}'>Vaquero {__version__}</h3>"
-            "<p>Round up every photo, sorted by face.</p>"
+            f"<p>{SLOGAN}</p>"
             "<p><b>Fully private.</b> Runs on your own Mac; no photo leaves it.</p>"
             "<p>Detection: SCRFD · Recognition: ArcFace (InsightFace model packs)<br>"
             "Inference: ONNX Runtime with Core ML on Apple Silicon</p>"

@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.20.2 (2026-11-17)
+
+### Bug Fixes
+
+- A folder macOS blocks says where to allow it; permission prompts give a reason
+  ([`4147839`](https://github.com/BitWise-0x/Vaquero/commit/414783988c578e0995cfcde0729884667b9534d9))
+
+### Documentation
+
+- README header with a large wordmark, bigger slogan, download button and grouped badges
+  ([`ff32655`](https://github.com/BitWise-0x/Vaquero/commit/ff32655b8d34c8256084cd252e1f580858fc92ae))
+
+
 ## v0.20.1 (2026-11-17)
 
 ### Bug Fixes

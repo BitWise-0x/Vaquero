@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+build/
+dist/
+*.spec
+facesort.log
+facesort-scan-*.csv
+facesort-moves.csv
+models/

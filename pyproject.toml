@@ -1,0 +1,21 @@
+[project]
+name = "facesort"
+version = "0.1.0"
+description = "Find photos and videos containing a reference face and move them to a folder"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "numpy>=1.26",
+    "onnxruntime>=1.19",
+    "opencv-python-headless>=4.10",
+    "pyside6-essentials>=6.7",
+]
+
+[project.scripts]
+facesort = "facesort.app:main"
+
+[dependency-groups]
+dev = ["pyinstaller>=6.10", "pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

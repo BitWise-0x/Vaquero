@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.20.0 (2026-11-17)
+
+### Features
+
+- Face model from InsightFace's own release; DMG built for every release
+  ([`f8a8145`](https://github.com/BitWise-0x/Vaquero/commit/f8a81453e7a5ab7a9f4e5f86aaf067c4d88d61bd))
+
+
 ## v0.19.0 (2026-11-17)
 
 ### Documentation

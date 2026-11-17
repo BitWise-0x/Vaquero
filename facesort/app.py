@@ -403,8 +403,8 @@ class Window(QMainWindow):
         outer = QVBoxLayout(central)
         top = QHBoxLayout()
         logo = QLabel()
-        logo.setPixmap(QIcon(str(asset("FaceSort.png"))).pixmap(40, 40))
-        title = QLabel(f"<span style='font-size:18pt; font-weight:600'>FaceSort</span>"
+        logo.setPixmap(QIcon(str(asset("FaceSort.png"))).pixmap(64, 64))
+        title = QLabel(f"<span style='font-size:28pt; font-weight:700'>FaceSort</span>"
                        f"&nbsp;&nbsp;<span style='color:{TIME_COLOR}'>{__version__}</span>")
         top.addWidget(logo)
         top.addWidget(title)
@@ -418,7 +418,9 @@ class Window(QMainWindow):
         outer.addLayout(top)
         intro = QLabel(INTRO)
         intro.setStyleSheet(f"color: {theme.MUTED}")
+        outer.addSpacing(4)
         outer.addWidget(intro)
+        outer.addSpacing(10)
         folders = QGroupBox("Folders")
         grid = QGridLayout(folders)
         self.refs = self._folder_row(grid, 0, "Reference faces", "refs")

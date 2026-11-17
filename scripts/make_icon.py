@@ -19,6 +19,7 @@ PNG_SIZE = 256
 BUFFALO = OUT.with_name("buffalo.png")
 BUFFALO_SIZE = 128
 AMBER = "#efb146"
+BUFFALO_IN_FRAME = 0.54  # the mascot's scale inside the icon's viewfinder
 
 
 def draw() -> QImage:
@@ -45,36 +46,29 @@ def draw() -> QImage:
     for x, y, dx, dy in ((lo, lo, 1, 1), (hi, lo, -1, 1), (lo, hi, 1, -1), (hi, hi, -1, -1)):
         p.drawPolyline([QPointF(x, y + dy * arm), QPointF(x, y), QPointF(x + dx * arm, y)])
 
-    # face: head and shoulders, clipped to the frame
-    face = QLinearGradient(QPointF(512, 330), QPointF(512, 790))
-    face.setColorAt(0, QColor("#e7ece8"))
-    face.setColorAt(1, QColor("#a2aaa6"))
-    p.setPen(Qt.PenStyle.NoPen)
-    p.setBrush(QBrush(face))
-    p.drawEllipse(QPointF(512, 450), 120, 132)
-    shoulders = QPainterPath()
-    shoulders.moveTo(322, 790)
-    shoulders.cubicTo(330, 650, 420, 610, 512, 610)
-    shoulders.cubicTo(604, 610, 694, 650, 702, 790)
-    shoulders.closeSubpath()
-    p.drawPath(shoulders)
-
-    # match badge
-    p.setBrush(QBrush(QColor("#30a46c")))
-    p.setPen(QPen(QColor("#0c0f0e"), 18))
-    p.drawEllipse(QPointF(735, 735), 92, 92)
-    p.setPen(QPen(QColor("#ffffff"), 30, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-    p.drawPolyline([QPointF(692, 738), QPointF(724, 770), QPointF(782, 704)])
+    # the buffalo_l mascot inside the frame
+    p.save()
+    p.translate(512, 540)
+    p.scale(BUFFALO_IN_FRAME, BUFFALO_IN_FRAME)
+    p.translate(-512, -550)
+    paint_buffalo(p)
+    p.restore()
     p.end()
     return img
 
 
 def draw_buffalo() -> QImage:
-    """Front-facing buffalo head: light hooked horns, shaggy mane and beard, amber face."""
     img = QImage(SIZE, SIZE, QImage.Format.Format_ARGB32)
     img.fill(Qt.GlobalColor.transparent)
     p = QPainter(img)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    paint_buffalo(p)
+    p.end()
+    return img
+
+
+def paint_buffalo(p: QPainter) -> None:
+    """Front-facing buffalo head on the 1024 grid: light hooked horns, shaggy mane and beard, amber face."""
     horn = QPen(QColor("#e7ece8"), 78, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
     p.setPen(horn)
     for side in (-1, 1):
@@ -105,8 +99,6 @@ def draw_buffalo() -> QImage:
     for side in (-1, 1):
         p.drawEllipse(QPointF(512 + side * 92, 480), 30, 36)  # eyes
         p.drawEllipse(QPointF(512 + side * 48, 770), 20, 28)  # nostrils
-    p.end()
-    return img
 
 
 def main() -> None:

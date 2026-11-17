@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.22.0 (2026-11-17)
+
+### Features
+
+- Access dialog shows the switch to turn on and opens Finder for Full Disk Access; smaller slogan
+  ([`4aa9069`](https://github.com/BitWise-0x/Vaquero/commit/4aa906921c3304eb90850d416884d18a25522120))
+
+
 ## v0.21.0 (2026-11-17)
 
 ### Documentation

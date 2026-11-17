@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.14.2 (2026-11-17)
+
+### Bug Fixes
+
+- Random crash at launch when a background job ends
+  ([`38c35be`](https://github.com/BitWise-0x/facesort/commit/38c35bed8a0448a0f54b790127a64501d214b48b))
+
+### Documentation
+
+- Screenshots at 0.14.1
+  ([`4cea04a`](https://github.com/BitWise-0x/facesort/commit/4cea04a6419f4fbd4145942923f27f719f7d9c7d))
+
+
 ## v0.14.1 (2026-11-17)
 
 ### Bug Fixes

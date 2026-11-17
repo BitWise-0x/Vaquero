@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QSettings, Qt, QThread, Signal
-from PySide6.QtGui import QAction, QCloseEvent
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -31,11 +31,13 @@ from PySide6.QtWidgets import (
 )
 
 from facesort import __version__
-from facesort.engine import DEFAULT_VIDEO_FRAMES, FaceMatcher, ScanResult, list_media, move_matches, pack_models, scan
+from facesort.engine import DEFAULT_VIDEO_FRAMES, Conflict, FaceMatcher, ScanResult, list_media, move_matches, pack_models, scan
 
 log = logging.getLogger("facesort")
 
 DEFAULT_THRESHOLD = 0.35
+# matches below this are lookalike territory: logged as "review" so they get a look before Execute move
+REVIEW_BELOW = 0.45
 CLOSE_WAIT_MS = 30_000
 DEFAULT_PACK = "buffalo_l"
 
@@ -90,6 +92,8 @@ def colorize(record: logging.LogRecord) -> str:
         body = f'<span style="color:{LEVEL_COLORS.get(record.levelno, LEVEL_COLORS[logging.ERROR])}">{level} {msg}</span>'
     elif msg.startswith("match "):
         body = f'<span style="color:{MATCH_COLOR}">{msg}</span>'
+    elif msg.startswith("review "):
+        body = f'<span style="color:{LEVEL_COLORS[logging.WARNING]}">{msg}</span>'
     elif " done:" in msg:
         body = f'<b style="color:{DONE_COLOR}">{msg}</b>'
     else:
@@ -99,7 +103,7 @@ def colorize(record: logging.LogRecord) -> str:
 
 class ScanWorker(QObject):
     progress = Signal(int, int)
-    finished = Signal(list, bool)  # list[ScanResult], cancelled
+    finished = Signal(list, bool, int)  # list[ScanResult], cancelled, reference photos kept
     failed = Signal(str)
 
     def __init__(
@@ -117,6 +121,7 @@ class ScanWorker(QObject):
         self.model_dir, self.refs, self.folder, self.dest = model_dir, refs, folder, dest
         self.include_videos, self.recursive, self.frames, self.report = include_videos, recursive, frames, report
         self._cancel = False
+        self.ref_count = 0
 
     def cancel(self) -> None:
         self._cancel = True
@@ -125,16 +130,17 @@ class ScanWorker(QObject):
         try:
             matcher = FaceMatcher(self.model_dir)
             matcher.load_references(self.refs)
+            self.ref_count = matcher.ref_count
             if self._cancel:
                 log.warning("scan cancelled before scanning")
-                self.finished.emit([], True)
+                self.finished.emit([], True, self.ref_count)
                 return
             total = len(list_media(self.folder, self.include_videos, self.recursive, self.dest))
             log.info("scanning %d files in %s", total, self.folder)
             results: list[ScanResult] = []
             with self.report.open("w", newline="") as fh:
                 w = csv.writer(fh)
-                w.writerow(["file", "kind", "score", "faces"])
+                w.writerow(["file", "kind", "score", "faces", "ref_agree"])
                 results_iter = scan(
                     matcher,
                     self.folder,
@@ -146,11 +152,13 @@ class ScanWorker(QObject):
                 )
                 for r in results_iter:
                     results.append(r)
-                    w.writerow([r.path.relative_to(self.folder), r.kind, f"{r.score:.3f}", r.faces])
+                    w.writerow(
+                        [r.path.relative_to(self.folder), r.kind, f"{r.score:.3f}", r.faces, f"{r.agree}/{self.ref_count}"]
+                    )
                     self.progress.emit(len(results), total)
             if self._cancel:
                 log.warning("scan cancelled after %d of %d files", len(results), total)
-            self.finished.emit(results, self._cancel)
+            self.finished.emit(results, self._cancel, self.ref_count)
         except Exception as e:  # surfaced in the UI and log, the worker thread must not die silently
             log.exception("scan failed")
             self.failed.emit(str(e))
@@ -158,12 +166,12 @@ class ScanWorker(QObject):
 
 class MoveWorker(QObject):
     progress = Signal(int, int)
-    finished = Signal(int, int, bool)  # moved, skipped, cancelled
+    finished = Signal(int, int, bool)  # moved, failed, cancelled
     failed = Signal(str)
 
-    def __init__(self, paths: list[Path], dest: Path, journal: Path) -> None:
+    def __init__(self, paths: list[Path], dest: Path, journal: Path, conflict: Conflict) -> None:
         super().__init__()
-        self.paths, self.dest, self.journal = paths, dest, journal
+        self.paths, self.dest, self.journal, self.conflict = paths, dest, journal, conflict
         self._cancel = False
 
     def cancel(self) -> None:
@@ -171,10 +179,10 @@ class MoveWorker(QObject):
 
     def run(self) -> None:
         try:
-            moved, skipped = move_matches(
-                self.paths, self.dest, self.journal, self.progress.emit, lambda: self._cancel
+            moved, failed = move_matches(
+                self.paths, self.dest, self.journal, self.progress.emit, lambda: self._cancel, self.conflict
             )
-            self.finished.emit(moved, skipped, self._cancel)
+            self.finished.emit(moved, failed, self._cancel)
         except Exception as e:  # surfaced in the UI and log, the worker thread must not die silently
             log.exception("move failed")
             self.failed.emit(str(e))
@@ -184,13 +192,27 @@ class Window(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("FaceSort")
-        menu = QMenuBar(self).addMenu("Help")
+        self.settings = QSettings("BitWise", "FaceSort")
+        menubar = QMenuBar(self)
+        settings_menu = menubar.addMenu("Settings")
+        settings_menu.addSection("If the destination has a file with the same name")
+        self.conflict_group = QActionGroup(self)
+        saved_conflict = self.settings.value("conflict", Conflict.KEEP_BOTH.value, type=str)
+        for value, label in ((Conflict.KEEP_BOTH, "Keep both (add a number)"), (Conflict.OVERWRITE, "Overwrite")):
+            action = QAction(label, self, checkable=True)
+            action.setData(value.value)
+            action.setChecked(value.value == saved_conflict)
+            self.conflict_group.addAction(action)
+            settings_menu.addAction(action)
+        if not self.conflict_group.checkedAction():
+            self.conflict_group.actions()[0].setChecked(True)
+        self.conflict_group.triggered.connect(lambda a: self.settings.setValue("conflict", a.data()))
+        menu = menubar.addMenu("Help")
         about = QAction("About FaceSort", self)
         # macOS moves this into the application menu
         about.setMenuRole(QAction.MenuRole.AboutRole)
         about.triggered.connect(self.show_about)
         menu.addAction(about)
-        self.settings = QSettings("BitWise", "FaceSort")
         self.results: list[ScanResult] = []
         self.thread: QThread | None = None
         self.job: ScanWorker | MoveWorker | None = None
@@ -406,15 +428,25 @@ class Window(QWidget):
     def _done(self, text: str, cancelled: bool = False) -> None:
         self.status.setText(f"<b>{'CANCELLED' if cancelled else 'DONE'}</b>: {text}")
 
-    def _on_finished(self, results: list[ScanResult], cancelled: bool) -> None:
+    def _on_finished(self, results: list[ScanResult], cancelled: bool, refs: int) -> None:
         self.results = results
         self._set_busy(False)
         self._update_match_count()
-        for r in sorted(self._matches(), key=lambda r: -r.score):
-            log.info("match %.3f %s", r.score, r.path)
-        log.info("scan done: %d matches of %d%s", len(self._matches()), len(results), " (cancelled)" if cancelled else "")
+        matches = self._matches()
+        review = sum(r.score < REVIEW_BELOW for r in matches)
+        for r in sorted(matches, key=lambda r: -r.score):
+            kind = "review" if r.score < REVIEW_BELOW else "match"
+            log.info("%s %.3f refs %d/%d %s", kind, r.score, r.agree, refs, r.path)
+        log.info("scan done: %d matches of %d%s", len(matches), len(results), " (cancelled)" if cancelled else "")
+        if review:
+            log.warning(
+                "%d match%s below %.2f look like lookalike territory; check them, or raise the threshold to drop them",
+                review, "" if review == 1 else "es", REVIEW_BELOW,
+            )
         self._done(
-            f"scanned {len(results)}, {len(self._matches())} matches at threshold {self.threshold.value():.2f}", cancelled
+            f"scanned {len(results)}, {len(matches)} matches at threshold {self.threshold.value():.2f}"
+            + (f" ({review} to review)" if review else ""),
+            cancelled,
         )
 
     def _on_failed(self, msg: str) -> None:
@@ -429,7 +461,9 @@ class Window(QWidget):
             return
         dest = dirs[2]
         log.info("moving %d files to %s (journal %s)", len(matches), dest, self.journal)
-        job = MoveWorker([r.path for r in matches], dest, self.journal)
+        conflict = Conflict(self.conflict_group.checkedAction().data())
+        log.info("name conflicts: %s", "keep both" if conflict is Conflict.KEEP_BOTH else "overwrite")
+        job = MoveWorker([r.path for r in matches], dest, self.journal, conflict)
         job.progress.connect(self._on_move_progress)
         job.finished.connect(self._on_move_finished)
         self._run(job)
@@ -439,12 +473,12 @@ class Window(QWidget):
         self.progress.setValue(done)
         self.status.setText(f"Moved {done} of {total}")
 
-    def _on_move_finished(self, moved: int, skipped: int, cancelled: bool) -> None:
-        log.info("move done: %d moved, %d skipped%s", moved, skipped, " (cancelled)" if cancelled else "")
+    def _on_move_finished(self, moved: int, failed: int, cancelled: bool) -> None:
+        log.info("move done: %d moved, %d failed%s", moved, failed, " (cancelled)" if cancelled else "")
         self.results = [r for r in self.results if r.path.exists()]
         self._set_busy(False)
         self._update_match_count()
-        self._done(f"moved {moved}, skipped {skipped}. Undo pairs in {self.journal.name}", cancelled)
+        self._done(f"moved {moved}, {failed} failed. Undo list in {self.journal.name}", cancelled)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (Qt override)
         if self.job and self.thread:

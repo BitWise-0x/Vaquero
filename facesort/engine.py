@@ -9,6 +9,7 @@ from collections import deque
 from collections.abc import Callable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
+from enum import StrEnum
 from functools import partial
 from itertools import islice
 from pathlib import Path
@@ -30,6 +31,8 @@ PREFETCH_WORKERS = 4
 PREFETCH_DEPTH = 8  # decoded files held in memory ahead of the model
 # a reference whose largest face sits this far from the group is someone else
 REF_OUTLIER_SIM = 0.4
+# a face "agrees" with a single reference photo at this similarity; lookalikes match the centroid but few photos
+AGREE_SIM = 0.35
 # border added on each side, as a fraction of the longer edge, when the first detection pass finds nothing
 PAD_RETRY = 0.25
 
@@ -57,6 +60,7 @@ class ScanResult:
     kind: str  # "image" | "video"
     score: float  # best face similarity to the reference centroid, 0 when no face
     faces: int
+    agree: int = 0  # reference photos the best face agrees with (similarity >= AGREE_SIM)
 
 
 def _session(path: Path) -> ort.InferenceSession:
@@ -168,6 +172,7 @@ class FaceMatcher:
         self.detector = Detector(models[0])
         self.recognizer = Recognizer(models[1])
         self.centroid: np.ndarray | None = None
+        self.refs: np.ndarray | None = None  # kept reference embeddings, one row per photo
 
     def embeddings(self, img: np.ndarray) -> list[tuple[Face, np.ndarray]]:
         faces = self.detector.detect(img)
@@ -205,19 +210,27 @@ class FaceMatcher:
                 kept.append(e)
         if not kept:
             raise ValueError("references disagree with each other, no consistent face")
-        self.centroid = _unit(np.stack(kept).mean(0))
+        self.refs = np.stack(kept)
+        self.centroid = _unit(self.refs.mean(0))
         log.info("references: %d kept of %d with a face", len(kept), len(refs))
         return len(kept)
 
-    def best_score(self, frames: Iterator[np.ndarray]) -> tuple[float, int]:
-        if self.centroid is None:
+    @property
+    def ref_count(self) -> int:
+        return 0 if self.refs is None else len(self.refs)
+
+    def best_score(self, frames: Iterator[np.ndarray]) -> tuple[float, int, int]:
+        """(best centroid similarity, faces seen, reference photos the best face agrees with)."""
+        if self.centroid is None or self.refs is None:
             raise RuntimeError("load_references must run before scoring")
-        best, count = 0.0, 0
+        best, count, agree = 0.0, 0, 0
         for img in frames:
             for _, e in self.embeddings(img):
                 count += 1
-                best = max(best, float(e @ self.centroid))
-        return best, count
+                score = float(e @ self.centroid)
+                if score > best:
+                    best, agree = score, int((self.refs @ e >= AGREE_SIM).sum())
+        return best, count, agree
 
 
 def _unit(v: np.ndarray) -> np.ndarray:
@@ -292,11 +305,11 @@ def scan(
                 pending.append((nxt, pool.submit(load, nxt)))
             kind = "video" if path.suffix.lower() in VIDEO_EXTS else "image"
             try:
-                score, n = matcher.best_score(iter(fut.result()))
+                score, n, agree = matcher.best_score(iter(fut.result()))
             except (cv2.error, ValueError, OSError) as e:
                 log.error("failed on %s: %s", path.name, e)
                 continue
-            yield ScanResult(path=path, kind=kind, score=score, faces=n)
+            yield ScanResult(path=path, kind=kind, score=score, faces=n, agree=agree)
 
 
 def _load_frames(path: Path, video_samples: int) -> list[np.ndarray]:
@@ -306,38 +319,60 @@ def _load_frames(path: Path, video_samples: int) -> list[np.ndarray]:
     return [img] if img is not None else []
 
 
+class Conflict(StrEnum):
+    """What to do when the destination already has a file with the same name."""
+
+    KEEP_BOTH = "keep_both"
+    OVERWRITE = "overwrite"
+
+
+def _free_name(dst: Path) -> Path:
+    """Finder-style next free name: 'IMG_1.png' -> 'IMG_1 2.png', 'IMG_1 3.png', ..."""
+    n = 2
+    while (candidate := dst.with_name(f"{dst.stem} {n}{dst.suffix}")).exists():
+        n += 1
+    return candidate
+
+
 def move_matches(
     paths: list[Path],
     dest: Path,
     journal: Path,
     progress: Callable[[int, int], None] = lambda done, total: None,
     cancelled: Callable[[], bool] = lambda: False,
+    conflict: Conflict = Conflict.KEEP_BOTH,
 ) -> tuple[int, int]:
-    """Move files into dest without overwriting; journal records src,dst pairs for undo.
+    """Move files into dest; returns (moved, failed). The journal records src,dst,action per file for undo.
 
+    A name already in dest is kept alongside under a numbered name, or overwritten, per conflict.
     Cancelling stops between files, so no file is ever left half moved."""
     dest.mkdir(parents=True, exist_ok=True)
-    moved = skipped = 0
+    moved = failed = 0
     with journal.open("a", newline="") as fh:
         w = csv.writer(fh)
         for i, src in enumerate(paths, 1):
             if cancelled():
                 log.warning("move cancelled after %d of %d files", i - 1, len(paths))
-                return moved, skipped
+                return moved, failed
             progress(i - 1, len(paths))
-            dst = dest / src.name
+            dst, action = dest / src.name, "moved"
             if dst.exists():
-                log.warning("skipped, already exists at destination: %s", dst)
-                skipped += 1
-                continue
+                if conflict is Conflict.OVERWRITE:
+                    action = "overwrote"
+                    log.warning("overwriting existing %s", dst)
+                else:
+                    dst, action = _free_name(dst), "renamed"
             try:
                 shutil.move(str(src), str(dst))
             except OSError as e:
                 log.error("move failed %s -> %s: %s", src, dst, e)
-                skipped += 1
+                failed += 1
                 continue
-            w.writerow([str(src), str(dst)])
+            w.writerow([str(src), str(dst), action])
             moved += 1
-            log.info("moved %s", src.name)
+            if action == "renamed":
+                log.info("moved %s, name taken, kept both as %s", src.name, dst.name)
+            else:
+                log.info("moved %s", src.name)
     progress(len(paths), len(paths))
-    return moved, skipped
+    return moved, failed

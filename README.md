@@ -41,8 +41,9 @@ Pick a folder of reference photos, a folder to scan and a destination, then **Sc
 - **Photos and videos**: videos are judged on evenly sampled frames (10 by default, adjustable)
 - **Optional subfolder scan**: off by default; hidden folders and the destination are always skipped
 - **Live threshold**: changing the match threshold after a scan updates the match count without rescanning
+- **Lookalike flagging**: matches below 0.45 are logged as `review`, with how many reference photos each one agrees with
 - **Tight crops handled**: a face filling the whole frame, which the detector misses at normal scale, is found on a padded retry
-- **Safe moves**: never overwrites; name collisions are skipped and logged, every move is journaled for undo
+- **Name conflicts**: when the destination already has the name, keep both (Finder-style `name 2.jpg`) or overwrite, set under **Settings**; every move is journaled for undo
 - **Progress and cancel**: scan and move both run in the background with a progress bar, a DONE or CANCELLED status line, and a Cancel that stops cleanly after the current file
 - **Readable logs**: color-coded log view (matches, warnings, errors, completions), and a fresh log file for every scan
 - **Apple Silicon native**: Core ML execution on the Neural Engine and GPU, with parallel file decoding feeding the model
@@ -119,7 +120,7 @@ flowchart LR
 - The progress bar tracks both the scan and the move; the line below it shows the count while running, then **DONE** or **CANCELLED** with a summary.
 - **Cancel** stops a scan or a move after the current file. A cancelled scan keeps the results it reached, and its matches can still be moved. A cancelled move leaves every file either fully moved and journaled or untouched.
 - Closing the window during a run cancels it and waits up to 30 s for the current file before quitting.
-- Each **Scan** clears the log view and starts a new log file; the move that follows writes to the same file. The view colors matches green, warnings amber, errors red and completions blue; the log files stay plain text.
+- Each **Scan** clears the log view and starts a new log file; the move that follows writes to the same file. The view colors matches green, review matches and warnings amber, errors red and completions blue; the log files stay plain text.
 
 <br>
 
@@ -129,7 +130,8 @@ flowchart LR
 |---|---|---|
 | Reference faces | | Folder of photos of the person to find |
 | Folder to scan | | Folder searched for that person |
-| Move matches to | | Destination; created if missing, never overwritten |
+| Move matches to | | Destination; created if missing |
+| Settings > name conflict | Keep both | A name already in the destination: keep both, the moved file numbered (`IMG_1 2.png`), or overwrite |
 | Model | `buffalo_l` | Model pack from `models/` |
 | Scan subfolders | off | Also scan subfolders; matches land flat in the destination |
 | Include videos | on | Score `.mov`, `.mp4`, `.m4v`, `.avi`, `.mkv` |
@@ -144,6 +146,8 @@ Settings persist between launches.
 
 Score is the cosine similarity between ArcFace embeddings, from -1 to 1. On a 3,800-file test library, the person searched for scored 0.35 and up while everyone else scored 0.30 and below, which sets the 0.35 default. Small, blurred, side-on or heavily filtered faces score lower; lower the threshold to catch them, and check the scan CSV around the cutoff.
 
+Scores from 0.35 to 0.45 are where real but hard shots and lookalikes overlap. Those matches are logged as `review` (amber) rather than `match` (green), and the done line counts them. Each match also shows `refs N/M`: how many of the M reference photos its face reaches 0.35 with on its own. A true match usually agrees with most of them (13/13); a lookalike resembles the average face but few individual photos (0/13, 1/13). Raising the threshold drops review matches without a rescan.
+
 <br>
 
 ## Output Files
@@ -153,8 +157,8 @@ Written next to `FaceSort.app` (the repo root when run from source):
 | File | Contents |
 |---|---|
 | `facesort-<timestamp>.log` | Log of one scan and the move that follows it; each scan starts a new one |
-| `facesort-scan-<timestamp>.csv` | Every scanned file with its score and face count |
-| `facesort-moves.csv` | `source,destination` per moved file, for undo |
+| `facesort-scan-<timestamp>.csv` | Every scanned file with its score, face count and reference agreement (`ref_agree`, `N/M`) |
+| `facesort-moves.csv` | `source,destination,action` per moved file, for undo; action is `moved`, `renamed` (kept both) or `overwrote` (the replaced file is gone) |
 
 <br>
 

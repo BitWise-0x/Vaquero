@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.6.0 (2026-11-17)
+
+### Features
+
+- Resumable, checksum-verified model and update downloads; Quit button
+  ([`81fb78b`](https://github.com/BitWise-0x/facesort/commit/81fb78b97845b3b5ec15fb0b4844f04d6b33cad0))
+
+
 ## v0.5.0 (2026-11-17)
 
 ### Features

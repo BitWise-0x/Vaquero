@@ -798,7 +798,7 @@ class Window(QMainWindow):
             "<p>Detection: SCRFD · Recognition: ArcFace (InsightFace model packs)<br>"
             "Inference: ONNX Runtime with Core ML on Apple Silicon</p>"
             "<p>InsightFace pretrained models are licensed for non-commercial research use only.</p>"
-            '<p><a href="https://github.com/BitWise-0x/facesort">github.com/BitWise-0x/facesort</a></p>',
+            '<p><a href="https://github.com/BitWise-0x/vaquero">github.com/BitWise-0x/vaquero</a></p>',
         )
 
     def _on_thread_finished(self, thread: QThread, job: QObject) -> None:

@@ -21,7 +21,7 @@ from pathlib import Path
 
 log = logging.getLogger("vaquero")
 
-REPO = "BitWise-0x/facesort"
+REPO = "BitWise-0x/vaquero"
 MODELS_TAG = "models-buffalo_l"
 MODELS_ASSET = "buffalo_l.zip"
 DEFAULT_PACK = "buffalo_l"

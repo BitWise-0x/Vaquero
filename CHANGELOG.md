@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.14.0 (2026-11-17)
+
+### Documentation
+
+- README shows the app icon and covers the window layout, app menu and help
+  ([`aa63bb2`](https://github.com/BitWise-0x/facesort/commit/aa63bb2ffc10437e1a39d19d24e92a6cc80e779e))
+
+### Features
+
+- Frames option reads as a sentence; the DMG volume carries the app icon
+  ([`665b944`](https://github.com/BitWise-0x/facesort/commit/665b94459103d634dac2d3aaec16af0b9c79a255))
+
+
 ## v0.13.0 (2026-11-17)
 
 ### Features

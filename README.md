@@ -16,12 +16,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/BitWise-0x/Vaquero/releases/latest"><img src="https://img.shields.io/badge/Download-for_macOS-efb146?style=for-the-badge&logo=apple&logoColor=0c0f0e&labelColor=efb146" alt="Download for macOS"/></a>
-  <br>
-  <sub>Apple Silicon · macOS 14 or later · <a href="#install">install steps</a></sub>
-</p>
-
-<p align="center">
   <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
   <img src="https://img.shields.io/badge/Qt-41CD52?style=for-the-badge&logo=qt&logoColor=white" alt="Qt"/>
   <img src="https://img.shields.io/badge/ONNX_Runtime-efb146?style=for-the-badge&logo=onnx&logoColor=0c0f0e" alt="ONNX Runtime"/>
@@ -31,6 +25,14 @@
   <img src="https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square&logo=apple" alt="macOS"/>
   <img src="https://img.shields.io/badge/inference-Core_ML-efb146?style=flat-square" alt="Core ML"/>
   <img src="https://img.shields.io/badge/models-InsightFace_buffalo__l-orange?style=flat-square" alt="InsightFace buffalo_l"/>
+</p>
+
+<br>
+
+<p align="center">
+  <a href="https://github.com/BitWise-0x/Vaquero/releases/latest"><img src="https://img.shields.io/badge/Download-for_macOS-efb146?style=for-the-badge&logo=apple&logoColor=0c0f0e&labelColor=efb146" alt="Download for macOS"/></a>
+  <br>
+  <sub>Apple Silicon · macOS 14 or later · <a href="#install">install steps</a></sub>
 </p>
 
 <br>

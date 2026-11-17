@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.15.0 (2026-11-17)
+
+### Features
+
+- Slogan under the title: Round up every photo, sorted by face.
+  ([`f06b026`](https://github.com/BitWise-0x/facesort/commit/f06b026048ec952e953a0ee6b0037913ae72733b))
+
+
 ## v0.14.2 (2026-11-17)
 
 ### Bug Fixes

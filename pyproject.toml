@@ -1,6 +1,6 @@
 [project]
 name = "facesort"
-version = "0.14.2"
+version = "0.15.0"
 description = "Find photos and videos containing a reference face and move them to a folder"
 requires-python = ">=3.12,<3.13"
 dependencies = [

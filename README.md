@@ -167,7 +167,9 @@ Logs and scan reports go to `~/Library/Logs/FaceSort` (**Show logs folder** in t
 
 Model packs live in `~/Library/Application Support/FaceSort/models/<pack>/`; when run from source, the repo's `models/<pack>/` is read too. Neither is committed: the files are large, and the InsightFace pretrained weights are licensed for non-commercial research use only.
 
-On first launch, with no pack installed, the app downloads `buffalo_l.zip` from the repo's `models-buffalo_l` release through the GitHub CLI and unpacks it there, showing "Downloading face detection model, please wait..." with a progress bar. Scanning waits until it finishes.
+On first launch, with no pack installed, the app downloads `buffalo_l.zip` from the repo's `models-buffalo_l` release and unpacks it there, showing "Downloading face detection model, please wait..." with a progress bar. Scanning waits until it finishes. The release is pinned: the app always takes that tag, and the zip on it is replaced by hand to change the model.
+
+Model and update downloads resume: a partial file stays in `~/Library/Application Support/FaceSort/downloads/` when the app quits or the download is cancelled, and the next attempt continues from it. A finished download is checked against GitHub's SHA-256 digest of the asset. The repository is private, so downloads authenticate with the GitHub CLI's login on this Mac.
 
 A pack needs a detector (`det_*` or `scrfd*`) and a recognizer (`w600k*` or `glintr*`); other files are ignored.
 

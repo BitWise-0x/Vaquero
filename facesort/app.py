@@ -92,7 +92,8 @@ Changing it after a scan updates the matches without scanning again.</p>
 <h3>Buttons</h3>
 <p><b>Scan</b>: checks every file and lists the matches. Moves nothing.<br>
 <b>Cancel</b>: stops a scan or a move after the current file.<br>
-<b>Execute move</b>: moves the matches to the destination.</p>
+<b>Execute move</b>: moves the matches to the destination.<br>
+<b>Quit</b>: stops anything running after the current file and closes FaceSort. A model or update download picks up where it stopped the next time.</p>
 
 <h3>Reading the results</h3>
 <p>Below the progress bar, <b>Scanned</b> counts files done and <b>Matches found</b> counts matches so far.
@@ -347,6 +348,8 @@ class Window(QMainWindow):
         self.move_btn = QPushButton("Execute move")
         self.cancel_btn.setEnabled(False)
         self.move_btn.setEnabled(False)
+        self.quit_btn = QPushButton("Quit")
+        self.quit_btn.clicked.connect(self.close)
         for b in (self.scan_btn, self.cancel_btn, self.move_btn):
             b.setMinimumHeight(36)
             buttons.addWidget(b)
@@ -370,6 +373,11 @@ class Window(QMainWindow):
         self.log_view.setMaximumBlockCount(5000)
         grid.addWidget(self.log_view, 8, 0, 1, 3)
         grid.setRowStretch(8, 1)
+        bottom = QHBoxLayout()
+        bottom.addStretch()
+        self.quit_btn.setMinimumHeight(36)
+        bottom.addWidget(self.quit_btn)
+        grid.addLayout(bottom, 9, 0, 1, 3)
         grid.setColumnStretch(1, 1)
 
         handler = QtLogHandler()
@@ -510,7 +518,7 @@ class Window(QMainWindow):
             self._done(f"FaceSort {__version__} is up to date")
             QMessageBox.information(self, "Check for updates", f"FaceSort {__version__} is the latest version.")
             return
-        size = rel.assets[dmgs[0]]
+        size = rel.assets[dmgs[0]].size
         answer = QMessageBox.question(
             self,
             "Update available",
@@ -522,9 +530,10 @@ class Window(QMainWindow):
             return
 
         def fetch(progress: Callable[[int, int], None], cancelled: Callable[[], bool]) -> Path:
-            workdir = Path(tempfile.mkdtemp(prefix="facesort-update-"))
-            dmg = remote.download(rel.tag, dmgs[0], size, workdir, progress, cancelled)
-            return remote.stage_update(dmg, workdir)
+            dmg = remote.download(rel.assets[dmgs[0]], progress, cancelled)
+            staged = remote.stage_update(dmg, Path(tempfile.mkdtemp(prefix="facesort-update-")))
+            dmg.unlink()
+            return staged
 
         job = TaskWorker(fetch)
         job.progress.connect(lambda done, total: self._on_bytes(done, total, f"Downloading FaceSort {rel.tag}..."))

@@ -5,14 +5,15 @@ The repository is private, so downloads go through the GitHub CLI and the accoun
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import shutil
 import subprocess
 import sys
 import tempfile
-import threading
-import time
+import urllib.error
+import urllib.request
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -28,6 +29,9 @@ DEFAULT_PACK = "buffalo_l"
 LOG_DIR = Path.home() / "Library" / "Logs" / "FaceSort"
 SUPPORT_DIR = Path.home() / "Library" / "Application Support" / "FaceSort"
 MODELS_DIR = SUPPORT_DIR / "models"
+# partial downloads live here, outside any temp folder, so quitting mid-download resumes on the next launch
+DOWNLOADS_DIR = SUPPORT_DIR / "downloads"
+CHUNK = 1 << 20
 
 # a Finder-launched app gets a bare PATH without Homebrew
 GH_CANDIDATES = ("/opt/homebrew/bin/gh", "/usr/local/bin/gh")
@@ -55,10 +59,18 @@ def _run(*args: str, timeout: float = 60) -> str:
 
 
 @dataclass(frozen=True)
+class Asset:
+    name: str
+    size: int
+    api_url: str
+    digest: str  # "sha256:<hex>" as GitHub reports it, empty when it has none
+
+
+@dataclass(frozen=True)
 class Release:
     tag: str
     version: tuple[int, ...]
-    assets: dict[str, int]  # name -> size in bytes
+    assets: dict[str, Asset]
 
 
 def parse_version(text: str) -> tuple[int, ...]:
@@ -74,42 +86,90 @@ def release(tag: str | None = None) -> Release:
     """The named release, or the latest app release when tag is None."""
     args = ["release", "view", *([tag] if tag else []), "--repo", REPO, "--json", "tagName,assets"]
     data = json.loads(_run(*args))
-    assets = {a["name"]: int(a["size"]) for a in data["assets"]}
+    assets = {
+        a["name"]: Asset(a["name"], int(a["size"]), a["apiUrl"], a.get("digest") or "") for a in data["assets"]
+    }
     version = parse_version(data["tagName"]) if data["tagName"].startswith("v") else ()
     return Release(tag=data["tagName"], version=version, assets=assets)
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args: object, **kwargs: object) -> None:
+        return None
+
+
+def _storage_url(asset: Asset) -> str:
+    """The signed storage URL GitHub redirects an asset to, fetched with the gh login's token.
+
+    The token goes only to api.github.com; the signed URL carries its own authorization."""
+    token = _run("auth", "token").strip()
+    req = urllib.request.Request(
+        asset.api_url, headers={"Authorization": f"Bearer {token}", "Accept": "application/octet-stream"}
+    )
+    try:
+        urllib.request.build_opener(_NoRedirect).open(req, timeout=30)
+    except urllib.error.HTTPError as e:
+        if e.code in (301, 302, 303, 307, 308) and (location := e.headers.get("Location")):
+            return location
+        raise RemoteError(f"GitHub refused {asset.name}: HTTP {e.code}") from e
+    raise RemoteError(f"GitHub did not redirect {asset.name} to storage")
+
+
 def download(
-    tag: str,
-    asset: str,
-    size: int,
-    dest_dir: Path,
+    asset: Asset,
     progress: Callable[[int, int], None],
     cancelled: Callable[[], bool] = lambda: False,
 ) -> Path:
-    """Download one release asset into dest_dir, reporting bytes received as it goes."""
-    target = dest_dir / asset
-    proc = subprocess.Popen(
-        [gh(), "release", "download", tag, "--repo", REPO, "--pattern", asset, "--dir", str(dest_dir), "--clobber"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    stderr: list[str] = []
-    reader = threading.Thread(target=lambda: stderr.append(proc.stderr.read() if proc.stderr else ""), daemon=True)
-    reader.start()
-    while proc.poll() is None:
-        if cancelled():
-            proc.terminate()
-            proc.wait()
-            raise RemoteError("download cancelled")
-        progress(target.stat().st_size if target.exists() else 0, size)
-        time.sleep(0.3)
-    reader.join(5)
-    if proc.returncode != 0:
-        raise RemoteError("".join(stderr).strip() or f"download of {asset} failed")
-    progress(size, size)
+    """Download an asset into DOWNLOADS_DIR, resuming a partial download left by an earlier run.
+
+    Cancelling keeps the partial file. A finished file is checked against GitHub's digest."""
+    DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    target = DOWNLOADS_DIR / asset.name
+    part = target.with_name(target.name + ".part")
+    if target.exists() and target.stat().st_size == asset.size and _digest_ok(target, asset):
+        progress(asset.size, asset.size)
+        return target
+    have = part.stat().st_size if part.exists() else 0
+    if have > asset.size:
+        part.unlink()
+        have = 0
+    if have < asset.size:
+        req = urllib.request.Request(_storage_url(asset), headers={"Range": f"bytes={have}-"} if have else {})
+        try:
+            resp = urllib.request.urlopen(req, timeout=60)
+        except urllib.error.URLError as e:
+            raise RemoteError(f"download of {asset.name} failed: {e}") from e
+        with resp:
+            if have and resp.status != 206:
+                have = 0  # the server ignored the range: start over
+            if have:
+                log.info("resuming %s at %.0f of %.0f MB", asset.name, have / 1e6, asset.size / 1e6)
+            with part.open("ab" if have else "wb") as fh:
+                while chunk := resp.read(CHUNK):
+                    fh.write(chunk)
+                    have += len(chunk)
+                    progress(have, asset.size)
+                    if cancelled():
+                        raise RemoteError(f"download paused at {have / 1e6:.0f} MB; it resumes next time")
+    if part.stat().st_size != asset.size:
+        raise RemoteError(f"{asset.name} is incomplete; it resumes next time")
+    if not _digest_ok(part, asset):
+        part.unlink()
+        raise RemoteError(f"{asset.name} did not match its checksum and was discarded; try again")
+    part.replace(target)
+    progress(asset.size, asset.size)
     return target
+
+
+def _digest_ok(path: Path, asset: Asset) -> bool:
+    algo, _, expected = asset.digest.partition(":")
+    if algo != "sha256" or not expected:
+        return True
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        while chunk := fh.read(CHUNK):
+            h.update(chunk)
+    return h.hexdigest() == expected
 
 
 def ensure_models(progress: Callable[[int, int], None], cancelled: Callable[[], bool] = lambda: False) -> Path:
@@ -122,9 +182,9 @@ def ensure_models(progress: Callable[[int, int], None], cancelled: Callable[[], 
     rel = release(MODELS_TAG)
     if MODELS_ASSET not in rel.assets:
         raise RemoteError(f"release {MODELS_TAG} has no {MODELS_ASSET}")
+    archive = download(rel.assets[MODELS_ASSET], progress, cancelled)
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=SUPPORT_DIR) as tmp:
-        archive = download(MODELS_TAG, MODELS_ASSET, rel.assets[MODELS_ASSET], Path(tmp), progress, cancelled)
         staging = Path(tmp) / DEFAULT_PACK
         with zipfile.ZipFile(archive) as z:
             for member in z.namelist():
@@ -137,6 +197,7 @@ def ensure_models(progress: Callable[[int, int], None], cancelled: Callable[[], 
         if pack.exists():
             shutil.rmtree(pack)
         staging.rename(pack)
+    archive.unlink()
     log.info("model pack %s installed in %s", DEFAULT_PACK, pack)
     return pack
 

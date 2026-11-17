@@ -90,3 +90,10 @@ def test_face_filling_the_frame_is_found() -> None:
     img = read_image(Path(TIGHT_CROP))
     assert img is not None
     assert FaceMatcher(MODEL_DIR).embeddings(img)
+
+
+def test_parse_version() -> None:
+    from facesort.remote import parse_version
+
+    assert parse_version("v0.10.2") > parse_version("0.9.9")
+    assert parse_version("v1.2.3-beta.1") == (1, 2, 3)

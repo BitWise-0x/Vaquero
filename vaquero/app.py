@@ -163,7 +163,7 @@ matches on its own. A real match usually matches most of them (13/13); a lookali
 
 <h3>Updates</h3>
 <p><b>Check for updates</b> below, or <b>Vaquero &gt; Check for Updates</b>, compares this version with the latest release, then downloads it and
-restarts Vaquero. It uses the GitHub CLI (<code>gh</code>) logged in on this Mac.
+restarts Vaquero.
 Vaquero also checks when it opens and asks only when an update exists; turn that off in <b>Vaquero &gt; Settings</b>.</p>
 """
 
@@ -798,7 +798,7 @@ class Window(QMainWindow):
             "<p>Detection: SCRFD · Recognition: ArcFace (InsightFace model packs)<br>"
             "Inference: ONNX Runtime with Core ML on Apple Silicon</p>"
             "<p>InsightFace pretrained models are licensed for non-commercial research use only.</p>"
-            '<p><a href="https://github.com/BitWise-0x/vaquero">github.com/BitWise-0x/vaquero</a></p>',
+            '<p><a href="https://github.com/BitWise-0x/Vaquero">github.com/BitWise-0x/Vaquero</a></p>',
         )
 
     def _on_thread_finished(self, thread: QThread, job: QObject) -> None:

@@ -1,7 +1,4 @@
-"""Where Vaquero keeps its files, and what it fetches from its GitHub repository (models, app updates).
-
-The repository is private, so downloads go through the GitHub CLI and the account it is logged in with.
-"""
+"""Where Vaquero keeps its files, and what it fetches from its public GitHub repository (models, app updates)."""
 
 from __future__ import annotations
 
@@ -21,7 +18,7 @@ from pathlib import Path
 
 log = logging.getLogger("vaquero")
 
-REPO = "BitWise-0x/vaquero"
+REPO = "BitWise-0x/Vaquero"
 MODELS_TAG = "models-buffalo_l"
 MODELS_ASSET = "buffalo_l.zip"
 DEFAULT_PACK = "buffalo_l"
@@ -37,36 +34,19 @@ LEGACY_NAME = "FaceSort"
 LEGACY_JOURNAL = "facesort-moves.csv"
 CHUNK = 1 << 20
 
-# a Finder-launched app gets a bare PATH without Homebrew
-GH_CANDIDATES = ("/opt/homebrew/bin/gh", "/usr/local/bin/gh")
+API = f"https://api.github.com/repos/{REPO}/releases"
+USER_AGENT = "Vaquero"
 
 
 class RemoteError(RuntimeError):
     pass
 
 
-def gh() -> str:
-    found = shutil.which("gh") or next((c for c in GH_CANDIDATES if Path(c).is_file()), None)
-    if not found:
-        raise RemoteError("GitHub CLI not found. Install it (brew install gh) and run: gh auth login")
-    return found
-
-
-def _run(*args: str, timeout: float = 60) -> str:
-    try:
-        r = subprocess.run([gh(), *args], capture_output=True, text=True, timeout=timeout)
-    except subprocess.TimeoutExpired as e:
-        raise RemoteError(f"gh {args[0]} timed out") from e
-    if r.returncode != 0:
-        raise RemoteError(r.stderr.strip() or f"gh {args[0]} failed with exit code {r.returncode}")
-    return r.stdout
-
-
 @dataclass(frozen=True)
 class Asset:
     name: str
     size: int
-    api_url: str
+    url: str  # public download URL
     digest: str  # "sha256:<hex>" as GitHub reports it, empty when it has none
 
 
@@ -86,37 +66,34 @@ def parse_version(text: str) -> tuple[int, ...]:
         raise RemoteError(f"not a version: {text}") from e
 
 
-def release(tag: str | None = None) -> Release:
-    """The named release, or the latest app release when tag is None."""
-    args = ["release", "view", *([tag] if tag else []), "--repo", REPO, "--json", "tagName,assets"]
-    data = json.loads(_run(*args))
-    assets = {
-        a["name"]: Asset(a["name"], int(a["size"]), a["apiUrl"], a.get("digest") or "") for a in data["assets"]
-    }
-    version = parse_version(data["tagName"]) if data["tagName"].startswith("v") else ()
-    return Release(tag=data["tagName"], version=version, assets=assets)
-
-
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args: object, **kwargs: object) -> None:
-        return None
-
-
-def _storage_url(asset: Asset) -> str:
-    """The signed storage URL GitHub redirects an asset to, fetched with the gh login's token.
-
-    The token goes only to api.github.com; the signed URL carries its own authorization."""
-    token = _run("auth", "token").strip()
-    req = urllib.request.Request(
-        asset.api_url, headers={"Authorization": f"Bearer {token}", "Accept": "application/octet-stream"}
-    )
+def _get_json(url: str) -> dict[str, object]:
+    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": USER_AGENT})
     try:
-        urllib.request.build_opener(_NoRedirect).open(req, timeout=30)
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.load(resp)
     except urllib.error.HTTPError as e:
-        if e.code in (301, 302, 303, 307, 308) and (location := e.headers.get("Location")):
-            return location
-        raise RemoteError(f"GitHub refused {asset.name}: HTTP {e.code}") from e
-    raise RemoteError(f"GitHub did not redirect {asset.name} to storage")
+        if e.code == 404:
+            raise RemoteError(f"GitHub has no such release: {url}") from e
+        if e.code in (403, 429):
+            raise RemoteError("GitHub's hourly limit for anonymous requests is used up; try again later") from e
+        raise RemoteError(f"GitHub answered HTTP {e.code} for {url}") from e
+    except urllib.error.URLError as e:
+        raise RemoteError(f"could not reach GitHub: {e.reason}") from e
+
+
+def release(tag: str | None = None) -> Release:
+    """The named release, or the latest app release when tag is None (the model release is never latest)."""
+    data = _get_json(f"{API}/tags/{tag}" if tag else f"{API}/latest")
+    tag_name = str(data["tag_name"])
+    raw_assets = data["assets"]
+    if not isinstance(raw_assets, list):
+        raise RemoteError(f"unexpected release data for {tag_name}")
+    assets = {
+        a["name"]: Asset(a["name"], int(a["size"]), a["browser_download_url"], a.get("digest") or "")
+        for a in raw_assets
+    }
+    version = parse_version(tag_name) if tag_name.startswith("v") else ()
+    return Release(tag=tag_name, version=version, assets=assets)
 
 
 def download(
@@ -138,7 +115,9 @@ def download(
         part.unlink()
         have = 0
     if have < asset.size:
-        req = urllib.request.Request(_storage_url(asset), headers={"Range": f"bytes={have}-"} if have else {})
+        headers = {"User-Agent": USER_AGENT, **({"Range": f"bytes={have}-"} if have else {})}
+        # the URL redirects to GitHub's storage; the Range header goes along with it
+        req = urllib.request.Request(asset.url, headers=headers)
         try:
             resp = urllib.request.urlopen(req, timeout=60)
         except urllib.error.URLError as e:

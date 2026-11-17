@@ -64,7 +64,16 @@ Vaquero runs on an open-source AI model, right on your machine. No photo, face o
 
 ## Install
 
-Open `Vaquero-<version>-arm64.dmg` and drag **Vaquero** onto **Applications**. Requires an Apple Silicon Mac with macOS 14 or later.
+1. Download `Vaquero-<version>-arm64.dmg` from [Releases](https://github.com/BitWise-0x/Vaquero/releases/latest).
+2. Open it and drag **Vaquero** onto **Applications**.
+3. Open Vaquero. The first time, macOS blocks it because the app is not signed with an Apple developer certificate:
+   - **macOS 15 and later**: click **Done**, open **System Settings > Privacy & Security**, scroll to *"Vaquero" was blocked*, click **Open Anyway**, then confirm.
+   - **macOS 14**: Control-click (or right-click) Vaquero in Applications, choose **Open**, then **Open** again.
+
+   This is needed once. Updates from inside the app open without it.
+4. When you first scan a folder on an external drive, a network share, or in Desktop, Documents or Downloads, macOS asks whether Vaquero may access it. Click **Allow**.
+
+Requires an Apple Silicon Mac with macOS 14 or later. The first launch downloads the face model (about 190 MB).
 
 Pick the reference photos, a folder to scan and a destination, then **Scan**. Check the matches, choose **Copy** or **Move**, then **Execute**.
 
@@ -183,9 +192,9 @@ Vaquero uses `buffalo_l`, a face model pack from [InsightFace](https://github.co
 
 Model packs live in `~/Library/Application Support/Vaquero/models/<pack>/`; when run from source, the repo's `models/<pack>/` is read too. Neither is committed: the files are large, and the InsightFace pretrained weights are licensed for non-commercial research use only.
 
-On first launch, with no pack installed, the app downloads `buffalo_l.zip` from this repo's [`models-buffalo_l`](https://github.com/BitWise-0x/vaquero/releases/tag/models-buffalo_l) release and unpacks it there, showing "Downloading face detection model, please wait..." with a progress bar under the buttons and in the log. Scanning waits until it finishes. The release is pinned: the app always takes that tag, and the zip on it is replaced by hand to change the model.
+On first launch, with no pack installed, the app downloads `buffalo_l.zip` from this repo's [`models-buffalo_l`](https://github.com/BitWise-0x/Vaquero/releases/tag/models-buffalo_l) release and unpacks it there, showing "Downloading face detection model, please wait..." with a progress bar under the buttons and in the log. Scanning waits until it finishes. The release is pinned: the app always takes that tag, and the zip on it is replaced by hand to change the model.
 
-Model and update downloads resume: a partial file stays in `~/Library/Application Support/Vaquero/downloads/` when the app quits or the download is cancelled, and the next attempt continues from it. A finished download is checked against GitHub's SHA-256 digest of the asset. The repository is private, so downloads authenticate with the GitHub CLI's login on this Mac.
+Model and update downloads resume: a partial file stays in `~/Library/Application Support/Vaquero/downloads/` when the app quits or the download is cancelled, and the next attempt continues from it. A finished download is checked against GitHub's SHA-256 digest of the asset. Downloads need no GitHub account.
 
 A pack needs a detector (`det_*` or `scrfd*`) and a recognizer (`w600k*` or `glintr*`); other files are ignored.
 
@@ -214,8 +223,7 @@ Decoding the same photos took 3.05 s, more than inference, so files decode on a 
 ## Requirements
 
 - macOS 14 or later on Apple Silicon
-- Python 3.12 and [uv](https://docs.astral.sh/uv/)
-- The GitHub CLI (`gh`), logged in with access to this repository, for the first-launch model download and updates
+- To run from source: Python 3.12 and [uv](https://docs.astral.sh/uv/)
 
 <br>
 
@@ -252,7 +260,7 @@ A release sets the version in `pyproject.toml` and `vaquero/__init__.py`, relock
 
 ## Troubleshooting
 
-- **Model download fails on first launch**: check `gh auth status`, then reopen Vaquero. See [Models](#models).
+- **Model download fails on first launch**: check the internet connection, then reopen Vaquero; the download resumes where it stopped. See [Models](#models).
 - **A reference photo was dropped**: its largest face is someone else. Crop it to the right person or remove it.
 - **"Reference has no face"**: no face was found even on the padded retry, usually a profile, a heavily obscured face, or a very small one. Replace it with a clearer photo.
 - **Expected matches missing**: open the scan CSV, sort by score, and lower the threshold to just below the missed files.

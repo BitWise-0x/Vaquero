@@ -10,11 +10,13 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QSettings, Qt, QThread, Signal
-from PySide6.QtGui import QAction, QActionGroup, QCloseEvent
+from PySide6.QtGui import QAction, QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
     QDoubleSpinBox,
     QFileDialog,
     QGridLayout,
@@ -27,7 +29,9 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QSpinBox,
+    QTextBrowser,
     QToolButton,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -64,6 +68,53 @@ def model_packs() -> dict[str, Path]:
         if root.is_dir():
             packs.update({d.name: d for d in sorted(root.iterdir()) if d.is_dir() and pack_models(d)})
     return packs
+
+
+HELP_HTML = """
+<h2>FaceSort {version}</h2>
+<p>FaceSort finds every photo and video of one person in a folder and moves them to another folder.
+You give it a few photos of the person. It learns their face from those, checks every face in the scanned
+files against it, and lists the matches. Nothing moves until you click <b>Execute move</b>.</p>
+
+<h3>Folders</h3>
+<p><b>Reference faces</b>: a folder of photos of the person to find. Five to fifteen clear photos from different
+angles work best. The largest face in each photo is used. A photo whose largest face is someone else is dropped
+and noted in the log.</p>
+<p><b>Folder to scan</b>: where to look for the person.</p>
+<p><b>Move matches to</b>: where the matches go. Created if it does not exist. It is never scanned.</p>
+
+<h3>Options</h3>
+<p><b>Model</b>: the face model pack. <code>buffalo_l</code> is the default.</p>
+<p><b>Scan subfolders</b>: also look inside folders within the scan folder. Hidden folders are skipped.
+Matches from subfolders all land directly in the destination.</p>
+<p><b>Include videos</b> and <b>frames</b>: scan videos too, judging each on that many frames spread evenly
+through it. More frames catch a person who appears briefly, and take longer.</p>
+<p><b>Name exists</b>: what happens when the destination already has a file with the same name.
+<i>Keep both</i> moves the file in with a number added (<code>IMG_1 2.png</code>).
+<i>Overwrite</i> replaces the existing file, which cannot be undone.</p>
+<p><b>Match threshold</b>: how similar a face must be to count as a match (default {threshold:.2f}).
+Raise it to drop doubtful matches, lower it to catch hard shots (small, blurred, side-on faces).
+Changing it after a scan updates the matches without scanning again.</p>
+
+<h3>Buttons</h3>
+<p><b>Scan</b>: checks every file and lists the matches. Moves nothing.<br>
+<b>Cancel</b>: stops a scan or a move after the current file.<br>
+<b>Execute move</b>: moves the matches to the destination.</p>
+
+<h3>Reading the results</h3>
+<p>Below the progress bar, <b>Scanned</b> counts files done and <b>Matches found</b> counts matches so far.
+The line ends with <b>DONE</b> or <b>CANCELLED</b>.</p>
+<p>In the log, each match shows its score and <code>refs N/M</code>: how many of the M reference photos it
+matches on its own. A real match usually matches most of them (13/13); a lookalike only a few (0/13, 1/13).</p>
+<p>Log colors: <span style="color:#30a46c">green</span> a match,
+<span style="color:#d08700">amber</span> a <i>review</i> match (score below {review:.2f}, where lookalikes appear) or a warning,
+<span style="color:#e5484d">red</span> an error, <b style="color:#0090ff">blue</b> a finished scan or move.</p>
+
+<h3>Files written next to the app</h3>
+<p><code>facesort-&lt;time&gt;.log</code>: the log of one scan and its move.<br>
+<code>facesort-scan-&lt;time&gt;.csv</code>: every scanned file with its score.<br>
+<code>facesort-moves.csv</code>: every moved file's old and new location, for undoing a move.</p>
+"""
 
 
 class QtLogHandler(logging.Handler, QObject):
@@ -194,28 +245,12 @@ class Window(QMainWindow):
         super().__init__()
         self.setWindowTitle("FaceSort")
         self.settings = QSettings("BitWise", "FaceSort")
-        menubar = self.menuBar()
-        self.settings_menu = settings_menu = menubar.addMenu("Settings")
-        settings_menu.addSection("If the destination has a file with the same name")
-        self.conflict_group = QActionGroup(self)
-        saved_conflict = self.settings.value("conflict", Conflict.KEEP_BOTH.value, type=str)
-        for value, label in ((Conflict.KEEP_BOTH, "Keep both (add a number)"), (Conflict.OVERWRITE, "Overwrite")):
-            action = QAction(label, self, checkable=True)
-            action.setData(value.value)
-            action.setChecked(value.value == saved_conflict)
-            self.conflict_group.addAction(action)
-            settings_menu.addAction(action)
-        if not self.conflict_group.checkedAction():
-            self.conflict_group.actions()[0].setChecked(True)
-        self.conflict_group.triggered.connect(lambda a: self.settings.setValue("conflict", a.data()))
-        menu = menubar.addMenu("Help")
+        menu = self.menuBar().addMenu("Help")
         about = QAction("About FaceSort", self)
         # macOS moves this into the application menu
         about.setMenuRole(QAction.MenuRole.AboutRole)
         about.triggered.connect(self.show_about)
         menu.addAction(about)
-        settings_menu.addSeparator()
-        settings_menu.addAction(about)
         self.results: list[ScanResult] = []
         self.thread: QThread | None = None
         self.job: ScanWorker | MoveWorker | None = None
@@ -224,7 +259,18 @@ class Window(QMainWindow):
 
         central = QWidget()
         self.setCentralWidget(central)
-        grid = QGridLayout(central)
+        outer = QVBoxLayout(central)
+        top = QHBoxLayout()
+        help_btn = QToolButton()
+        help_btn.setText("?")
+        help_btn.setToolTip("Help: what FaceSort does and what each setting means")
+        help_btn.setFixedSize(32, 32)
+        help_btn.clicked.connect(self.show_help)
+        top.addWidget(help_btn)
+        top.addStretch()
+        outer.addLayout(top)
+        grid = QGridLayout()
+        outer.addLayout(grid, 1)
         self.refs = self._folder_row(grid, 0, "Reference faces", "refs")
         self.source = self._folder_row(grid, 1, "Folder to scan", "source")
         self.dest = self._folder_row(grid, 2, "Move matches to", "dest")
@@ -249,6 +295,13 @@ class Window(QMainWindow):
         self.frames.setSuffix(" frames")
         self.videos.toggled.connect(self.frames.setEnabled)
         self.frames.setEnabled(self.videos.isChecked())
+        self.conflict = QComboBox()
+        self.conflict.addItem("Keep both", Conflict.KEEP_BOTH.value)
+        self.conflict.addItem("Overwrite", Conflict.OVERWRITE.value)
+        self.conflict.setToolTip("When the destination already has a file with the same name: keep both, the moved one numbered (name 2.jpg), or overwrite it")
+        saved_conflict = self.conflict.findData(self.settings.value("conflict", Conflict.KEEP_BOTH.value, type=str))
+        self.conflict.setCurrentIndex(max(saved_conflict, 0))
+        self.conflict.currentIndexChanged.connect(lambda _: self.settings.setValue("conflict", self.conflict.currentData()))
         self.threshold = QDoubleSpinBox()
         self.threshold.setRange(0.2, 0.9)
         self.threshold.setSingleStep(0.01)
@@ -258,6 +311,8 @@ class Window(QMainWindow):
         opts.addWidget(self.subfolders)
         opts.addWidget(self.videos)
         opts.addWidget(self.frames)
+        opts.addWidget(QLabel("Name exists"))
+        opts.addWidget(self.conflict)
         opts.addStretch()
         opts.addWidget(QLabel("Match threshold"))
         opts.addWidget(self.threshold)
@@ -269,12 +324,7 @@ class Window(QMainWindow):
         self.move_btn = QPushButton("Execute move")
         self.cancel_btn.setEnabled(False)
         self.move_btn.setEnabled(False)
-        # the same menu as the menu bar's, in reach without leaving the window
-        self.settings_btn = QToolButton()
-        self.settings_btn.setText("Settings")
-        self.settings_btn.setMenu(settings_menu)
-        self.settings_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        for b in (self.scan_btn, self.cancel_btn, self.move_btn, self.settings_btn):
+        for b in (self.scan_btn, self.cancel_btn, self.move_btn):
             b.setMinimumHeight(36)
             buttons.addWidget(b)
         self.scan_btn.clicked.connect(self.start_scan)
@@ -372,6 +422,21 @@ class Window(QMainWindow):
         self.progress.setValue(0)
         self._set_busy(True)
         thread.start()
+
+    def show_help(self) -> None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle("FaceSort Help")
+        dialog.setModal(True)
+        layout = QVBoxLayout(dialog)
+        text = QTextBrowser()
+        text.setOpenExternalLinks(True)
+        text.setHtml(HELP_HTML.format(version=__version__, review=REVIEW_BELOW, threshold=DEFAULT_THRESHOLD))
+        layout.addWidget(text)
+        close = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        close.rejected.connect(dialog.reject)
+        layout.addWidget(close)
+        dialog.resize(620, 640)
+        dialog.exec()
 
     def show_about(self) -> None:
         QMessageBox.about(
@@ -486,7 +551,7 @@ class Window(QMainWindow):
             return
         dest = dirs[2]
         log.info("moving %d files to %s (journal %s)", len(matches), dest, self.journal)
-        conflict = Conflict(self.conflict_group.checkedAction().data())
+        conflict = Conflict(self.conflict.currentData())
         log.info("name conflicts: %s", "keep both" if conflict is Conflict.KEEP_BOTH else "overwrite")
         job = MoveWorker([r.path for r in matches], dest, self.journal, conflict)
         job.progress.connect(self._on_move_progress)

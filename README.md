@@ -43,12 +43,13 @@ Pick a folder of reference photos, a folder to scan and a destination, then **Sc
 - **Live threshold**: changing the match threshold after a scan updates the match count without rescanning
 - **Lookalike flagging**: matches below 0.45 are logged as `review`, with how many reference photos each one agrees with
 - **Tight crops handled**: a face filling the whole frame, which the detector misses at normal scale, is found on a padded retry
-- **Name conflicts**: when the destination already has the name, keep both (Finder-style `name 2.jpg`) or overwrite, set under **Settings**; every move is journaled for undo
+- **Name conflicts**: when the destination already has the name, keep both (Finder-style `name 2.jpg`) or overwrite, set by **Name exists**; every move is journaled for undo
 - **Progress and cancel**: scan and move both run in the background with a progress bar, a DONE or CANCELLED status line, and a Cancel that stops cleanly after the current file
 - **Readable logs**: color-coded log view (matches, warnings, errors, completions), and a fresh log file for every scan
 - **Apple Silicon native**: Core ML execution on the Neural Engine and GPU, with parallel file decoding feeding the model
 - **Model packs**: any InsightFace pack dropped into `models/` appears in the Model dropdown
 - **Standalone app**: `build.sh` produces `FaceSort.app` with the models bundled inside
+- **Built-in help**: the **?** button (top left) opens a guide to every setting, the buttons and how to read the results
 
 <br>
 
@@ -131,7 +132,7 @@ flowchart LR
 | Reference faces | | Folder of photos of the person to find |
 | Folder to scan | | Folder searched for that person |
 | Move matches to | | Destination; created if missing |
-| **Settings** button or menu > name conflict | Keep both | A name already in the destination: keep both, the moved file numbered (`IMG_1 2.png`), or overwrite |
+| Name exists | Keep both | A name already in the destination: keep both, the moved file numbered (`IMG_1 2.png`), or overwrite |
 | Model | `buffalo_l` | Model pack from `models/` |
 | Scan subfolders | off | Also scan subfolders; matches land flat in the destination |
 | Include videos | on | Score `.mov`, `.mp4`, `.m4v`, `.avi`, `.mkv` |

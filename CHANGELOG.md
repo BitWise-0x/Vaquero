@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.2.1 (2026-11-17)
+
+### Bug Fixes
+
+- Show Settings and About in the native macOS menu bar
+  ([`66beec7`](https://github.com/BitWise-0x/facesort/commit/66beec706d151152bdcba9e2f737e0580908843b))
+
+
 ## v0.2.0 (2026-11-17)
 
 ### Features

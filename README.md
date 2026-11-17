@@ -48,7 +48,7 @@
 
 - **A folder per person**: every photo of a family member, a friend or yourself, out of years of backups
 - **One person from a shared dump**: an event, a trip or a group chat export
-- **Albums and slideshows**: every usable photo of one person, ready to use
+- **Albums and slideshows**: every photo of one person
 - **Clean-up**: move someone's photos out of a mixed folder, or copy them and leave the originals
 
 Three to five clear photos of the person are enough. No training.
@@ -81,7 +81,7 @@ Vaquero runs on an open-source AI model, right on your machine. No photo, face o
    - **macOS 15 and later**: click **Done**, open **System Settings > Privacy & Security**, scroll to *"Vaquero" was blocked*, click **Open Anyway**, then confirm.
    - **macOS 14**: Control-click (or right-click) Vaquero in Applications, choose **Open**, then **Open** again.
 
-   This is needed once. Updates from inside the app open without it.
+   Once per install. Updates from inside the app open directly.
 4. macOS asks once for each kind of place Vaquero opens: external drives, network shares, and the Desktop, Documents and Downloads folders. Click **Allow**. If you clicked Don't Allow, Vaquero shows a window with an **Open Settings** button and the steps to turn it back on.
 
 Requires an Apple Silicon Mac with macOS 14 or later. The first launch downloads the face model (about 290 MB).
@@ -100,7 +100,7 @@ Pick the reference photos, a folder to scan and a destination, then **Scan**. Ch
 | Copies or moves the matches | The same **Allow** for the destination |
 | Reads photos anywhere else in your home folder, such as Pictures | Nothing |
 
-Vaquero checks the folders you picked when it opens and before each scan, so macOS asks right away rather than halfway through.
+Vaquero checks access to the chosen folders at launch and before each scan.
 
 <br>
 
@@ -155,11 +155,11 @@ flowchart LR
 ## Under the Hood
 
 1. **References**: the largest face in each reference photo is embedded with ArcFace. Their mean is the reference face; any reference below 0.4 similarity to it is a different person and is dropped.
-2. **Detection**: SCRFD finds every face and its five landmarks. When it finds none, it retries once on the image with a 25% border, which brings a face that fills the frame into the size range it detects. Each face is aligned and embedded.
+2. **Detection**: SCRFD finds every face and its five landmarks. When it finds none, it retries once on the image with a 25% border. Each face is aligned and embedded.
 3. **Scoring**: a file's score is its best face's cosine similarity to the reference face. Videos take the best across their sampled frames.
 4. **Copying or moving**: files at or above the threshold copy or move to the destination when you click **Execute**.
 
-Both models run through ONNX Runtime on the Neural Engine and GPU. A pool of 4 threads decodes files ahead of the model, and scans, moves and copies run off the window's thread so it stays responsive.
+Both models run through ONNX Runtime on the Neural Engine and GPU. A pool of 4 threads decodes files ahead of the model. Scans, moves and copies run off the window's thread.
 
 <br>
 
@@ -193,7 +193,7 @@ Settings persist between launches.
 
 ## Scores
 
-Score is the cosine similarity between ArcFace embeddings, from -1 to 1. On a 3,800-file test library, the person searched for scored 0.35 and up while everyone else scored 0.30 and below, which sets the 0.35 default. Small, blurred, side-on or heavily filtered faces score lower; lower the threshold to catch them, and check the scan CSV around the cutoff.
+Score is the cosine similarity between ArcFace embeddings, from -1 to 1. The default threshold is 0.35. Small, blurred, side-on or heavily filtered faces score lower; lower the threshold to catch them, and check the scan CSV around the cutoff.
 
 Scores from 0.35 to 0.45 are where real but hard shots and lookalikes overlap. Those matches are logged as `review` (orange) rather than `match` (green), and the done line counts them. Each match also shows `refs N/M`: how many of the M reference photos its face reaches 0.35 with on its own. A true match usually agrees with most of them (13/13); a lookalike resembles the average face but few individual photos (0/13, 1/13). Raising the threshold drops review matches without a rescan.
 
@@ -215,7 +215,7 @@ Logs and scan reports go to `~/Library/Logs/Vaquero` (**Show logs folder** in th
 
 Vaquero uses `buffalo_l`, a face model pack from [InsightFace](https://github.com/deepinsight/insightface), the open-source face analysis project ([model zoo](https://github.com/deepinsight/insightface/tree/master/model_zoo)).
 
-Model packs live in `~/Library/Application Support/Vaquero/models/<pack>/`; when run from source, the repo's `models/<pack>/` is read too. Neither is committed: the files are large, and the InsightFace pretrained weights are licensed for non-commercial research use only.
+Model packs live in `~/Library/Application Support/Vaquero/models/<pack>/`; when run from source, the repo's `models/<pack>/` is read too. Neither is in the repository. The InsightFace pretrained weights are licensed for non-commercial research use only.
 
 On first launch, with no pack installed, the app downloads `buffalo_l.zip` from InsightFace's own [v0.7 release](https://github.com/deepinsight/insightface/releases/tag/v0.7), checks it against a SHA-256 pinned in `vaquero/remote.py`, and unpacks `det_10g.onnx` and `w600k_r50.onnx` there. Scanning waits until it finishes.
 
@@ -239,8 +239,9 @@ ONNX Runtime's Core ML provider runs both models on the Neural Engine and GPU. M
 | Core ML, NeuralNetwork format | 1.73 s |
 | Core ML, MLProgram format | 3.52 s |
 | CPU | 6.35 s |
+| Decoding the same photos | 3.05 s |
 
-Decoding the same photos took 3.05 s, more than inference, so files decode on a 4-thread prefetch pool ahead of the model.
+Files decode on a 4-thread pool ahead of the model.
 
 <br>
 
@@ -258,7 +259,7 @@ uv sync
 uv run vaquero    # run from source
 uv run pytest      # tests
 ./build.sh         # dist/Vaquero.app and dist/Vaquero-<version>-arm64.dmg
-uv run python scripts/make_icon.py   # redraw assets/Vaquero.icns, Vaquero.png and the log's buffalo.png
+uv run python scripts/make_icon.py   # redraw the icon, log buffalo, README wordmark and download button in assets/
 QT_QPA_PLATFORM=offscreen uv run python scripts/screenshots.py   # re-render docs/screenshots
 ```
 
@@ -277,7 +278,7 @@ Every push to `main` runs `.github/workflows/release.yml`, which uses [python-se
 | `BREAKING CHANGE:` footer | minor while on 0.x, major after |
 | anything else (`docs:`, `chore:`, `test:`, ...) | none |
 
-A release sets the version in `pyproject.toml` and `vaquero/__init__.py`, relocks `uv.lock`, updates `CHANGELOG.md`, commits them as `chore(release): X.Y.Z`, tags `vX.Y.Z` and creates the GitHub release. A macOS runner then builds the DMG and attaches it to that release. Pull before the next local commit. The app shows its version in **Vaquero > About Vaquero**, in each scan log, and in the `.app` bundle's Info.plist (set by `build.sh`).
+A release sets the version in `pyproject.toml` and `vaquero/__init__.py`, relocks `uv.lock`, updates `CHANGELOG.md`, commits them as `chore(release): X.Y.Z`, tags `vX.Y.Z` and creates the GitHub release. A macOS runner then builds the DMG and attaches it to that release. The app shows its version in **Vaquero > About Vaquero**, in each scan log, and in the `.app` bundle's Info.plist (set by `build.sh`).
 
 <br>
 

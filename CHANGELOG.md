@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.5.0 (2026-11-17)
+
+### Features
+
+- First-launch model download, check for updates, logs in ~/Library
+  ([`b7b0f51`](https://github.com/BitWise-0x/facesort/commit/b7b0f517784dce0f1f9b28aa5ebc7a9c31c49fe0))
+
+
 ## v0.4.0 (2026-11-17)
 
 ### Features

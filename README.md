@@ -179,9 +179,11 @@ Logs and scan reports go to `~/Library/Logs/Vaquero` (**Show logs folder** in th
 
 ## Models
 
+Vaquero uses `buffalo_l`, a face model pack from [InsightFace](https://github.com/deepinsight/insightface), the open-source face analysis project ([model zoo](https://github.com/deepinsight/insightface/tree/master/model_zoo)).
+
 Model packs live in `~/Library/Application Support/Vaquero/models/<pack>/`; when run from source, the repo's `models/<pack>/` is read too. Neither is committed: the files are large, and the InsightFace pretrained weights are licensed for non-commercial research use only.
 
-On first launch, with no pack installed, the app downloads `buffalo_l.zip` from the repo's `models-buffalo_l` release and unpacks it there, showing "Downloading face detection model, please wait..." with a progress bar under the buttons and in the log. Scanning waits until it finishes. The release is pinned: the app always takes that tag, and the zip on it is replaced by hand to change the model.
+On first launch, with no pack installed, the app downloads `buffalo_l.zip` from this repo's [`models-buffalo_l`](https://github.com/BitWise-0x/vaquero/releases/tag/models-buffalo_l) release and unpacks it there, showing "Downloading face detection model, please wait..." with a progress bar under the buttons and in the log. Scanning waits until it finishes. The release is pinned: the app always takes that tag, and the zip on it is replaced by hand to change the model.
 
 Model and update downloads resume: a partial file stays in `~/Library/Application Support/Vaquero/downloads/` when the app quits or the download is cancelled, and the next attempt continues from it. A finished download is checked against GitHub's SHA-256 digest of the asset. The repository is private, so downloads authenticate with the GitHub CLI's login on this Mac.
 

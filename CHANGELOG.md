@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.8.0 (2026-11-17)
+
+### Features
+
+- Bitwise0x.com dark theme with the amber accent, no system blue
+  ([`1a36342`](https://github.com/BitWise-0x/facesort/commit/1a363424b5c3f5bdf99657b4bff879f3c2909fbf))
+
+
 ## v0.7.1 (2026-11-17)
 
 ### Bug Fixes

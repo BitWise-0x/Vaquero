@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.9.0 (2026-11-17)
+
+### Features
+
+- FaceSort application menu with About, Check for Updates, Settings and Quit
+  ([`1e7ca55`](https://github.com/BitWise-0x/facesort/commit/1e7ca5572d7ddb1b41b7c6a4c2026c86e69d2df8))
+
+
 ## v0.8.0 (2026-11-17)
 
 ### Features

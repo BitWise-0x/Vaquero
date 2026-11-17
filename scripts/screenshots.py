@@ -107,6 +107,10 @@ def main() -> None:
         w._on_finished(results, False, REFS_KEPT)
         w._set_busy(False)
         w.execute_btn.setEnabled(True)
+        # tall enough that the whole log, buffalo banner included, fits without scrolling
+        w.resize(w.width(), 1050)
+        QApplication.processEvents()
+        w.log_view.verticalScrollBar().setValue(0)
         grab(qa, w, "results.png")
 
         def dialog_shot(name: str) -> None:

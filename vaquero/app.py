@@ -20,8 +20,12 @@ from PySide6.QtGui import (
     QImage,
     QCloseEvent,
     QDesktopServices,
+    QColor,
+    QFont,
     QIcon,
     QKeySequence,
+    QPainter,
+    QPixmap,
     QTextBlockFormat,
     QTextCharFormat,
     QTextCursor,
@@ -278,6 +282,37 @@ def blocked_folders(folders: list[Path]) -> list[Path]:
     return blocked
 
 
+def switch_guide() -> QPixmap:
+    """A drawing of the row to look for in System Settings: the app's icon, its name, and the switch turned on."""
+    w, h = 300, 64
+    pix = QPixmap(w * 2, h * 2)
+    pix.setDevicePixelRatio(2)
+    pix.fill(QColor(theme.SURFACE))
+    p = QPainter(pix)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setPen(QColor(theme.LINE_STRONG))
+    p.drawRoundedRect(1, 1, w - 2, h - 2, 10, 10)
+    p.drawPixmap(14, 14, QIcon(str(asset("Vaquero.png"))).pixmap(36, 36))
+    font = QFont()
+    font.setPixelSize(16)
+    font.setWeight(QFont.Weight.DemiBold)
+    p.setFont(font)
+    p.setPen(QColor(theme.FG))
+    p.drawText(62, 38, "Vaquero")
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QColor(theme.SIGNAL))
+    p.drawRoundedRect(w - 70, 20, 48, 26, 13, 13)
+    p.setBrush(QColor("#ffffff"))
+    p.drawEllipse(w - 47, 22, 22, 22)
+    font.setPixelSize(12)
+    font.setWeight(QFont.Weight.Normal)
+    p.setFont(font)
+    p.setPen(QColor(theme.SIGNAL))
+    p.drawText(w - 128, 38, "turn on")
+    p.end()
+    return pix
+
+
 def blocked_message(e: PermissionError) -> str:
     """macOS privacy controls deny a folder with EPERM; say where to allow it instead of the bare errno."""
     where = e.filename or "a folder"
@@ -469,7 +504,7 @@ class Window(QMainWindow):
         top.addWidget(help_btn)
         outer.addLayout(top)
         intro = QLabel(SLOGAN)
-        intro.setStyleSheet(f"color: {theme.FG_SOFT}; font-size: 16pt;")
+        intro.setStyleSheet(f"color: {theme.FG_SOFT}; font-size: 14pt;")
         outer.addSpacing(4)
         outer.addWidget(intro)
         outer.addSpacing(10)
@@ -865,14 +900,15 @@ class Window(QMainWindow):
         """Walk the user through allowing access; True once every blocked folder opens."""
         while blocked:
             box = QMessageBox(self)
-            box.setIcon(QMessageBox.Icon.Warning)
             box.setWindowTitle("Allow access")
-            box.setText("Vaquero needs your permission to open:")
+            box.setIconPixmap(switch_guide())
+            box.setText("Vaquero needs your permission to open:\n" + "\n".join(str(b) for b in blocked))
             box.setInformativeText(
-                "\n".join(str(b) for b in blocked)
-                + "\n\n1. Click Open Settings.\n2. Turn on Vaquero (or the drive's switch under Vaquero)."
-                "\n3. Come back and click Try Again."
-                "\n\nNot listed there? Use Full Disk Access instead and turn on Vaquero."
+                "1. Click Open Settings.\n"
+                "2. Find Vaquero and turn its switch on, like the picture.\n"
+                "3. Come back and click Try Again.\n\n"
+                "Vaquero not in the list? Click Full Disk Access instead: drag Vaquero from the Finder window "
+                "into the list, turn it on, then click Try Again."
             )
             settings = box.addButton("Open Settings", QMessageBox.ButtonRole.ActionRole)
             full_disk = box.addButton("Full Disk Access", QMessageBox.ButtonRole.ActionRole)
@@ -885,6 +921,9 @@ class Window(QMainWindow):
                 QDesktopServices.openUrl(QUrl(FILES_AND_FOLDERS_URL))
             elif clicked is full_disk:
                 QDesktopServices.openUrl(QUrl(FULL_DISK_ACCESS_URL))
+                # Full Disk Access only lists apps someone added: show the app in Finder, ready to drag in
+                if (bundle := remote.running_bundle()) is not None:
+                    subprocess.run(["open", "-R", str(bundle)], check=False)
             elif clicked is not retry:
                 self.status.setText("Waiting for access to " + ", ".join(b.name or str(b) for b in blocked))
                 return False

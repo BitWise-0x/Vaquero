@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.20.3 (2026-11-17)
+
+### Bug Fixes
+
+- Slogan without the closing period; releases no longer carry uv.lock as a download
+  ([`7bfff87`](https://github.com/BitWise-0x/Vaquero/commit/7bfff874d76470dca0a3fa326733d9ad20d07226))
+
+
 ## v0.20.2 (2026-11-17)
 
 ### Bug Fixes

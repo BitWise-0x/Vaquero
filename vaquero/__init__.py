@@ -1,3 +1,3 @@
 """Vaquero: find a person's photos and videos by face and move them to a folder."""
 
-__version__ = "0.20.2"
+__version__ = "0.20.3"

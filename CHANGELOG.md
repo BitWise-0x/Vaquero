@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.10.0 (2026-11-17)
+
+### Features
+
+- Copy or move, sectioned log with clickable files, grouped settings layout
+  ([`75dedab`](https://github.com/BitWise-0x/facesort/commit/75dedab71053d368a38e9b57a89f9ae7b66f747e))
+
+
 ## v0.9.0 (2026-11-17)
 
 ### Features

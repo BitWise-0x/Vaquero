@@ -179,7 +179,7 @@ class QtLogHandler(logging.Handler, QObject):
         self.record_emitted.emit(colorize(record), getattr(record, "section", False))
 
 
-INTRO = "Pick the folders, then Scan. Nothing moves or copies until Execute."
+INTRO = "Pick a face source, scan, execute."
 READY = "Ready"
 AUTO_UPDATE_KEY = "check_updates_on_launch"
 

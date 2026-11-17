@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v0.17.0 (2026-11-17)
+
+### Bug Fixes
+
+- Finish the Vaquero rename
+  ([`568d6bc`](https://github.com/BitWise-0x/facesort/commit/568d6bcb2797073ea4129a0e01396ab613a8b8aa))
+
+### Documentation
+
+- Screenshots at 0.16.0
+  ([`25120de`](https://github.com/BitWise-0x/facesort/commit/25120deb79d40f062e2a83cac42b612679afefdf))
+
+### Features
+
+- Rename the app to Vaquero
+  ([`c1b0bb7`](https://github.com/BitWise-0x/facesort/commit/c1b0bb755e8456298ddbf781fed4836e45979149))
+
+
 ## v0.16.0 (2026-11-17)
 
 ### Documentation

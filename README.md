@@ -41,7 +41,7 @@
 - **Reference sets**: every usable photo of a subject, for an album, a slideshow or a face-swap folder
 - **Clean-up**: move someone's photos out of a mixed folder, or copy them and leave the originals
 
-Five to fifteen clear photos of the person are enough. No training.
+Three to five clear photos of the person are enough. No training.
 
 <br>
 

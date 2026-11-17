@@ -101,7 +101,7 @@ files against it, and lists the matches. Nothing moves until you click <b>Execut
 
 <h3>Folders</h3>
 <ul>
-<li><span class="term">Reference faces</span>: a folder of photos of the person to find. Five to fifteen clear photos
+<li><span class="term">Reference faces</span>: a folder of photos of the person to find. Three to five clear photos
 from different angles work best. The largest face in each photo is used. A photo whose largest face is someone else
 is dropped and noted in the log.</li>
 <li><span class="term">Folder to scan</span>: where to look for the person.</li>

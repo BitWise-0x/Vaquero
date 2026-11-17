@@ -1,3 +1,3 @@
 """FaceSort: find a person's photos and videos by face and move them to a folder."""
 
-__version__ = "0.10.0"
+__version__ = "0.10.1"

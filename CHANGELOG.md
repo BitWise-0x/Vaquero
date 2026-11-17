@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.10.1 (2026-11-17)
+
+### Bug Fixes
+
+- Intro line sits above the folders; the status line starts as Ready
+  ([`e28c62c`](https://github.com/BitWise-0x/facesort/commit/e28c62c7281bf6535eb053680a6881504f13fcdd))
+
+
 ## v0.10.0 (2026-11-17)
 
 ### Features

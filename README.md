@@ -1,11 +1,12 @@
 <h1 align="center">
+  <img src="assets/FaceSort.png" alt="FaceSort icon: a buffalo inside an amber viewfinder" width="160"/>
+  <br>
+  <br>
   <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
   <img src="https://img.shields.io/badge/Qt-41CD52?style=for-the-badge&logo=qt&logoColor=white" alt="Qt"/>
   <img src="https://img.shields.io/badge/ONNX_Runtime-005CED?style=for-the-badge&logo=onnx&logoColor=white" alt="ONNX Runtime"/>
   <img src="https://img.shields.io/badge/Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Apple Silicon"/>
   <br>
-  <br>
-  <img src="assets/FaceSort.png" alt="FaceSort icon: a buffalo inside an amber viewfinder" width="128"/>
   <br>
   <code><strong>FaceSort</strong></code>
 </h1>
@@ -23,7 +24,7 @@
 
 <p align="center">
   Take control of your photo library by face: point FaceSort at a few photos of someone, and it finds every photo and video of them in a folder of thousands, then copies or moves them where they belong.<br>
-  Single-window macOS app running SCRFD detection and ArcFace recognition on the Apple Neural Engine through Core ML. Everything runs on your Mac; no photo leaves it.
+  Single-window macOS app running SCRFD detection and ArcFace recognition on the Apple Neural Engine through Core ML. Fully private: everything runs on your own Mac.
 </p>
 
 <p align="center">
@@ -61,6 +62,14 @@ The screenshots use sample folders and files; `scripts/screenshots.py` renders t
 
 ---
 
+## Privacy
+
+FaceSort runs entirely on your own computer. Photos are read from your disks, faces are detected and compared on your Mac's Neural Engine and GPU, and results stay in `~/Library` on that Mac. No photo, face, embedding or log is sent anywhere.
+
+The only network traffic is to GitHub: downloading the face model on first launch, and checking for and downloading app updates (the launch check can be turned off in **Settings**).
+
+<br>
+
 ## Install
 
 Open `FaceSort-<version>-arm64.dmg` and drag **FaceSort** onto **Applications**. FaceSort runs on Apple Silicon Macs with macOS 14 or later (onnxruntime publishes no Intel macOS builds). The first launch downloads the face model (about 190 MB).
@@ -80,6 +89,7 @@ Pick a folder of reference photos, a folder to scan and a destination, then **Sc
 
 ## Features
 
+- **Fully private**: detection, matching, moving and copying all run on your own Mac; no photo, face or result is uploaded anywhere
 - **Seeded matching**: a handful of photos of one person is enough; no training step
 - **Outlier-proof references**: a reference photo whose largest face is someone else is detected and dropped automatically
 - **Photos and videos**: videos are judged on evenly sampled frames (10 by default, adjustable)

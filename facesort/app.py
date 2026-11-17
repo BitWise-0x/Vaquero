@@ -779,7 +779,8 @@ class Window(QMainWindow):
             self,
             "About FaceSort",
             f"<h3 style='color:{theme.SIGNAL}'>FaceSort {__version__}</h3>"
-            "<p>Finds every photo and video of one person in a folder by face and moves them out.</p>"
+            "<p>Round up every photo, sorted by face.</p>"
+            "<p><b>Fully private.</b> Runs on your own Mac; no photo leaves it.</p>"
             "<p>Detection: SCRFD · Recognition: ArcFace (InsightFace model packs)<br>"
             "Inference: ONNX Runtime with Core ML on Apple Silicon</p>"
             "<p>InsightFace pretrained models are licensed for non-commercial research use only.</p>"

@@ -9,7 +9,7 @@
 </h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.0-555?style=flat-square" alt="Version 0.1.0"/>
+  <img src="https://img.shields.io/badge/versioning-semantic--release-e10079?style=flat-square&logo=semantic-release" alt="semantic-release"/>
   <img src="https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square&logo=apple" alt="macOS"/>
   <img src="https://img.shields.io/badge/inference-Core_ML-blue?style=flat-square" alt="Core ML"/>
   <img src="https://img.shields.io/badge/models-InsightFace_buffalo__l-orange?style=flat-square" alt="InsightFace buffalo_l"/>
@@ -41,7 +41,10 @@ Pick a folder of reference photos, a folder to scan and a destination, then **Sc
 - **Photos and videos**: videos are judged on evenly sampled frames (10 by default, adjustable)
 - **Optional subfolder scan**: off by default; hidden folders and the destination are always skipped
 - **Live threshold**: changing the match threshold after a scan updates the match count without rescanning
+- **Tight crops handled**: a face filling the whole frame, which the detector misses at normal scale, is found on a padded retry
 - **Safe moves**: never overwrites; name collisions are skipped and logged, every move is journaled for undo
+- **Progress and cancel**: scan and move both run in the background with a progress bar, a DONE or CANCELLED status line, and a Cancel that stops cleanly after the current file
+- **Readable logs**: color-coded log view (matches, warnings, errors, completions), and a fresh log file for every scan
 - **Apple Silicon native**: Core ML execution on the Neural Engine and GPU, with parallel file decoding feeding the model
 - **Model packs**: any InsightFace pack dropped into `models/` appears in the Model dropdown
 - **Standalone app**: `build.sh` produces `FaceSort.app` with the models bundled inside
@@ -55,7 +58,8 @@ graph TD
     ui["<b>Window</b><br>PySide6<br>folders · options · log"]
 
     subgraph Worker thread
-        worker["<b>ScanWorker</b><br>QThread"]
+        worker["<b>ScanWorker</b><br>QThread · cancellable"]
+        mover["<b>MoveWorker</b><br>QThread · cancellable<br>journaled moves"]
         prefetch["<b>Prefetch pool</b><br>4 threads<br>image decode · video frame sampling"]
         matcher["<b>FaceMatcher</b><br>reference centroid<br>cosine scoring"]
     end
@@ -65,7 +69,7 @@ graph TD
         rec["<b>ArcFace</b><br>w600k_r50.onnx<br>512-d embedding"]
     end
 
-    disk[("<b>Next to the app</b><br>facesort.log<br>facesort-scan-*.csv<br>facesort-moves.csv")]
+    disk[("<b>Next to the app</b><br>facesort-*.log<br>facesort-scan-*.csv<br>facesort-moves.csv")]
 
     ui -->|"Scan"| worker
     worker --> prefetch
@@ -74,7 +78,9 @@ graph TD
     det -->|"aligned 112x112 crop"| rec
     rec -->|"embedding"| matcher
     worker -->|"progress · results"| ui
-    ui -->|"Execute move"| disk
+    ui -->|"Execute move"| mover
+    mover -->|"progress"| ui
+    mover --> disk
     worker --> disk
 ```
 
@@ -90,7 +96,10 @@ flowchart LR
     outlier -->|"no"| drop["Dropped<br>(logged)"]
     outlier -->|"yes"| final["Reference<br>centroid"]
 
-    files["Files to scan"] --> faces["Every face<br>in file / frames"]
+    files["Files to scan"] --> detect["Detect faces"]
+    detect -->|"none found"| pad["Retry with<br>25% border"]
+    detect --> faces["Every face<br>in file / frames"]
+    pad --> faces
     faces --> score["Best cosine<br>similarity"]
     final --> score
     score --> thr{"≥ threshold?"}
@@ -99,9 +108,18 @@ flowchart LR
 ```
 
 1. **References**: the largest face in each reference photo is embedded with ArcFace. Their mean is the reference centroid; any reference below 0.4 similarity to it is a different person and is dropped.
-2. **Detection**: SCRFD finds every face and its five landmarks. Each face is aligned to the ArcFace template and embedded.
+2. **Detection**: SCRFD finds every face and its five landmarks. When it finds none, it retries once on the image with a 25% border, which brings a face that fills the frame into the size range it detects. Each face is aligned to the ArcFace template and embedded.
 3. **Scoring**: a file's score is its best face's cosine similarity to the centroid. Videos take the best across their sampled frames.
 4. **Moving**: files at or above the threshold move to the destination. Nothing moves until **Execute move**.
+
+<br>
+
+## Progress, Cancel and Logs
+
+- The progress bar tracks both the scan and the move; the line below it shows the count while running, then **DONE** or **CANCELLED** with a summary.
+- **Cancel** stops a scan or a move after the current file. A cancelled scan keeps the results it reached, and its matches can still be moved. A cancelled move leaves every file either fully moved and journaled or untouched.
+- Closing the window during a run cancels it and waits up to 30 s for the current file before quitting.
+- Each **Scan** clears the log view and starts a new log file; the move that follows writes to the same file. The view colors matches green, warnings amber, errors red and completions blue; the log files stay plain text.
 
 <br>
 
@@ -134,7 +152,7 @@ Written next to `FaceSort.app` (the repo root when run from source):
 
 | File | Contents |
 |---|---|
-| `facesort.log` | Full run log |
+| `facesort-<timestamp>.log` | Log of one scan and the move that follows it; each scan starts a new one |
 | `facesort-scan-<timestamp>.csv` | Every scanned file with its score and face count |
 | `facesort-moves.csv` | `source,destination` per moved file, for undo |
 
@@ -189,12 +207,29 @@ Detection (SCRFD) and recognition (ArcFace) run directly on the ONNX models, wit
 
 <br>
 
+## Versioning
+
+Every push to `main` runs `.github/workflows/release.yml`, which uses [python-semantic-release](https://python-semantic-release.readthedocs.io/) to read the [Conventional Commits](https://www.conventionalcommits.org/) since the last tag:
+
+| Commit type | Release |
+|---|---|
+| `fix:`, `perf:` | patch |
+| `feat:` | minor |
+| `BREAKING CHANGE:` footer | minor while on 0.x, major after |
+| anything else (`docs:`, `chore:`, `test:`, ...) | none |
+
+A release sets the version in `pyproject.toml` and `facesort/__init__.py`, relocks `uv.lock`, updates `CHANGELOG.md`, commits them as `chore(release): X.Y.Z`, tags `vX.Y.Z` and creates the GitHub release. Pull before the next local commit. The app shows its version in **FaceSort > About FaceSort**, in each scan log, and in the `.app` bundle's Info.plist (set by `build.sh`).
+
+<br>
+
 ## Troubleshooting
 
 - **"No model pack found"**: `models/` is empty or a pack is missing its detector or recognizer. See [Models](#models).
 - **A reference photo was dropped**: its largest face is someone else. Crop it to the right person or remove it.
+- **"Reference has no face"**: no face was found even on the padded retry, usually a profile, a heavily obscured face, or a very small one. Replace it with a clearer photo.
 - **Expected matches missing**: open the scan CSV, sort by score, and lower the threshold to just below the missed files.
 - **Unreadable files**: logged and skipped; the scan continues.
+- **"Still finishing the current file"** on close: a long video is mid-read; close again a moment later.
 
 <br>
 

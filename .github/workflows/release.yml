@@ -1,0 +1,38 @@
+# Versions every push to main from Conventional Commits: fix and perf a patch, feat a minor (a BREAKING CHANGE
+# stays a minor while the version is 0.x). python-semantic-release sets the version in pyproject.toml and
+# facesort/__init__.py, relocks uv.lock, writes CHANGELOG.md, commits them as chore(release), tags vX.Y.Z and
+# creates the GitHub release with the notes. A push with no fix, perf or feat commit releases nothing.
+# Nothing is tagged by hand. The app is built locally (build.sh), not here.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      # main can move on while this runs; release only what this run was started for
+      - name: Pin the branch to the pushed commit
+        run: git reset --hard ${{ github.sha }}
+      - name: Release
+        uses: python-semantic-release/python-semantic-release@b700dbeb1f431a0fcc30a79f3f0869407fe07278 # v10.7.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          git_committer_name: github-actions
+          git_committer_email: actions@users.noreply.github.com

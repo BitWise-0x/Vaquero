@@ -9,4 +9,8 @@ uv run pyinstaller --noconfirm --windowed --name FaceSort \
   --exclude-module tkinter \
   --add-data models:models \
   facesort/__main__.py
-echo "built: $(pwd)/dist/FaceSort.app"
+version="$(uv run python -c 'import facesort; print(facesort.__version__)')"
+plist=dist/FaceSort.app/Contents/Info.plist
+plutil -replace CFBundleShortVersionString -string "$version" "$plist"
+plutil -replace CFBundleVersion -string "$version" "$plist"
+echo "built: $(pwd)/dist/FaceSort.app ($version)"

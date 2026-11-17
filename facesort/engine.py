@@ -30,6 +30,8 @@ PREFETCH_WORKERS = 4
 PREFETCH_DEPTH = 8  # decoded files held in memory ahead of the model
 # a reference whose largest face sits this far from the group is someone else
 REF_OUTLIER_SIM = 0.4
+# border added on each side, as a fraction of the longer edge, when the first detection pass finds nothing
+PAD_RETRY = 0.25
 
 # ArcFace canonical 5-point landmark positions in a 112x112 crop
 ARCFACE_DST = np.array(
@@ -168,7 +170,13 @@ class FaceMatcher:
         self.centroid: np.ndarray | None = None
 
     def embeddings(self, img: np.ndarray) -> list[tuple[Face, np.ndarray]]:
-        return [(f, self.recognizer.embed(img, f)) for f in self.detector.detect(img)]
+        faces = self.detector.detect(img)
+        if not faces:
+            # SCRFD misses a face that fills the frame (tight crops); a border shrinks it into range
+            b = int(max(img.shape[:2]) * PAD_RETRY)
+            img = cv2.copyMakeBorder(img, b, b, b, b, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+            faces = self.detector.detect(img)
+        return [(f, self.recognizer.embed(img, f)) for f in faces]
 
     def load_references(self, ref_dir: Path) -> int:
         """Build the reference centroid from the largest face in each image; returns refs kept."""
@@ -298,13 +306,25 @@ def _load_frames(path: Path, video_samples: int) -> list[np.ndarray]:
     return [img] if img is not None else []
 
 
-def move_matches(paths: list[Path], dest: Path, journal: Path) -> tuple[int, int]:
-    """Move files into dest without overwriting; journal records src,dst pairs for undo."""
+def move_matches(
+    paths: list[Path],
+    dest: Path,
+    journal: Path,
+    progress: Callable[[int, int], None] = lambda done, total: None,
+    cancelled: Callable[[], bool] = lambda: False,
+) -> tuple[int, int]:
+    """Move files into dest without overwriting; journal records src,dst pairs for undo.
+
+    Cancelling stops between files, so no file is ever left half moved."""
     dest.mkdir(parents=True, exist_ok=True)
     moved = skipped = 0
     with journal.open("a", newline="") as fh:
         w = csv.writer(fh)
-        for src in paths:
+        for i, src in enumerate(paths, 1):
+            if cancelled():
+                log.warning("move cancelled after %d of %d files", i - 1, len(paths))
+                return moved, skipped
+            progress(i - 1, len(paths))
             dst = dest / src.name
             if dst.exists():
                 log.warning("skipped, already exists at destination: %s", dst)
@@ -319,4 +339,5 @@ def move_matches(paths: list[Path], dest: Path, journal: Path) -> tuple[int, int
             w.writerow([str(src), str(dst)])
             moved += 1
             log.info("moved %s", src.name)
+    progress(len(paths), len(paths))
     return moved, skipped

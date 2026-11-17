@@ -3,7 +3,7 @@ __pycache__/
 build/
 dist/
 *.spec
-facesort.log
+facesort*.log
 facesort-scan-*.csv
 facesort-moves.csv
 models/

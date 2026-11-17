@@ -1,5 +1,8 @@
 import csv
+import os
 from pathlib import Path
+
+import pytest
 
 from facesort.engine import list_media, move_matches, pack_models
 
@@ -48,9 +51,24 @@ def test_move_never_overwrites_and_journals(tmp_path: Path) -> None:
     existing = touch(dest / "a.jpg", b"old")
     journal = tmp_path / "moves.csv"
 
-    moved, skipped = move_matches([a, b], dest, journal)
+    ticks: list[tuple[int, int]] = []
+    moved, skipped = move_matches([a, b], dest, journal, lambda d, t: ticks.append((d, t)))
 
     assert (moved, skipped) == (1, 1)
+    assert ticks[-1] == (2, 2)
     assert existing.read_bytes() == b"old"
     assert a.exists() and not b.exists() and (dest / "b.jpg").exists()
     assert list(csv.reader(journal.open())) == [[str(b), str(dest / "b.jpg")]]
+
+
+MODEL_DIR = Path(__file__).resolve().parent.parent / "models" / "buffalo_l"
+TIGHT_CROP = os.environ.get("FACESORT_TIGHT_CROP_SAMPLE")
+
+
+@pytest.mark.skipif(not (MODEL_DIR.is_dir() and TIGHT_CROP), reason="needs models/buffalo_l and FACESORT_TIGHT_CROP_SAMPLE")
+def test_face_filling_the_frame_is_found() -> None:
+    from facesort.engine import FaceMatcher, read_image
+
+    img = read_image(Path(TIGHT_CROP))
+    assert img is not None
+    assert FaceMatcher(MODEL_DIR).embeddings(img)

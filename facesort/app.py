@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import csv
+import html
 import logging
 import sys
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QSettings, QThread, Signal
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtCore import QObject, QSettings, Qt, QThread, Signal
+from PySide6.QtGui import QAction, QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -20,6 +21,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMenuBar,
+    QMessageBox,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
@@ -27,11 +30,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from facesort import __version__
 from facesort.engine import DEFAULT_VIDEO_FRAMES, FaceMatcher, ScanResult, list_media, move_matches, pack_models, scan
 
 log = logging.getLogger("facesort")
 
 DEFAULT_THRESHOLD = 0.35
+CLOSE_WAIT_MS = 30_000
 DEFAULT_PACK = "buffalo_l"
 
 
@@ -66,12 +71,35 @@ class QtLogHandler(logging.Handler, QObject):
         QObject.__init__(self)
 
     def emit(self, record: logging.LogRecord) -> None:
-        self.record_emitted.emit(self.format(record))
+        self.record_emitted.emit(colorize(record))
+
+
+# mid-tone colors stay readable on both the light and dark macOS appearance
+LEVEL_COLORS = {logging.WARNING: "#d08700", logging.ERROR: "#e5484d"}
+TIME_COLOR = "#8b8d98"
+MATCH_COLOR = "#30a46c"
+DONE_COLOR = "#0090ff"
+
+
+def colorize(record: logging.LogRecord) -> str:
+    """One log line as HTML: dim time, level-colored text, green matches, bold blue completions."""
+    stamp = datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
+    msg = html.escape(record.getMessage())
+    level = html.escape(record.levelname)
+    if record.levelno >= logging.WARNING:
+        body = f'<span style="color:{LEVEL_COLORS.get(record.levelno, LEVEL_COLORS[logging.ERROR])}">{level} {msg}</span>'
+    elif msg.startswith("match "):
+        body = f'<span style="color:{MATCH_COLOR}">{msg}</span>'
+    elif " done:" in msg:
+        body = f'<b style="color:{DONE_COLOR}">{msg}</b>'
+    else:
+        body = msg
+    return f'<span style="color:{TIME_COLOR}">{stamp}</span> {body}'
 
 
 class ScanWorker(QObject):
     progress = Signal(int, int)
-    finished = Signal(list)  # list[ScanResult]
+    finished = Signal(list, bool)  # list[ScanResult], cancelled
     failed = Signal(str)
 
     def __init__(
@@ -97,6 +125,10 @@ class ScanWorker(QObject):
         try:
             matcher = FaceMatcher(self.model_dir)
             matcher.load_references(self.refs)
+            if self._cancel:
+                log.warning("scan cancelled before scanning")
+                self.finished.emit([], True)
+                return
             total = len(list_media(self.folder, self.include_videos, self.recursive, self.dest))
             log.info("scanning %d files in %s", total, self.folder)
             results: list[ScanResult] = []
@@ -117,10 +149,34 @@ class ScanWorker(QObject):
                     w.writerow([r.path.relative_to(self.folder), r.kind, f"{r.score:.3f}", r.faces])
                     self.progress.emit(len(results), total)
             if self._cancel:
-                log.warning("scan cancelled after %d files", len(results))
-            self.finished.emit(results)
+                log.warning("scan cancelled after %d of %d files", len(results), total)
+            self.finished.emit(results, self._cancel)
         except Exception as e:  # surfaced in the UI and log, the worker thread must not die silently
             log.exception("scan failed")
+            self.failed.emit(str(e))
+
+
+class MoveWorker(QObject):
+    progress = Signal(int, int)
+    finished = Signal(int, int, bool)  # moved, skipped, cancelled
+    failed = Signal(str)
+
+    def __init__(self, paths: list[Path], dest: Path, journal: Path) -> None:
+        super().__init__()
+        self.paths, self.dest, self.journal = paths, dest, journal
+        self._cancel = False
+
+    def cancel(self) -> None:
+        self._cancel = True
+
+    def run(self) -> None:
+        try:
+            moved, skipped = move_matches(
+                self.paths, self.dest, self.journal, self.progress.emit, lambda: self._cancel
+            )
+            self.finished.emit(moved, skipped, self._cancel)
+        except Exception as e:  # surfaced in the UI and log, the worker thread must not die silently
+            log.exception("move failed")
             self.failed.emit(str(e))
 
 
@@ -128,10 +184,18 @@ class Window(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("FaceSort")
+        menu = QMenuBar(self).addMenu("Help")
+        about = QAction("About FaceSort", self)
+        # macOS moves this into the application menu
+        about.setMenuRole(QAction.MenuRole.AboutRole)
+        about.triggered.connect(self.show_about)
+        menu.addAction(about)
         self.settings = QSettings("BitWise", "FaceSort")
         self.results: list[ScanResult] = []
         self.thread: QThread | None = None
-        self.worker: ScanWorker | None = None
+        self.job: ScanWorker | MoveWorker | None = None
+        self.journal = base_dir() / "facesort-moves.csv"
+        self.file_log: logging.FileHandler | None = None
 
         grid = QGridLayout(self)
         self.refs = self._folder_row(grid, 0, "Reference faces", "refs")
@@ -182,7 +246,7 @@ class Window(QWidget):
             b.setMinimumHeight(36)
             buttons.addWidget(b)
         self.scan_btn.clicked.connect(self.start_scan)
-        self.cancel_btn.clicked.connect(self.cancel_scan)
+        self.cancel_btn.clicked.connect(self.cancel_job)
         self.move_btn.clicked.connect(self.execute_move)
         grid.addLayout(buttons, 5, 0, 1, 3)
 
@@ -198,8 +262,7 @@ class Window(QWidget):
         grid.setColumnStretch(1, 1)
 
         handler = QtLogHandler()
-        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s", "%H:%M:%S"))
-        handler.record_emitted.connect(self.log_view.appendPlainText)
+        handler.record_emitted.connect(self.log_view.appendHtml)
         log.addHandler(handler)
         self.resize(820, 560)
 
@@ -254,6 +317,38 @@ class Window(QWidget):
         self.cancel_btn.setEnabled(busy)
         self.move_btn.setEnabled(not busy and bool(self._matches()))
 
+    def _run(self, job: ScanWorker | MoveWorker) -> None:
+        """Run job on a fresh thread; the thread and job are deleted once it ends."""
+        thread = QThread()
+        job.moveToThread(thread)
+        thread.started.connect(job.run)
+        # direct: QThread.quit is thread-safe, and a queued call would stall while closeEvent blocks in wait()
+        job.finished.connect(thread.quit, Qt.ConnectionType.DirectConnection)
+        job.failed.connect(thread.quit, Qt.ConnectionType.DirectConnection)
+        job.failed.connect(self._on_failed)
+        thread.finished.connect(job.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(self._on_thread_finished)
+        self.thread, self.job = thread, job
+        self.progress.setValue(0)
+        self._set_busy(True)
+        thread.start()
+
+    def show_about(self) -> None:
+        QMessageBox.about(
+            self,
+            "About FaceSort",
+            f"<h3>FaceSort {__version__}</h3>"
+            "<p>Finds every photo and video of one person in a folder by face and moves them out.</p>"
+            "<p>Detection: SCRFD · Recognition: ArcFace (InsightFace model packs)<br>"
+            "Inference: ONNX Runtime with Core ML on Apple Silicon</p>"
+            "<p>InsightFace pretrained models are licensed for non-commercial research use only.</p>"
+            '<p><a href="https://github.com/BitWise-0x/facesort">github.com/BitWise-0x/facesort</a></p>',
+        )
+
+    def _on_thread_finished(self) -> None:
+        self.thread = self.job = None
+
     def start_scan(self) -> None:
         dirs = self._dirs()
         if dirs is None:
@@ -267,10 +362,11 @@ class Window(QWidget):
         self.settings.setValue("subfolders", self.subfolders.isChecked())
         self.settings.setValue("frames", self.frames.value())
         self.results = []
-        report = base_dir() / f"facesort-scan-{datetime.now():%Y%m%d-%H%M%S}.csv"
+        stamp = f"{datetime.now():%Y%m%d-%H%M%S}"
+        self._start_log(base_dir() / f"facesort-{stamp}.log")
+        report = base_dir() / f"facesort-scan-{stamp}.csv"
         log.info("scan report: %s", report)
-        self.thread = QThread()
-        self.worker = ScanWorker(
+        job = ScanWorker(
             pack,
             refs,
             source,
@@ -280,38 +376,51 @@ class Window(QWidget):
             self.frames.value(),
             report,
         )
-        self.worker.moveToThread(self.thread)
-        self.thread.started.connect(self.worker.run)
-        self.worker.progress.connect(self._on_progress)
-        self.worker.finished.connect(self._on_finished)
-        self.worker.failed.connect(self._on_failed)
-        self.worker.finished.connect(self.thread.quit)
-        self.worker.failed.connect(self.thread.quit)
-        self._set_busy(True)
+        job.progress.connect(self._on_progress)
+        job.finished.connect(self._on_finished)
+        self._run(job)
         self.status.setText("Loading models and references")
-        self.thread.start()
 
-    def cancel_scan(self) -> None:
-        if self.worker:
-            self.worker.cancel()
-            self.status.setText("Cancelling")
+    def cancel_job(self) -> None:
+        if self.job:
+            self.job.cancel()
+            self.cancel_btn.setEnabled(False)
+            self.status.setText("Cancelling, finishing the current file")
 
     def _on_progress(self, done: int, total: int) -> None:
         self.progress.setMaximum(total)
         self.progress.setValue(done)
         self.status.setText(f"Scanned {done} of {total}")
 
-    def _on_finished(self, results: list[ScanResult]) -> None:
+    def _start_log(self, path: Path) -> None:
+        """Each scan, and the move that follows it, gets its own log file and a cleared log view."""
+        if self.file_log:
+            log.removeHandler(self.file_log)
+            self.file_log.close()
+        self.file_log = logging.FileHandler(path, encoding="utf-8")
+        self.file_log.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        log.addHandler(self.file_log)
+        self.log_view.clear()
+        log.info("FaceSort %s, log file: %s", __version__, path)
+
+    def _done(self, text: str, cancelled: bool = False) -> None:
+        self.status.setText(f"<b>{'CANCELLED' if cancelled else 'DONE'}</b>: {text}")
+
+    def _on_finished(self, results: list[ScanResult], cancelled: bool) -> None:
         self.results = results
         self._set_busy(False)
         self._update_match_count()
         for r in sorted(self._matches(), key=lambda r: -r.score):
             log.info("match %.3f %s", r.score, r.path)
-        log.info("scan done: %d matches of %d", len(self._matches()), len(results))
+        log.info("scan done: %d matches of %d%s", len(self._matches()), len(results), " (cancelled)" if cancelled else "")
+        self._done(
+            f"scanned {len(results)}, {len(self._matches())} matches at threshold {self.threshold.value():.2f}", cancelled
+        )
 
     def _on_failed(self, msg: str) -> None:
+        self.results = [r for r in self.results if r.path.exists()]
         self._set_busy(False)
-        self.status.setText(f"Scan failed: {msg}")
+        self.status.setText(f"Failed: {msg}")
 
     def execute_move(self) -> None:
         dirs = self._dirs()
@@ -319,35 +428,42 @@ class Window(QWidget):
         if dirs is None or not matches:
             return
         dest = dirs[2]
-        journal = base_dir() / "facesort-moves.csv"
-        log.info("moving %d files to %s (journal %s)", len(matches), dest, journal)
-        moved, skipped = move_matches([r.path for r in matches], dest, journal)
-        log.info("move done: %d moved, %d skipped", moved, skipped)
-        self.status.setText(f"Moved {moved}, skipped {skipped}. Undo pairs in {journal.name}")
-        moved_paths = {r.path for r in matches if not r.path.exists()}
-        self.results = [r for r in self.results if r.path not in moved_paths]
+        log.info("moving %d files to %s (journal %s)", len(matches), dest, self.journal)
+        job = MoveWorker([r.path for r in matches], dest, self.journal)
+        job.progress.connect(self._on_move_progress)
+        job.finished.connect(self._on_move_finished)
+        self._run(job)
+
+    def _on_move_progress(self, done: int, total: int) -> None:
+        self.progress.setMaximum(total)
+        self.progress.setValue(done)
+        self.status.setText(f"Moved {done} of {total}")
+
+    def _on_move_finished(self, moved: int, skipped: int, cancelled: bool) -> None:
+        log.info("move done: %d moved, %d skipped%s", moved, skipped, " (cancelled)" if cancelled else "")
+        self.results = [r for r in self.results if r.path.exists()]
+        self._set_busy(False)
         self._update_match_count()
+        self._done(f"moved {moved}, skipped {skipped}. Undo pairs in {self.journal.name}", cancelled)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (Qt override)
-        if self.worker:
-            self.worker.cancel()
-        if self.thread and self.thread.isRunning():
-            self.thread.quit()
-            self.thread.wait(5000)
+        if self.job and self.thread:
+            self.job.cancel()
+            # a running QThread destroyed at exit aborts the process; the job stops after its current file
+            if not self.thread.wait(CLOSE_WAIT_MS):
+                self.status.setText("Still finishing the current file; close again in a moment")
+                event.ignore()
+                return
+        if self.file_log:
+            self.file_log.close()
         super().closeEvent(event)
 
 
 def main() -> None:
-    log_file = base_dir() / "facesort.log"
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-        handlers=[logging.FileHandler(log_file, encoding="utf-8")],
-    )
+    log.setLevel(logging.INFO)
     app = QApplication(sys.argv)
     w = Window()
     w.show()
-    log.info("log file: %s", log_file)
     sys.exit(app.exec())
 
 

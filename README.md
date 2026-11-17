@@ -23,26 +23,24 @@
 </p>
 
 <p align="center">
-  Take control of your photo library by face: point Vaquero at a few photos of someone, and it finds every photo and video of them in a folder of thousands, then copies, moves or organizes them as you see fit.<br>
-  Single-window macOS app running SCRFD detection and ArcFace recognition on the Apple Neural Engine through Core ML. Fully private: everything runs on your own Mac.
+  Point Vaquero at a few photos of someone. It finds every photo and video of them among thousands, then copies, moves or organizes them as you see fit.<br>
+  Runs on an open-source AI model, right on your Mac.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/results.png" alt="Vaquero after a scan: folders, scan and output settings, and a log listing the matches" width="760"/>
+  <img src="docs/screenshots/results.png" alt="Vaquero after a scan, with the matches listed in the log" width="760"/>
 </p>
 
 ---
 
 ## What It's For
 
-Camera rolls, phone backups, shared drives and chat exports pile up into folders where the photos of any one person are scattered among thousands of others. Sorting them by hand means opening every file. Vaquero does the looking:
+- **A folder per person**: every photo of a family member, a friend or yourself, out of years of backups
+- **One person from a shared dump**: an event, a trip or a group chat export
+- **Reference sets**: every usable photo of a subject, for an album, a slideshow or a face-swap folder
+- **Clean-up**: move someone's photos out of a mixed folder, or copy them and leave the originals
 
-- **Build a folder per person**: collect every photo of a family member, a friend or yourself from years of backups into one place
-- **Pull someone out of a shared dump**: an event, a trip or a group chat export, filtered down to the photos one person is in
-- **Gather training or reference sets**: every usable photo of a subject, for an album, a slideshow or a face-swap reference folder
-- **Clean up**: move a person's photos out of a mixed folder, or copy them and leave the original untouched
-
-It is seeded, not trained: five to fifteen clear photos of the person are enough. Nothing changes on disk until you review the matches and click **Execute**, and every move or copy is journaled so it can be undone.
+Five to fifteen clear photos of the person are enough. No training.
 
 <br>
 
@@ -50,91 +48,72 @@ It is seeded, not trained: five to fifteen clear photos of the person are enough
 
 | First launch | Scanning |
 |---|---|
-| <img src="docs/screenshots/first-launch.png" alt="First launch: the face model downloading, with a progress bar in the log" width="420"/> | <img src="docs/screenshots/scanning.png" alt="A scan in progress: live count, matches found and the log's progress bar" width="420"/> |
-| The face model downloads from the repo into the log, with a progress bar | The scan counts files and matches live; the log shows its own progress bar |
+| <img src="docs/screenshots/first-launch.png" alt="Face model downloading on first launch" width="420"/> | <img src="docs/screenshots/scanning.png" alt="A scan in progress" width="420"/> |
 
 | Help | Settings |
 |---|---|
-| <img src="docs/screenshots/help.png" alt="The help dialog explaining every setting" width="420"/> | <img src="docs/screenshots/settings.png" alt="Settings: update check at launch, logs and models folders" width="420"/> |
-| **?** explains what Vaquero does and every setting | **Vaquero > Settings…** (⌘,) |
-
-The screenshots use sample folders and files; `scripts/screenshots.py` renders them from the real window.
+| <img src="docs/screenshots/help.png" alt="Help" width="420"/> | <img src="docs/screenshots/settings.png" alt="Settings" width="420"/> |
 
 ---
 
 ## Privacy
 
-Vaquero runs entirely on your own computer. Photos are read from your disks, faces are detected and compared on your Mac's Neural Engine and GPU, and results stay in `~/Library` on that Mac. No photo, face, embedding or log is sent anywhere.
-
-The only network traffic is to GitHub: downloading the face model on first launch, and checking for and downloading app updates (the launch check can be turned off in **Settings**).
+Vaquero runs on an open-source AI model, right on your machine. No photo, face or log leaves it.
 
 <br>
 
 ## Install
 
-Open `Vaquero-<version>-arm64.dmg` and drag **Vaquero** onto **Applications**. Vaquero runs on Apple Silicon Macs with macOS 14 or later (onnxruntime publishes no Intel macOS builds). The first launch downloads the face model (about 190 MB).
+Open `Vaquero-<version>-arm64.dmg` and drag **Vaquero** onto **Applications**. Requires an Apple Silicon Mac with macOS 14 or later.
 
-<br>
-
-## Quick Start
-
-```sh
-uv sync
-uv run vaquero    # downloads the face model on first launch, see Models
-```
-
-Pick a folder of reference photos, a folder to scan and a destination, then **Scan**. Review the match count and log, adjust the threshold if needed, pick **Move** or **Copy**, then **Execute**.
+Pick the reference photos, a folder to scan and a destination, then **Scan**. Check the matches, choose **Copy** or **Move**, then **Execute**.
 
 <br>
 
 ## Features
 
-- **Fully private**: detection, matching, moving and copying all run on your own Mac; no photo, face or result is uploaded anywhere
-- **Seeded matching**: a handful of photos of one person is enough; no training step
-- **Outlier-proof references**: a reference photo whose largest face is someone else is detected and dropped automatically
-- **Photos and videos**: videos are judged on evenly sampled frames (10 by default, adjustable)
-- **Optional subfolder scan**: off by default; hidden folders and the destination are always skipped
-- **Live threshold**: changing the match threshold after a scan updates the match count without rescanning
-- **Lookalike flagging**: matches below 0.45 are logged as `review`, with how many reference photos each one agrees with
-- **Tight crops handled**: a face filling the whole frame, which the detector misses at normal scale, is found on a padded retry
-- **Name conflicts**: when the destination already has the name, keep both (Finder-style `name 2.jpg`) or overwrite, set by **Name exists**; every move and copy is journaled for undo
-- **Move or copy**: **Execute** moves the matches out of the scanned folder, or copies them and leaves the originals
-- **Progress and cancel**: scan, move and copy all run in the background with a progress bar, a DONE or CANCELLED status line, and a Cancel that stops cleanly after the current file
-- **Readable logs**: a log view with a buffalo banner, amber section headings, live progress bars for the model download, scan and move or copy, color-coded matches, warnings and errors, and file names that open the photo or video when clicked; a fresh log file for every scan
-- **Single window**: folders, scan and output settings in grouped panels above a tall log; Copy or Move picked with one radio choice
-- **bitwise0x.com theme**: dark surfaces with the sodium amber accent, the same palette as the site; the icon is the buffalo (namesake of the `buffalo_l` model pack) inside an amber viewfinder
-- **Mac menu**: **Vaquero > About**, **Check for Updates…**, **Settings…** (⌘,) and **Quit** (⌘Q) in the application menu
-- **Apple Silicon native**: Core ML execution on the Neural Engine and GPU, with parallel file decoding feeding the model
-- **Model on first launch**: the face model downloads from the repo's releases with a progress bar; any other InsightFace pack in the models folder appears in the Model dropdown
-- **Updates**: **Vaquero > Check for Updates…** (or the help dialog) downloads the latest release's DMG and restarts the app; Vaquero also checks quietly at launch unless that is turned off in **Vaquero > Settings…** (⌘,). Releases get their DMG from `release-app.sh`
-- **Standalone app**: `build.sh` produces `Vaquero.app`
-- **Built-in help**: the **?** button (top right) opens a guide to every setting, the buttons and how to read the results, one bulleted section per panel with the setting names in light amber
+- **Fully private**: everything runs on your own Mac
+- **A few photos are enough**: no training step
+- **Bad references dropped**: a reference photo of the wrong person is spotted and left out
+- **Photos and videos**: videos are checked on evenly spaced frames (10 by default)
+- **Subfolders**: optional; hidden folders and the destination are skipped
+- **Live threshold**: change it after a scan and the matches update without rescanning
+- **Lookalikes flagged**: borderline matches are marked `review`
+- **Copy or move**: with keep-both or overwrite when a name is taken; every copy and move can be undone from its journal
+- **Progress and cancel**: for the scan, the copy or move, and the model download
+- **Clickable log**: every file name opens the photo or video
+- **Apple Silicon native**: Core ML on the Neural Engine and GPU
+- **Updates**: **Vaquero > Check for Updates…**, or automatically at launch
+- **Built-in help**: the **?** button explains every setting
 
 <br>
 
 ## How It Works
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#efb146", "primaryTextColor": "#0c0f0e", "primaryBorderColor": "#a96a19", "lineColor": "#efb146", "secondaryColor": "#1b221f", "tertiaryColor": "#1b221f", "edgeLabelBackground": "#1b221f", "fontSize": "16px"}}}%%
 flowchart LR
     pick["Pick a few photos<br>of the person"] --> learn["Vaquero learns<br>their face"]
-    learn --> scan["It looks through every<br>photo and video in a folder"]
+    learn --> scan["It checks every photo<br>and video in a folder"]
     scan --> review["You check<br>the matches"]
     review --> done["Copy, move or organize<br>them as you see fit"]
+    classDef default fill:#efb146,stroke:#a96a19,stroke-width:2px,color:#0c0f0e
+    classDef quiet fill:#1b221f,stroke:#2e3733,stroke-width:2px,color:#e7ece8
+    linkStyle default stroke:#efb146,stroke-width:2px
 ```
 
-Each photo in the scanned folder goes through the same check:
+For each photo or video:
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#efb146", "primaryTextColor": "#0c0f0e", "primaryBorderColor": "#a96a19", "lineColor": "#efb146", "secondaryColor": "#1b221f", "tertiaryColor": "#1b221f", "edgeLabelBackground": "#1b221f", "fontSize": "16px"}}}%%
 flowchart LR
-    photo["A photo<br>or video"] --> faces{"Any faces<br>in it?"}
-    faces -->|"no"| stays["Stays where it is"]
-    faces -->|"yes"| same{"Is one of them<br>the person?"}
-    same -->|"no"| stays
-    same -->|"yes"| match["Listed as a match,<br>ready to copy or move"]
-    classDef quiet fill:#1b221f,stroke:#2e3733,color:#e7ece8
-    class stays quiet
+    photo["A photo<br>or video"] --> faces{"Any faces?"}
+    faces --> noface["No faces:<br>stays where it is"]
+    faces --> same{"Is one of them<br>the person?"}
+    same --> someone["Someone else:<br>stays where it is"]
+    same --> match["It's them:<br>listed as a match"]
+    classDef default fill:#efb146,stroke:#a96a19,stroke-width:2px,color:#0c0f0e
+    classDef quiet fill:#1b221f,stroke:#2e3733,stroke-width:2px,color:#e7ece8
+    linkStyle default stroke:#efb146,stroke-width:2px
+    class noface,someone quiet
 ```
 
 <br>

@@ -232,16 +232,7 @@ A pack needs a detector (`det_*` or `scrfd*`) and a recognizer (`w600k*` or `gli
 
 ## Performance
 
-ONNX Runtime's Core ML provider runs both models on the Neural Engine and GPU. Measured on an M1 over 40 photos:
-
-| Execution | Inference time |
-|---|---|
-| Core ML, NeuralNetwork format | 1.73 s |
-| Core ML, MLProgram format | 3.52 s |
-| CPU | 6.35 s |
-| Decoding the same photos | 3.05 s |
-
-Files decode on a 4-thread pool ahead of the model.
+Vaquero runs both face models on the Apple Neural Engine and GPU through Core ML, with files decoded in parallel ahead of the model. On an M1, the models take under 2 seconds for 40 photos.
 
 <br>
 
@@ -263,22 +254,13 @@ uv run python scripts/make_icon.py   # redraw the icon, log buffalo, README word
 QT_QPA_PLATFORM=offscreen uv run python scripts/screenshots.py   # re-render docs/screenshots
 ```
 
-Detection (SCRFD) and recognition (ArcFace) run directly on the ONNX models, with no dependency on the `insightface` Python package.
+Detection (SCRFD) and recognition (ArcFace) run directly on the ONNX models.
 
 <br>
 
 ## Versioning
 
-Every push to `main` runs `.github/workflows/release.yml`, which uses [python-semantic-release](https://python-semantic-release.readthedocs.io/) to read the [Conventional Commits](https://www.conventionalcommits.org/) since the last tag:
-
-| Commit type | Release |
-|---|---|
-| `fix:`, `perf:` | patch |
-| `feat:` | minor |
-| `BREAKING CHANGE:` footer | minor while on 0.x, major after |
-| anything else (`docs:`, `chore:`, `test:`, ...) | none |
-
-A release sets the version in `pyproject.toml` and `vaquero/__init__.py`, relocks `uv.lock`, updates `CHANGELOG.md`, commits them as `chore(release): X.Y.Z`, tags `vX.Y.Z` and creates the GitHub release. A macOS runner then builds the DMG and attaches it to that release. The app shows its version in **Vaquero > About Vaquero**, in each scan log, and in the `.app` bundle's Info.plist (set by `build.sh`).
+Vaquero follows [semantic versioning](https://semver.org/). Every release is listed in [CHANGELOG.md](CHANGELOG.md) and on [Releases](https://github.com/BitWise-0x/Vaquero/releases) with its DMG. The version shows in **Vaquero > About Vaquero** and at the top of each log.
 
 <br>
 

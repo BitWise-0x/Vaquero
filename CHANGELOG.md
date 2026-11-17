@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.12.0 (2026-11-17)
+
+### Features
+
+- Help lists each section as bullets with setting names in light amber
+  ([`994b1e6`](https://github.com/BitWise-0x/facesort/commit/994b1e6fe421e0ad05b7adc52b41f20e2f9ecd9c))
+
+
 ## v0.11.0 (2026-11-17)
 
 ### Features

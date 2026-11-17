@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.7.1 (2026-11-17)
+
+### Bug Fixes
+
+- Crash on first launch from a progress update off the main thread; icon and title header
+  ([`cbf1051`](https://github.com/BitWise-0x/facesort/commit/cbf1051fa1e94c57fddfa5d4fb50d2bec3e8185b))
+
+
 ## v0.7.0 (2026-11-17)
 
 ### Features

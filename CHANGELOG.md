@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v0.19.0 (2026-11-17)
+
+### Documentation
+
+- Link InsightFace and the buffalo_l release under Models
+  ([`4cad8da`](https://github.com/BitWise-0x/Vaquero/commit/4cad8da29a1bbe4355e6946249cc9d4f4bd2d994))
+
+- Plain README top, readable diagrams in both themes
+  ([`50a71d0`](https://github.com/BitWise-0x/Vaquero/commit/50a71d05da114b56a954c9065c1aa07ae9bb3ecc))
+
+- Retake screenshots
+  ([`b28b96d`](https://github.com/BitWise-0x/Vaquero/commit/b28b96d09dba74b70c7507b559e2fa5082fc298a))
+
+### Features
+
+- Model and update downloads work without a GitHub account
+  ([`25eb2fd`](https://github.com/BitWise-0x/Vaquero/commit/25eb2fddb0307f4bd97dbcd777d3699281ed2f6a))
+
+
 ## v0.18.2 (2026-11-17)
 
 ### Bug Fixes

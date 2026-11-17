@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.18.0 (2026-11-17)
+
+### Documentation
+
+- Screenshots at 0.17.1
+  ([`c0d0837`](https://github.com/BitWise-0x/facesort/commit/c0d0837caee4c9d4f57e64f6683e5a68362e6dba))
+
+### Features
+
+- Slogan Find and round up every photo. By face., in a larger font; plain-language amber diagrams
+  ([`d6873a8`](https://github.com/BitWise-0x/facesort/commit/d6873a8c9d12ee2c501d1e39e8fc82a18568761a))
+
+
 ## v0.17.1 (2026-11-17)
 
 ### Bug Fixes

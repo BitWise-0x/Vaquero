@@ -25,6 +25,7 @@
   <img src="https://img.shields.io/badge/platform-macOS-lightgrey?style=for-the-badge&logo=apple" alt="macOS"/>
   <img src="https://img.shields.io/badge/inference-Core_ML-efb146?style=for-the-badge" alt="Core ML"/>
   <img src="https://img.shields.io/badge/models-InsightFace_buffalo__l-orange?style=for-the-badge" alt="InsightFace buffalo_l"/>
+  <img src="https://img.shields.io/badge/license-MIT-efb146?style=for-the-badge" alt="MIT license"/>
 </p>
 
 <br>
@@ -288,6 +289,12 @@ A release sets the version in `pyproject.toml` and `vaquero/__init__.py`, relock
 - **Expected matches missing**: open the scan CSV, sort by score, and lower the threshold to just below the missed files.
 - **Unreadable files**: logged and skipped; the scan continues.
 - **"Still finishing the current file"** on close: a long video is mid-read; close again a moment later.
+
+<br>
+
+## License
+
+[MIT](LICENSE). The libraries bundled in the app keep their own licenses, listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The face model is InsightFace's and licensed for non-commercial research use only.
 
 <br>
 

@@ -15,6 +15,8 @@ uv run pyinstaller --noconfirm --windowed --name Vaquero \
   --add-data assets/Vaquero.png:assets \
   --add-data assets/check.svg:assets \
   --add-data assets/buffalo.png:assets \
+  --add-data LICENSE:. \
+  --add-data THIRD_PARTY_NOTICES.md:. \
   vaquero/__main__.py
 plist=dist/Vaquero.app/Contents/Info.plist
 plutil -replace CFBundleShortVersionString -string "$version" "$plist"

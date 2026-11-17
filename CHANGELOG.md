@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.3.0 (2026-11-17)
+
+### Features
+
+- Live Matches found count beside the scan status
+  ([`8817b08`](https://github.com/BitWise-0x/facesort/commit/8817b08c33d5e9cf2e24352d6df1565c01012859))
+
+
 ## v0.2.2 (2026-11-17)
 
 ### Bug Fixes

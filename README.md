@@ -21,7 +21,6 @@
   <img src="https://img.shields.io/badge/ONNX_Runtime-efb146?style=for-the-badge&logo=onnx&logoColor=0c0f0e" alt="ONNX Runtime"/>
   <img src="https://img.shields.io/badge/Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Apple Silicon"/>
   <br>
-  <img src="https://img.shields.io/badge/versioning-semantic--release-e10079?style=for-the-badge&logo=semantic-release" alt="semantic-release"/>
   <img src="https://img.shields.io/badge/platform-macOS-lightgrey?style=for-the-badge&logo=apple" alt="macOS"/>
   <img src="https://img.shields.io/badge/inference-Core_ML-efb146?style=for-the-badge" alt="Core ML"/>
   <img src="https://img.shields.io/badge/models-InsightFace_buffalo__l-orange?style=for-the-badge" alt="InsightFace buffalo_l"/>
@@ -168,7 +167,7 @@ Both models run through ONNX Runtime on the Neural Engine and GPU. A pool of 4 t
 - The progress bar tracks the model download, the scan and the move or copy; the line below it shows the count while running, then **DONE** or **CANCELLED** with a summary. The log draws the same progress as a bar of its own, updated in place.
 - **Cancel** stops a scan, move or copy after the current file. A cancelled scan keeps the results it reached, and its matches can still be moved or copied. A cancelled move or copy leaves every file either fully done and journaled or untouched.
 - Closing the window during a run cancels it and waits up to 30 s for the current file before quitting.
-- The log opens with a small buffalo, the namesake of the `buffalo_l` model pack, with the version and engine. Each **Scan** clears the log view and starts a new log file; the move or copy that follows writes to the same file. The log is split into amber-headed sections (Setup, Scanning, Matches, Result, Move or Copy). The view colors matches green, review matches and warnings orange, errors red and completions amber, and every file name is a link that opens the photo or video; the log files stay plain text with `== Section ==` lines.
+- The log opens with the version and the engine in use. Each **Scan** clears the log view and starts a new log file; the move or copy that follows writes to the same file. The log is split into amber-headed sections (Setup, Scanning, Matches, Result, Move or Copy). The view colors matches green, review matches and warnings orange, errors red and completions amber, and every file name is a link that opens the photo or video; the log files stay plain text with `== Section ==` lines.
 
 <br>
 
@@ -250,8 +249,6 @@ uv sync
 uv run vaquero    # run from source
 uv run pytest      # tests
 ./build.sh         # dist/Vaquero.app and dist/Vaquero-<version>-arm64.dmg
-uv run python scripts/make_icon.py   # redraw the icon, log buffalo, README wordmark and download button in assets/
-QT_QPA_PLATFORM=offscreen uv run python scripts/screenshots.py   # re-render docs/screenshots
 ```
 
 Detection (SCRFD) and recognition (ArcFace) run directly on the ONNX models.

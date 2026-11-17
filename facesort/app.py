@@ -603,7 +603,7 @@ class Window(QMainWindow):
         self.execute_btn.setEnabled(not busy and bool(self._matches()))
 
     def _run(self, job: ScanWorker | TransferWorker | TaskWorker) -> None:
-        """Run job on a fresh thread; the thread and job are deleted once it ends."""
+        """Run job on a fresh thread; both are released on the main thread once it ends."""
         thread = QThread()
         job.moveToThread(thread)
         thread.started.connect(job.run)
@@ -611,9 +611,10 @@ class Window(QMainWindow):
         job.finished.connect(thread.quit, Qt.ConnectionType.DirectConnection)
         job.failed.connect(thread.quit, Qt.ConnectionType.DirectConnection)
         job.failed.connect(self._on_failed, QUEUED)
-        thread.finished.connect(job.deleteLater)
-        thread.finished.connect(thread.deleteLater)
-        thread.finished.connect(self._on_thread_finished, QUEUED)
+        # no deleteLater: a job deleted on its own thread races the main thread deleting the QThread, and
+        # PySide's disconnect hook then reads a freed wrapper (segfault). The QThread lives on the main thread,
+        # so this queued lambda runs there and drops the last references after the thread has stopped.
+        thread.finished.connect(lambda: self._on_thread_finished(thread, job), QUEUED)
         self.thread, self.job = thread, job
         self.progress_line = None  # each job draws its own progress line in the log
         self.progress.setValue(0)
@@ -785,8 +786,12 @@ class Window(QMainWindow):
             '<p><a href="https://github.com/BitWise-0x/facesort">github.com/BitWise-0x/facesort</a></p>',
         )
 
-    def _on_thread_finished(self) -> None:
-        self.thread = self.job = None
+    def _on_thread_finished(self, thread: QThread, job: QObject) -> None:
+        thread.wait()
+        thread.finished.disconnect()  # the connection's lambda holds the only other references
+        # a job started from the old one's finished handler may already own self.thread
+        if self.thread is thread:
+            self.thread = self.job = None
 
     def start_scan(self) -> None:
         dirs = self._dirs()

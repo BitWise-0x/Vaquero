@@ -54,7 +54,7 @@ Pick a folder of reference photos, a folder to scan and a destination, then **Sc
 - **bitwise0x.com theme**: dark surfaces with the sodium amber accent, the same palette as the site
 - **Apple Silicon native**: Core ML execution on the Neural Engine and GPU, with parallel file decoding feeding the model
 - **Model on first launch**: the face model downloads from the repo's releases with a progress bar; any other InsightFace pack in the models folder appears in the Model dropdown
-- **Updates**: **Check for updates** in the help dialog downloads the latest release's DMG and restarts the app; releases get their DMG from `release-app.sh`
+- **Updates**: **FaceSort > Check for Updates…** (or the help dialog) downloads the latest release's DMG and restarts the app; FaceSort also checks quietly at launch unless that is turned off in **FaceSort > Settings…** (⌘,). Releases get their DMG from `release-app.sh`
 - **Standalone app**: `build.sh` produces `FaceSort.app`
 - **Built-in help**: the **?** button (top right) opens a guide to every setting, the buttons and how to read the results
 
@@ -160,7 +160,7 @@ Scores from 0.35 to 0.45 are where real but hard shots and lookalikes overlap. T
 
 ## Output Files
 
-Logs and scan reports go to `~/Library/Logs/FaceSort` (**Show logs folder** in the help dialog); the move journal goes to `~/Library/Application Support/FaceSort`:
+Logs and scan reports go to `~/Library/Logs/FaceSort` (**Show logs folder** in the help dialog, or **FaceSort > Settings…**); the move journal goes to `~/Library/Application Support/FaceSort`:
 
 | File | Contents |
 |---|---|

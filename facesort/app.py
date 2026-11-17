@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QSettings, Qt, QThread, Signal
-from PySide6.QtGui import QAction, QCloseEvent, QIcon
+from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -111,7 +111,7 @@ matches on its own. A real match usually matches most of them (13/13); a lookali
 <span style="color:{error}">red</span> an error, <b style="color:{done}">amber</b> a finished scan or move.</p>
 
 <h3>Files</h3>
-<p>In <code>~/Library/Logs/FaceSort</code> (<b>Show logs folder</b> below):<br>
+<p>In <code>~/Library/Logs/FaceSort</code> (<b>Show logs folder</b> below, or <b>FaceSort &gt; Settings</b>):<br>
 <code>facesort-&lt;time&gt;.log</code>: the log of one scan and its move.<br>
 <code>facesort-scan-&lt;time&gt;.csv</code>: every scanned file with its score.</p>
 <p>In <code>~/Library/Application Support/FaceSort</code>:<br>
@@ -119,8 +119,9 @@ matches on its own. A real match usually matches most of them (13/13); a lookali
 <code>models/</code>: the face model, downloaded on first launch.</p>
 
 <h3>Updates</h3>
-<p><b>Check for updates</b> below compares this version with the latest release, then downloads it and
-restarts FaceSort. It uses the GitHub CLI (<code>gh</code>) logged in on this Mac.</p>
+<p><b>Check for updates</b> below, or <b>FaceSort &gt; Check for Updates</b>, compares this version with the latest release, then downloads it and
+restarts FaceSort. It uses the GitHub CLI (<code>gh</code>) logged in on this Mac.
+FaceSort also checks when it opens and asks only when an update exists; turn that off in <b>FaceSort &gt; Settings</b>.</p>
 """
 
 
@@ -134,6 +135,9 @@ class QtLogHandler(logging.Handler, QObject):
     def emit(self, record: logging.LogRecord) -> None:
         self.record_emitted.emit(colorize(record))
 
+
+READY = "Pick the folders, then Scan. Nothing moves until Execute move."
+AUTO_UPDATE_KEY = "check_updates_on_launch"
 
 # worker signals reach the window through the event loop, so every widget update runs on the main thread;
 # PySide otherwise calls a Python slot directly on the emitting worker thread, and a widget repaint there crashes
@@ -279,12 +283,21 @@ class Window(QMainWindow):
         self.setWindowTitle("FaceSort")
         self.setWindowIcon(QIcon(str(asset("FaceSort.png"))))
         self.settings = QSettings("BitWise", "FaceSort")
-        menu = self.menuBar().addMenu("Help")
-        about = QAction("About FaceSort", self)
-        # macOS moves this into the application menu
-        about.setMenuRole(QAction.MenuRole.AboutRole)
-        about.triggered.connect(self.show_about)
-        menu.addAction(about)
+        # the roles move every item into the macOS application menu; Qt then hides this emptied menu
+        menu = self.menuBar().addMenu("FaceSort")
+        for text, role, keys, slot in (
+            ("About FaceSort", QAction.MenuRole.AboutRole, None, self.show_about),
+            ("Check for Updates…", QAction.MenuRole.ApplicationSpecificRole, None, lambda: self.check_updates()),
+            ("Settings…", QAction.MenuRole.PreferencesRole, QKeySequence.StandardKey.Preferences, self.show_settings),
+            ("Quit FaceSort", QAction.MenuRole.QuitRole, QKeySequence.StandardKey.Quit, self.close),
+        ):
+            action = QAction(text, self)
+            action.setMenuRole(role)
+            if keys:
+                action.setShortcut(keys)
+            action.triggered.connect(slot)
+            menu.addAction(action)
+        self.quiet_update_check = False
         self.results: list[ScanResult] = []
         self.thread: QThread | None = None
         self.job: ScanWorker | MoveWorker | TaskWorker | None = None
@@ -378,7 +391,7 @@ class Window(QMainWindow):
         self.progress = QProgressBar()
         self.progress.setTextVisible(False)  # the status line below carries the counts
         grid.addWidget(self.progress, 6, 0, 1, 3)
-        self.status = QLabel("Pick the folders, then Scan. Nothing moves until Execute move.")
+        self.status = QLabel(READY)
         self.found = QLabel()
         self.found.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         status_row = QHBoxLayout()
@@ -495,8 +508,36 @@ class Window(QMainWindow):
         dialog.exec()
 
     def show_logs(self) -> None:
-        LOG_DIR.mkdir(parents=True, exist_ok=True)
-        subprocess.run(["open", str(LOG_DIR)], check=False)
+        self._reveal(LOG_DIR)
+
+    @staticmethod
+    def _reveal(folder: Path) -> None:
+        folder.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["open", str(folder)], check=False)
+
+    def show_settings(self) -> None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Settings")
+        dialog.setModal(True)
+        layout = QVBoxLayout(dialog)
+        auto = QCheckBox("Check for updates when FaceSort opens")
+        auto.setChecked(self.settings.value(AUTO_UPDATE_KEY, True, type=bool))
+        auto.toggled.connect(lambda on: self.settings.setValue(AUTO_UPDATE_KEY, on))
+        layout.addWidget(auto)
+        folders = QGridLayout()
+        for row, (name, folder) in enumerate((("Logs and scan reports", LOG_DIR), ("Face models", MODELS_DIR))):
+            label = QLabel(f"{name}<br><span style='color:{TIME_COLOR}'>{html.escape(str(folder))}</span>")
+            show = QPushButton("Show")
+            show.clicked.connect(lambda _=False, f=folder: self._reveal(f))
+            folders.addWidget(label, row, 0)
+            folders.addWidget(show, row, 1)
+        folders.setColumnStretch(0, 1)
+        layout.addLayout(folders)
+        close = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        close.rejected.connect(dialog.reject)
+        layout.addWidget(close)
+        dialog.resize(520, 0)
+        dialog.exec()
 
     def ensure_models(self) -> None:
         """First launch: fetch the face model pack from the repo before anything can be scanned."""
@@ -522,19 +563,40 @@ class Window(QMainWindow):
         self._set_busy(False)
         self._done("face detection model installed")
 
-    def check_updates(self) -> None:
-        if remote.running_bundle() is None:
-            QMessageBox.information(self, "Check for updates", "Running from source: update with git pull.")
+    def check_updates(self, quiet: bool = False) -> None:
+        """Look for a newer release. quiet (the launch check) only speaks up when an update exists."""
+        if self.job:
+            if not quiet:
+                QMessageBox.information(self, "Check for updates", "Wait for the current task to finish.")
             return
-        job = TaskWorker(lambda progress, cancelled: remote.release())
+        if remote.running_bundle() is None:
+            if not quiet:
+                QMessageBox.information(self, "Check for updates", "Running from source: update with git pull.")
+            return
+
+        def latest(progress: Callable[[int, int], None], cancelled: Callable[[], bool]) -> remote.Release | None:
+            if not quiet:
+                return remote.release()
+            try:
+                return remote.release()
+            except (RemoteError, OSError) as e:
+                log.info("update check skipped: %s", e)
+                return None
+
+        self.quiet_update_check = quiet
+        job = TaskWorker(latest)
         job.finished.connect(self._on_release_info, QUEUED)
         self._run(job)
         self.status.setText("Checking for updates")
 
-    def _on_release_info(self, rel: remote.Release) -> None:
+    def _on_release_info(self, rel: remote.Release | None) -> None:
         self._set_busy(False)
-        dmgs = [name for name in rel.assets if name.endswith(".dmg")]
-        if rel.version <= parse_version(__version__) or not dmgs:
+        quiet = self.quiet_update_check
+        dmgs = [name for name in rel.assets if name.endswith(".dmg")] if rel else []
+        if rel is None or rel.version <= parse_version(__version__) or not dmgs:
+            if quiet:
+                self.status.setText(READY)
+                return
             self._done(f"FaceSort {__version__} is up to date")
             QMessageBox.information(self, "Check for updates", f"FaceSort {__version__} is the latest version.")
             return
@@ -723,6 +785,8 @@ def main() -> None:
     w = Window()
     w.show()
     w.ensure_models()
+    if w.settings.value(AUTO_UPDATE_KEY, True, type=bool):
+        w.check_updates(quiet=True)
     sys.exit(app.exec())
 
 

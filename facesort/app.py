@@ -21,12 +21,13 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMenuBar,
+    QMainWindow,
     QMessageBox,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
     QSpinBox,
+    QToolButton,
     QWidget,
 )
 
@@ -188,14 +189,13 @@ class MoveWorker(QObject):
             self.failed.emit(str(e))
 
 
-class Window(QWidget):
+class Window(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("FaceSort")
         self.settings = QSettings("BitWise", "FaceSort")
-        # parentless: macOS only turns a parentless QMenuBar (or a QMainWindow's) into the native top-of-screen bar
-        self.menubar = menubar = QMenuBar()
-        settings_menu = menubar.addMenu("Settings")
+        menubar = self.menuBar()
+        self.settings_menu = settings_menu = menubar.addMenu("Settings")
         settings_menu.addSection("If the destination has a file with the same name")
         self.conflict_group = QActionGroup(self)
         saved_conflict = self.settings.value("conflict", Conflict.KEEP_BOTH.value, type=str)
@@ -214,13 +214,17 @@ class Window(QWidget):
         about.setMenuRole(QAction.MenuRole.AboutRole)
         about.triggered.connect(self.show_about)
         menu.addAction(about)
+        settings_menu.addSeparator()
+        settings_menu.addAction(about)
         self.results: list[ScanResult] = []
         self.thread: QThread | None = None
         self.job: ScanWorker | MoveWorker | None = None
         self.journal = base_dir() / "facesort-moves.csv"
         self.file_log: logging.FileHandler | None = None
 
-        grid = QGridLayout(self)
+        central = QWidget()
+        self.setCentralWidget(central)
+        grid = QGridLayout(central)
         self.refs = self._folder_row(grid, 0, "Reference faces", "refs")
         self.source = self._folder_row(grid, 1, "Folder to scan", "source")
         self.dest = self._folder_row(grid, 2, "Move matches to", "dest")
@@ -265,7 +269,12 @@ class Window(QWidget):
         self.move_btn = QPushButton("Execute move")
         self.cancel_btn.setEnabled(False)
         self.move_btn.setEnabled(False)
-        for b in (self.scan_btn, self.cancel_btn, self.move_btn):
+        # the same menu as the menu bar's, in reach without leaving the window
+        self.settings_btn = QToolButton()
+        self.settings_btn.setText("Settings")
+        self.settings_btn.setMenu(settings_menu)
+        self.settings_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        for b in (self.scan_btn, self.cancel_btn, self.move_btn, self.settings_btn):
             b.setMinimumHeight(36)
             buttons.addWidget(b)
         self.scan_btn.clicked.connect(self.start_scan)

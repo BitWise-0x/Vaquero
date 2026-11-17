@@ -131,7 +131,7 @@ flowchart LR
 | Reference faces | | Folder of photos of the person to find |
 | Folder to scan | | Folder searched for that person |
 | Move matches to | | Destination; created if missing |
-| Settings > name conflict | Keep both | A name already in the destination: keep both, the moved file numbered (`IMG_1 2.png`), or overwrite |
+| **Settings** button or menu > name conflict | Keep both | A name already in the destination: keep both, the moved file numbered (`IMG_1 2.png`), or overwrite |
 | Model | `buffalo_l` | Model pack from `models/` |
 | Scan subfolders | off | Also scan subfolders; matches land flat in the destination |
 | Include videos | on | Score `.mov`, `.mp4`, `.m4v`, `.avi`, `.mkv` |

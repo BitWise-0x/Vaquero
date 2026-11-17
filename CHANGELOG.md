@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.13.0 (2026-11-17)
+
+### Features
+
+- Buffalo inside the viewfinder as the app icon; larger header and intro spacing
+  ([`64b9b21`](https://github.com/BitWise-0x/facesort/commit/64b9b21eaae0156903165683049f771623f305d0))
+
+
 ## v0.12.0 (2026-11-17)
 
 ### Features

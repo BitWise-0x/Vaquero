@@ -9,6 +9,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -257,6 +258,26 @@ def colorize(record: logging.LogRecord) -> str:
     return f'<span style="color:{TIME_COLOR}">{stamp}</span>&nbsp; {body}'
 
 
+FILES_AND_FOLDERS_URL = "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders"
+FULL_DISK_ACCESS_URL = "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
+
+
+def blocked_folders(folders: list[Path]) -> list[Path]:
+    """The folders macOS will not let Vaquero list. Reading one is also what makes macOS ask the user.
+
+    A missing or offline folder is not blocked; the folder checks before a scan report it."""
+    blocked = []
+    for folder in folders:
+        try:
+            with os.scandir(folder) as entries:
+                next(entries, None)
+        except PermissionError:
+            blocked.append(folder)
+        except OSError:
+            continue
+    return blocked
+
+
 def blocked_message(e: PermissionError) -> str:
     """macOS privacy controls deny a folder with EPERM; say where to allow it instead of the bare errno."""
     where = e.filename or "a folder"
@@ -397,6 +418,8 @@ def migrate_settings(settings: QSettings) -> None:
 
 
 class Window(QMainWindow):
+    access_checked = Signal(list)  # folders macOS blocks, from the launch check's thread
+
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Vaquero")
@@ -824,11 +847,58 @@ class Window(QMainWindow):
         if self.thread is thread:
             self.thread = self.job = None
 
+    def check_access_at_launch(self) -> None:
+        """Touch the saved folders off the main thread: macOS asks now, and a refusal gets the access dialog.
+
+        Off the main thread because an unreachable network share can stall a directory read."""
+        folders = [Path(e.text().strip()).expanduser() for e in (self.refs, self.source, self.dest) if e.text().strip()]
+        if not folders:
+            return
+        self.access_checked.connect(self._on_access_checked, QUEUED)
+        threading.Thread(target=lambda: self.access_checked.emit(blocked_folders(folders)), daemon=True).start()
+
+    def _on_access_checked(self, blocked: list[Path]) -> None:
+        if blocked:
+            self.ask_for_access(blocked)
+
+    def ask_for_access(self, blocked: list[Path]) -> bool:
+        """Walk the user through allowing access; True once every blocked folder opens."""
+        while blocked:
+            box = QMessageBox(self)
+            box.setIcon(QMessageBox.Icon.Warning)
+            box.setWindowTitle("Allow access")
+            box.setText("Vaquero needs your permission to open:")
+            box.setInformativeText(
+                "\n".join(str(b) for b in blocked)
+                + "\n\n1. Click Open Settings.\n2. Turn on Vaquero (or the drive's switch under Vaquero)."
+                "\n3. Come back and click Try Again."
+                "\n\nNot listed there? Use Full Disk Access instead and turn on Vaquero."
+            )
+            settings = box.addButton("Open Settings", QMessageBox.ButtonRole.ActionRole)
+            full_disk = box.addButton("Full Disk Access", QMessageBox.ButtonRole.ActionRole)
+            retry = box.addButton("Try Again", QMessageBox.ButtonRole.AcceptRole)
+            box.addButton(QMessageBox.StandardButton.Cancel)
+            box.setDefaultButton(settings)
+            box.exec()
+            clicked = box.clickedButton()
+            if clicked is settings:
+                QDesktopServices.openUrl(QUrl(FILES_AND_FOLDERS_URL))
+            elif clicked is full_disk:
+                QDesktopServices.openUrl(QUrl(FULL_DISK_ACCESS_URL))
+            elif clicked is not retry:
+                self.status.setText("Waiting for access to " + ", ".join(b.name or str(b) for b in blocked))
+                return False
+            blocked = blocked_folders(blocked)
+        self.status.setText(READY)
+        return True
+
     def start_scan(self) -> None:
         dirs = self._dirs()
         if dirs is None:
             return
         refs, source, dest = dirs
+        if not self.ask_for_access(blocked_folders([refs, source, dest])):
+            return
         pack = self.packs.get(self.model.currentText())
         if pack is None:
             self.status.setText("No face model yet; it downloads on launch. Reopen Vaquero to retry.")
@@ -1063,6 +1133,7 @@ def main() -> None:
     w = Window()
     w.show()
     w.ensure_models()
+    w.check_access_at_launch()
     if w.settings.value(AUTO_UPDATE_KEY, True, type=bool):
         w.check_updates(quiet=True)
     sys.exit(app.exec())

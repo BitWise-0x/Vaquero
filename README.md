@@ -30,7 +30,7 @@
 <br>
 
 <p align="center">
-  <a href="https://github.com/BitWise-0x/Vaquero/releases/latest"><img src="assets/download-button.png" alt="Download for Apple Silicon Macs" width="260"/></a>
+  <a href="https://github.com/BitWise-0x/Vaquero/releases/latest"><img src="assets/download-button.png" alt="Download for Apple Silicon Macs" width="200"/></a>
   <br>
   <sub>macOS 14 or later · <a href="#install">install steps</a></sub>
 </p>
@@ -81,11 +81,25 @@ Vaquero runs on an open-source AI model, right on your machine. No photo, face o
    - **macOS 14**: Control-click (or right-click) Vaquero in Applications, choose **Open**, then **Open** again.
 
    This is needed once. Updates from inside the app open without it.
-4. When you first scan a folder on an external drive, a network share, or in Desktop, Documents or Downloads, macOS asks whether Vaquero may access it. Click **Allow**.
+4. macOS asks once for each kind of place Vaquero opens: external drives, network shares, and the Desktop, Documents and Downloads folders. Click **Allow**. If you clicked Don't Allow, Vaquero shows a window with an **Open Settings** button and the steps to turn it back on.
 
 Requires an Apple Silicon Mac with macOS 14 or later. The first launch downloads the face model (about 290 MB).
 
 Pick the reference photos, a folder to scan and a destination, then **Scan**. Check the matches, choose **Copy** or **Move**, then **Execute**.
+
+<br>
+
+## Permissions
+
+| Vaquero | Needs |
+|---|---|
+| Downloads the face model, checks for updates | Nothing |
+| Keeps its settings, logs and model | Nothing |
+| Reads photos on an external drive or network share, or in Desktop, Documents or Downloads | A one-time **Allow** for that place |
+| Copies or moves the matches | The same **Allow** for the destination |
+| Reads photos anywhere else in your home folder, such as Pictures | Nothing |
+
+Vaquero checks the folders you picked when it opens and before each scan, so macOS asks right away rather than halfway through.
 
 <br>
 

@@ -42,3 +42,14 @@ def test_permission_error_says_where_to_allow_access() -> None:
     msg = ui.blocked_message(PermissionError(1, "Operation not permitted", "/Volumes/Drive/faces"))
     assert "/Volumes/Drive/faces" in msg
     assert "Privacy & Security" in msg
+
+
+def test_blocked_folders_lists_only_unreadable_ones(tmp_path: Path) -> None:
+    open_dir, locked = tmp_path / "open", tmp_path / "locked"
+    open_dir.mkdir()
+    locked.mkdir()
+    locked.chmod(0)
+    try:
+        assert ui.blocked_folders([open_dir, locked, tmp_path / "missing"]) == [locked]
+    finally:
+        locked.chmod(0o755)

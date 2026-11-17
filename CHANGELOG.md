@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v0.20.1 (2026-11-17)
+
+### Bug Fixes
+
+- Three to five reference photos are enough
+  ([`f77518d`](https://github.com/BitWise-0x/Vaquero/commit/f77518d356e4220e1ead43e042afa4d1c3ef0000))
+
+### Continuous Integration
+
+- Build the DMG on macos-latest; manual run can build it for an existing tag
+  ([`c52801b`](https://github.com/BitWise-0x/Vaquero/commit/c52801b83a517899edb455e8c5c40e60cf5959d0))
+
+### Documentation
+
+- Amber ONNX Runtime badge, intro on three short lines, screenshots without the offscreen menu strip
+  ([`06c027b`](https://github.com/BitWise-0x/Vaquero/commit/06c027b289407bdc5079e07d14d90400f75a5d30))
+
+- Larger README title
+  ([`43b69bc`](https://github.com/BitWise-0x/Vaquero/commit/43b69bc45a4bb45ac33982e05ee70a3521ce7c93))
+
+
 ## v0.20.0 (2026-11-17)
 
 ### Features

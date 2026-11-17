@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Apple Silicon"/>
   <br>
   <br>
-  <code><strong>Vaquero</strong></code>
+  Vaquero
 </h1>
 
 <p align="center">

@@ -48,7 +48,7 @@
 
 - **A folder per person**: every photo of a family member, a friend or yourself, out of years of backups
 - **One person from a shared dump**: an event, a trip or a group chat export
-- **Reference sets**: every usable photo of a subject, for an album, a slideshow or a face-swap folder
+- **Albums and slideshows**: every usable photo of one person, ready to use
 - **Clean-up**: move someone's photos out of a mixed folder, or copy them and leave the originals
 
 Three to five clear photos of the person are enough. No training.

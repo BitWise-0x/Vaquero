@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.18.2 (2026-11-17)
+
+### Bug Fixes
+
+- Slogan Find and round up every photo, by face.; README says copies, moves or organizes
+  ([`6d29731`](https://github.com/BitWise-0x/vaquero/commit/6d2973166653895244bd472558c3ddd727e131f9))
+
+
 ## v0.18.1 (2026-11-17)
 
 ### Bug Fixes

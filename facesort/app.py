@@ -179,7 +179,7 @@ class QtLogHandler(logging.Handler, QObject):
         self.record_emitted.emit(colorize(record), getattr(record, "section", False))
 
 
-INTRO = "Pick a face source, scan, execute."
+INTRO = "Round up every photo, sorted by face."
 READY = "Ready"
 AUTO_UPDATE_KEY = "check_updates_on_launch"
 

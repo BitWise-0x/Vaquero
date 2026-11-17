@@ -18,6 +18,10 @@
 </p>
 
 <p align="center">
+  <strong>Round up every photo, sorted by face.</strong>
+</p>
+
+<p align="center">
   Take control of your photo library by face: point FaceSort at a few photos of someone, and it finds every photo and video of them in a folder of thousands, then copies or moves them where they belong.<br>
   Single-window macOS app running SCRFD detection and ArcFace recognition on the Apple Neural Engine through Core ML. Everything runs on your Mac; no photo leaves it.
 </p>

@@ -1,4 +1,7 @@
-"""Draws the FaceSort app icon and writes assets/FaceSort.icns (run: uv run python scripts/make_icon.py)."""
+"""Draws the FaceSort app icon: assets/FaceSort.icns for the bundle, assets/FaceSort.png for the window header.
+
+Run: uv run python scripts/make_icon.py
+"""
 
 import subprocess
 import sys
@@ -10,6 +13,8 @@ from PySide6.QtGui import QBrush, QColor, QGuiApplication, QImage, QLinearGradie
 
 SIZE = 1024
 OUT = Path(__file__).resolve().parent.parent / "assets" / "FaceSort.icns"
+PNG = OUT.with_suffix(".png")
+PNG_SIZE = 256
 
 
 def draw() -> QImage:
@@ -74,7 +79,10 @@ def main() -> None:
                 )
         OUT.parent.mkdir(exist_ok=True)
         subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(OUT)], check=True)
-    print(f"wrote {OUT}")
+    master.scaled(PNG_SIZE, PNG_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation).save(
+        str(PNG)
+    )
+    print(f"wrote {OUT} and {PNG}")
 
 
 if __name__ == "__main__":

@@ -55,7 +55,7 @@ Pick a folder of reference photos, a folder to scan and a destination, then **Sc
 - **Model on first launch**: the face model downloads from the repo's releases with a progress bar; any other InsightFace pack in the models folder appears in the Model dropdown
 - **Updates**: **Check for updates** in the help dialog downloads the latest release's DMG and restarts the app; releases get their DMG from `release-app.sh`
 - **Standalone app**: `build.sh` produces `FaceSort.app`
-- **Built-in help**: the **?** button (top left) opens a guide to every setting, the buttons and how to read the results
+- **Built-in help**: the **?** button (top right) opens a guide to every setting, the buttons and how to read the results
 
 <br>
 
@@ -217,7 +217,7 @@ uv run facesort    # run from source
 uv run pytest      # tests
 ./build.sh         # dist/FaceSort.app and dist/FaceSort-<version>-arm64.dmg
 ./release-app.sh   # after a release: build at the release tag and attach the DMG to that GitHub release
-uv run python scripts/make_icon.py   # redraw assets/FaceSort.icns
+uv run python scripts/make_icon.py   # redraw assets/FaceSort.icns and FaceSort.png
 ```
 
 Detection (SCRFD) and recognition (ArcFace) run directly on the ONNX models, with no dependency on the `insightface` Python package.

@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QSettings, Qt, QThread, Signal
-from PySide6.QtGui import QAction, QCloseEvent
+from PySide6.QtGui import QAction, QCloseEvent, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -49,6 +49,12 @@ DEFAULT_THRESHOLD = 0.35
 # matches below this are lookalike territory: logged as "review" so they get a look before Execute move
 REVIEW_BELOW = 0.45
 CLOSE_WAIT_MS = 30_000
+
+
+def asset(name: str) -> Path:
+    """A file from assets/: bundled into the app by build.sh, read from the repo when run from source."""
+    root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+    return root / "assets" / name
 
 
 def model_packs() -> dict[str, Path]:
@@ -128,6 +134,10 @@ class QtLogHandler(logging.Handler, QObject):
     def emit(self, record: logging.LogRecord) -> None:
         self.record_emitted.emit(colorize(record))
 
+
+# worker signals reach the window through the event loop, so every widget update runs on the main thread;
+# PySide otherwise calls a Python slot directly on the emitting worker thread, and a widget repaint there crashes
+QUEUED = Qt.ConnectionType.QueuedConnection
 
 # mid-tone colors stay readable on both the light and dark macOS appearance
 LEVEL_COLORS = {logging.WARNING: "#d08700", logging.ERROR: "#e5484d"}
@@ -268,6 +278,7 @@ class Window(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("FaceSort")
+        self.setWindowIcon(QIcon(str(asset("FaceSort.png"))))
         self.settings = QSettings("BitWise", "FaceSort")
         menu = self.menuBar().addMenu("Help")
         about = QAction("About FaceSort", self)
@@ -280,18 +291,25 @@ class Window(QMainWindow):
         self.job: ScanWorker | MoveWorker | TaskWorker | None = None
         self.journal = SUPPORT_DIR / "facesort-moves.csv"
         self.file_log: logging.FileHandler | None = None
+        self.bytes_text = ""
 
         central = QWidget()
         self.setCentralWidget(central)
         outer = QVBoxLayout(central)
         top = QHBoxLayout()
+        logo = QLabel()
+        logo.setPixmap(QIcon(str(asset("FaceSort.png"))).pixmap(40, 40))
+        title = QLabel(f"<span style='font-size:18pt; font-weight:600'>FaceSort</span>"
+                       f"&nbsp;&nbsp;<span style='color:{TIME_COLOR}'>{__version__}</span>")
+        top.addWidget(logo)
+        top.addWidget(title)
+        top.addStretch()
         help_btn = QToolButton()
         help_btn.setText("?")
         help_btn.setToolTip("Help: what FaceSort does and what each setting means")
         help_btn.setFixedSize(32, 32)
         help_btn.clicked.connect(self.show_help)
         top.addWidget(help_btn)
-        top.addStretch()
         outer.addLayout(top)
         grid = QGridLayout()
         outer.addLayout(grid, 1)
@@ -445,10 +463,10 @@ class Window(QMainWindow):
         # direct: QThread.quit is thread-safe, and a queued call would stall while closeEvent blocks in wait()
         job.finished.connect(thread.quit, Qt.ConnectionType.DirectConnection)
         job.failed.connect(thread.quit, Qt.ConnectionType.DirectConnection)
-        job.failed.connect(self._on_failed)
+        job.failed.connect(self._on_failed, QUEUED)
         thread.finished.connect(job.deleteLater)
         thread.finished.connect(thread.deleteLater)
-        thread.finished.connect(self._on_thread_finished)
+        thread.finished.connect(self._on_thread_finished, QUEUED)
         self.thread, self.job = thread, job
         self.progress.setValue(0)
         self._set_busy(True)
@@ -482,18 +500,17 @@ class Window(QMainWindow):
         if self.packs:
             return
         job = TaskWorker(remote.ensure_models)
-        job.progress.connect(
-            lambda done, total: self._on_bytes(done, total, "Downloading face detection model, please wait...")
-        )
-        job.finished.connect(self._on_models_ready)
+        self.bytes_text = "Downloading face detection model, please wait..."
+        job.progress.connect(self._on_bytes, QUEUED)
+        job.finished.connect(self._on_models_ready, QUEUED)
         self._run(job)
         self.status.setText("Downloading face detection model, please wait...")
         log.info("first launch: downloading the %s model pack", DEFAULT_PACK)
 
-    def _on_bytes(self, done: int, total: int, text: str) -> None:
+    def _on_bytes(self, done: int, total: int) -> None:
         self.progress.setMaximum(max(total // 1024, 1))
         self.progress.setValue(done // 1024)
-        self.status.setText(f"{text} {done / 1e6:.0f} of {total / 1e6:.0f} MB")
+        self.status.setText(f"{self.bytes_text} {done / 1e6:.0f} of {total / 1e6:.0f} MB")
 
     def _on_models_ready(self, _: object) -> None:
         self.packs = model_packs()
@@ -507,7 +524,7 @@ class Window(QMainWindow):
             QMessageBox.information(self, "Check for updates", "Running from source: update with git pull.")
             return
         job = TaskWorker(lambda progress, cancelled: remote.release())
-        job.finished.connect(self._on_release_info)
+        job.finished.connect(self._on_release_info, QUEUED)
         self._run(job)
         self.status.setText("Checking for updates")
 
@@ -536,8 +553,9 @@ class Window(QMainWindow):
             return staged
 
         job = TaskWorker(fetch)
-        job.progress.connect(lambda done, total: self._on_bytes(done, total, f"Downloading FaceSort {rel.tag}..."))
-        job.finished.connect(self._on_update_staged)
+        self.bytes_text = f"Downloading FaceSort {rel.tag}..."
+        job.progress.connect(self._on_bytes, QUEUED)
+        job.finished.connect(self._on_update_staged, QUEUED)
         self._run(job)
 
     def _on_update_staged(self, staged: Path) -> None:
@@ -591,8 +609,8 @@ class Window(QMainWindow):
             self.frames.value(),
             report,
         )
-        job.progress.connect(self._on_progress)
-        job.finished.connect(self._on_finished)
+        job.progress.connect(self._on_progress, QUEUED)
+        job.finished.connect(self._on_finished, QUEUED)
         self.live_found = 0
         self._show_found(0)
         self._run(job)
@@ -666,8 +684,8 @@ class Window(QMainWindow):
         conflict = Conflict(self.conflict.currentData())
         log.info("name conflicts: %s", "keep both" if conflict is Conflict.KEEP_BOTH else "overwrite")
         job = MoveWorker([r.path for r in matches], dest, self.journal, conflict)
-        job.progress.connect(self._on_move_progress)
-        job.finished.connect(self._on_move_finished)
+        job.progress.connect(self._on_move_progress, QUEUED)
+        job.finished.connect(self._on_move_finished, QUEUED)
         self._run(job)
 
     def _on_move_progress(self, done: int, total: int) -> None:

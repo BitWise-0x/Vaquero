@@ -164,7 +164,8 @@ class QtLogHandler(logging.Handler, QObject):
         self.record_emitted.emit(colorize(record), getattr(record, "section", False))
 
 
-READY = "Pick the folders, then Scan. Nothing moves until Execute move."
+INTRO = "Pick the folders, then Scan. Nothing moves or copies until Execute."
+READY = "Ready"
 AUTO_UPDATE_KEY = "check_updates_on_launch"
 
 # worker signals reach the window through the event loop, so every widget update runs on the main thread;
@@ -384,6 +385,9 @@ class Window(QMainWindow):
         help_btn.clicked.connect(self.show_help)
         top.addWidget(help_btn)
         outer.addLayout(top)
+        intro = QLabel(INTRO)
+        intro.setStyleSheet(f"color: {theme.MUTED}")
+        outer.addWidget(intro)
         folders = QGroupBox("Folders")
         grid = QGridLayout(folders)
         self.refs = self._folder_row(grid, 0, "Reference faces", "refs")

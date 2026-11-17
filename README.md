@@ -26,8 +26,7 @@
 
 ```sh
 uv sync
-mkdir -p models/buffalo_l   # then add det_10g.onnx and w600k_r50.onnx, see Models
-uv run facesort
+uv run facesort    # downloads the face model on first launch, see Models
 ```
 
 Pick a folder of reference photos, a folder to scan and a destination, then **Scan**. Review the match count and log, adjust the threshold if needed, then **Execute move**.
@@ -47,8 +46,9 @@ Pick a folder of reference photos, a folder to scan and a destination, then **Sc
 - **Progress and cancel**: scan and move both run in the background with a progress bar, a DONE or CANCELLED status line, and a Cancel that stops cleanly after the current file
 - **Readable logs**: color-coded log view (matches, warnings, errors, completions), and a fresh log file for every scan
 - **Apple Silicon native**: Core ML execution on the Neural Engine and GPU, with parallel file decoding feeding the model
-- **Model packs**: any InsightFace pack dropped into `models/` appears in the Model dropdown
-- **Standalone app**: `build.sh` produces `FaceSort.app` with the models bundled inside
+- **Model on first launch**: the face model downloads from the repo's releases with a progress bar; any other InsightFace pack in the models folder appears in the Model dropdown
+- **Updates**: **Check for updates** in the help dialog downloads the latest release and restarts the app
+- **Standalone app**: `build.sh` produces `FaceSort.app`
 - **Built-in help**: the **?** button (top left) opens a guide to every setting, the buttons and how to read the results
 
 <br>
@@ -133,7 +133,7 @@ flowchart LR
 | Folder to scan | | Folder searched for that person |
 | Move matches to | | Destination; created if missing |
 | Name exists | Keep both | A name already in the destination: keep both, the moved file numbered (`IMG_1 2.png`), or overwrite |
-| Model | `buffalo_l` | Model pack from `models/` |
+| Model | `buffalo_l` | Installed model pack |
 | Scan subfolders | off | Also scan subfolders; matches land flat in the destination |
 | Include videos | on | Score `.mov`, `.mp4`, `.m4v`, `.avi`, `.mkv` |
 | Frames | `10` | Frames sampled per video; scan time per video grows with it |
@@ -153,7 +153,7 @@ Scores from 0.35 to 0.45 are where real but hard shots and lookalikes overlap. T
 
 ## Output Files
 
-Written next to `FaceSort.app` (the repo root when run from source):
+Logs and scan reports go to `~/Library/Logs/FaceSort` (**Show logs folder** in the help dialog); the move journal goes to `~/Library/Application Support/FaceSort`:
 
 | File | Contents |
 |---|---|
@@ -165,7 +165,9 @@ Written next to `FaceSort.app` (the repo root when run from source):
 
 ## Models
 
-`models/<pack>/` holds InsightFace ONNX packs. It is not committed: the files are large, and the InsightFace pretrained weights are licensed for non-commercial research use only. The app reads models only from this folder (and the copy bundled into the `.app`).
+Model packs live in `~/Library/Application Support/FaceSort/models/<pack>/`; when run from source, the repo's `models/<pack>/` is read too. Neither is committed: the files are large, and the InsightFace pretrained weights are licensed for non-commercial research use only.
+
+On first launch, with no pack installed, the app downloads `buffalo_l.zip` from the repo's `models-buffalo_l` release through the GitHub CLI and unpacks it there, showing "Downloading face detection model, please wait..." with a progress bar. Scanning waits until it finishes.
 
 A pack needs a detector (`det_*` or `scrfd*`) and a recognizer (`w600k*` or `glintr*`); other files are ignored.
 
@@ -173,7 +175,7 @@ A pack needs a detector (`det_*` or `scrfd*`) and a recognizer (`w600k*` or `gli
 |---|---|---|---|
 | `buffalo_l` | `det_10g.onnx`, `w600k_r50.onnx` | 183 MB | ArcFace R50, WebFace600K |
 
-To set up `buffalo_l`, extract those two files from the InsightFace [`buffalo_l.zip`](https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip) release into `models/buffalo_l/`.
+The two files come from the InsightFace [`buffalo_l.zip`](https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip) release.
 
 <br>
 
@@ -195,7 +197,7 @@ Decoding the same photos took 3.05 s, more than inference, so files decode on a 
 
 - macOS on Apple Silicon
 - Python 3.12 and [uv](https://docs.astral.sh/uv/)
-- An InsightFace model pack in `models/`
+- The GitHub CLI (`gh`), logged in with access to this repository, for the first-launch model download and updates
 
 <br>
 
@@ -205,7 +207,7 @@ Decoding the same photos took 3.05 s, more than inference, so files decode on a 
 uv sync
 uv run facesort    # run from source
 uv run pytest      # tests
-./build.sh         # dist/FaceSort.app with models/ bundled
+./build.sh         # dist/FaceSort.app
 ```
 
 Detection (SCRFD) and recognition (ArcFace) run directly on the ONNX models, with no dependency on the `insightface` Python package.
@@ -229,7 +231,7 @@ A release sets the version in `pyproject.toml` and `facesort/__init__.py`, reloc
 
 ## Troubleshooting
 
-- **"No model pack found"**: `models/` is empty or a pack is missing its detector or recognizer. See [Models](#models).
+- **Model download fails on first launch**: check `gh auth status`, then reopen FaceSort. See [Models](#models).
 - **A reference photo was dropped**: its largest face is someone else. Crop it to the right person or remove it.
 - **"Reference has no face"**: no face was found even on the padded retry, usually a profile, a heavily obscured face, or a very small one. Replace it with a clearer photo.
 - **Expected matches missing**: open the scan CSV, sort by score, and lower the threshold to just below the missed files.

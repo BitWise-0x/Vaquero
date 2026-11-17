@@ -5,7 +5,11 @@ from __future__ import annotations
 import csv
 import html
 import logging
+import os
+import subprocess
 import sys
+import tempfile
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
@@ -35,7 +39,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from facesort import __version__
+from facesort import __version__, remote
+from facesort.remote import DEFAULT_PACK, LOG_DIR, MODELS_DIR, SUPPORT_DIR, RemoteError, parse_version
 from facesort.engine import DEFAULT_VIDEO_FRAMES, Conflict, FaceMatcher, ScanResult, list_media, move_matches, pack_models, scan
 
 log = logging.getLogger("facesort")
@@ -44,25 +49,13 @@ DEFAULT_THRESHOLD = 0.35
 # matches below this are lookalike territory: logged as "review" so they get a look before Execute move
 REVIEW_BELOW = 0.45
 CLOSE_WAIT_MS = 30_000
-DEFAULT_PACK = "buffalo_l"
-
-
-def base_dir() -> Path:
-    """Folder holding the executable: next to the .app bundle when frozen, the repo root otherwise."""
-    if getattr(sys, "frozen", False):
-        exe = Path(sys.executable).resolve()
-        for parent in exe.parents:
-            if parent.suffix == ".app":
-                return parent.parent
-        return exe.parent
-    return Path(__file__).resolve().parent.parent
 
 
 def model_packs() -> dict[str, Path]:
-    """Model packs bundled inside the app, then any in a models/ folder next to it (later wins)."""
-    roots = [base_dir() / "models"]
-    if bundled := getattr(sys, "_MEIPASS", None):
-        roots.insert(0, Path(bundled) / "models")
+    """Installed model packs, plus the repo's models/ when run from source (later wins)."""
+    roots = [MODELS_DIR]
+    if not getattr(sys, "frozen", False):
+        roots.append(Path(__file__).resolve().parent.parent / "models")
     packs: dict[str, Path] = {}
     for root in roots:
         if root.is_dir():
@@ -110,10 +103,17 @@ matches on its own. A real match usually matches most of them (13/13); a lookali
 <span style="color:#d08700">amber</span> a <i>review</i> match (score below {review:.2f}, where lookalikes appear) or a warning,
 <span style="color:#e5484d">red</span> an error, <b style="color:#0090ff">blue</b> a finished scan or move.</p>
 
-<h3>Files written next to the app</h3>
-<p><code>facesort-&lt;time&gt;.log</code>: the log of one scan and its move.<br>
-<code>facesort-scan-&lt;time&gt;.csv</code>: every scanned file with its score.<br>
-<code>facesort-moves.csv</code>: every moved file's old and new location, for undoing a move.</p>
+<h3>Files</h3>
+<p>In <code>~/Library/Logs/FaceSort</code> (<b>Show logs folder</b> below):<br>
+<code>facesort-&lt;time&gt;.log</code>: the log of one scan and its move.<br>
+<code>facesort-scan-&lt;time&gt;.csv</code>: every scanned file with its score.</p>
+<p>In <code>~/Library/Application Support/FaceSort</code>:<br>
+<code>facesort-moves.csv</code>: every moved file's old and new location, for undoing a move.<br>
+<code>models/</code>: the face model, downloaded on first launch.</p>
+
+<h3>Updates</h3>
+<p><b>Check for updates</b> below compares this version with the latest release, then downloads it and
+restarts FaceSort. It uses the GitHub CLI (<code>gh</code>) logged in on this Mac.</p>
 """
 
 
@@ -240,6 +240,29 @@ class MoveWorker(QObject):
             self.failed.emit(str(e))
 
 
+class TaskWorker(QObject):
+    """Runs fn(progress, cancelled) on a worker thread: model download, update check, update download."""
+
+    progress = Signal(int, int)
+    finished = Signal(object)
+    failed = Signal(str)
+
+    def __init__(self, fn: Callable[[Callable[[int, int], None], Callable[[], bool]], object]) -> None:
+        super().__init__()
+        self.fn = fn
+        self._cancel = False
+
+    def cancel(self) -> None:
+        self._cancel = True
+
+    def run(self) -> None:
+        try:
+            self.finished.emit(self.fn(self.progress.emit, lambda: self._cancel))
+        except (RemoteError, OSError, subprocess.CalledProcessError) as e:
+            log.error("%s", e)
+            self.failed.emit(str(e))
+
+
 class Window(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -253,8 +276,8 @@ class Window(QMainWindow):
         menu.addAction(about)
         self.results: list[ScanResult] = []
         self.thread: QThread | None = None
-        self.job: ScanWorker | MoveWorker | None = None
-        self.journal = base_dir() / "facesort-moves.csv"
+        self.job: ScanWorker | MoveWorker | TaskWorker | None = None
+        self.journal = SUPPORT_DIR / "facesort-moves.csv"
         self.file_log: logging.FileHandler | None = None
 
         central = QWidget()
@@ -406,7 +429,7 @@ class Window(QMainWindow):
         self.cancel_btn.setEnabled(busy)
         self.move_btn.setEnabled(not busy and bool(self._matches()))
 
-    def _run(self, job: ScanWorker | MoveWorker) -> None:
+    def _run(self, job: ScanWorker | MoveWorker | TaskWorker) -> None:
         """Run job on a fresh thread; the thread and job are deleted once it ends."""
         thread = QThread()
         job.moveToThread(thread)
@@ -434,9 +457,87 @@ class Window(QMainWindow):
         layout.addWidget(text)
         close = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         close.rejected.connect(dialog.reject)
+        updates = close.addButton("Check for updates", QDialogButtonBox.ButtonRole.ActionRole)
+        logs = close.addButton("Show logs folder", QDialogButtonBox.ButtonRole.ActionRole)
+        updates.clicked.connect(lambda: (dialog.accept(), self.check_updates()))
+        logs.clicked.connect(self.show_logs)
         layout.addWidget(close)
         dialog.resize(620, 640)
         dialog.exec()
+
+    def show_logs(self) -> None:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["open", str(LOG_DIR)], check=False)
+
+    def ensure_models(self) -> None:
+        """First launch: fetch the face model pack from the repo before anything can be scanned."""
+        if self.packs:
+            return
+        job = TaskWorker(remote.ensure_models)
+        job.progress.connect(
+            lambda done, total: self._on_bytes(done, total, "Downloading face detection model, please wait...")
+        )
+        job.finished.connect(self._on_models_ready)
+        self._run(job)
+        self.status.setText("Downloading face detection model, please wait...")
+        log.info("first launch: downloading the %s model pack", DEFAULT_PACK)
+
+    def _on_bytes(self, done: int, total: int, text: str) -> None:
+        self.progress.setMaximum(max(total // 1024, 1))
+        self.progress.setValue(done // 1024)
+        self.status.setText(f"{text} {done / 1e6:.0f} of {total / 1e6:.0f} MB")
+
+    def _on_models_ready(self, _: object) -> None:
+        self.packs = model_packs()
+        self.model.clear()
+        self.model.addItems(list(self.packs))
+        self._set_busy(False)
+        self._done("face detection model installed")
+
+    def check_updates(self) -> None:
+        if remote.running_bundle() is None:
+            QMessageBox.information(self, "Check for updates", "Running from source: update with git pull.")
+            return
+        job = TaskWorker(lambda progress, cancelled: remote.release())
+        job.finished.connect(self._on_release_info)
+        self._run(job)
+        self.status.setText("Checking for updates")
+
+    def _on_release_info(self, rel: remote.Release) -> None:
+        self._set_busy(False)
+        dmgs = [name for name in rel.assets if name.endswith(".dmg")]
+        if rel.version <= parse_version(__version__) or not dmgs:
+            self._done(f"FaceSort {__version__} is up to date")
+            QMessageBox.information(self, "Check for updates", f"FaceSort {__version__} is the latest version.")
+            return
+        size = rel.assets[dmgs[0]]
+        answer = QMessageBox.question(
+            self,
+            "Update available",
+            f"FaceSort {rel.tag.lstrip('v')} is available (you have {__version__}).\n\n"
+            f"Download it ({size / 1e6:.0f} MB) and restart?",
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            self.status.setText(f"Update {rel.tag} skipped")
+            return
+
+        def fetch(progress: Callable[[int, int], None], cancelled: Callable[[], bool]) -> Path:
+            workdir = Path(tempfile.mkdtemp(prefix="facesort-update-"))
+            dmg = remote.download(rel.tag, dmgs[0], size, workdir, progress, cancelled)
+            return remote.stage_update(dmg, workdir)
+
+        job = TaskWorker(fetch)
+        job.progress.connect(lambda done, total: self._on_bytes(done, total, f"Downloading FaceSort {rel.tag}..."))
+        job.finished.connect(self._on_update_staged)
+        self._run(job)
+
+    def _on_update_staged(self, staged: Path) -> None:
+        bundle = remote.running_bundle()
+        if bundle is None:
+            return
+        log.info("installing %s over %s and restarting", staged.name, bundle)
+        remote.install_and_relaunch(staged, bundle, os.getpid())
+        QApplication.quit()
 
     def show_about(self) -> None:
         QMessageBox.about(
@@ -460,15 +561,16 @@ class Window(QMainWindow):
         refs, source, dest = dirs
         pack = self.packs.get(self.model.currentText())
         if pack is None:
-            self.status.setText("No model pack found; put one in a models/ folder next to the app")
+            self.status.setText("No face model yet; it downloads on launch. Reopen FaceSort to retry.")
             return
         self.settings.setValue("videos", self.videos.isChecked())
         self.settings.setValue("subfolders", self.subfolders.isChecked())
         self.settings.setValue("frames", self.frames.value())
         self.results = []
         stamp = f"{datetime.now():%Y%m%d-%H%M%S}"
-        self._start_log(base_dir() / f"facesort-{stamp}.log")
-        report = base_dir() / f"facesort-scan-{stamp}.csv"
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        self._start_log(LOG_DIR / f"facesort-{stamp}.log")
+        report = LOG_DIR / f"facesort-scan-{stamp}.csv"
         log.info("scan report: %s", report)
         job = ScanWorker(
             pack,
@@ -550,6 +652,7 @@ class Window(QMainWindow):
         if dirs is None or not matches:
             return
         dest = dirs[2]
+        self.journal.parent.mkdir(parents=True, exist_ok=True)
         log.info("moving %d files to %s (journal %s)", len(matches), dest, self.journal)
         conflict = Conflict(self.conflict.currentData())
         log.info("name conflicts: %s", "keep both" if conflict is Conflict.KEEP_BOTH else "overwrite")
@@ -588,6 +691,7 @@ def main() -> None:
     app = QApplication(sys.argv)
     w = Window()
     w.show()
+    w.ensure_models()
     sys.exit(app.exec())
 
 

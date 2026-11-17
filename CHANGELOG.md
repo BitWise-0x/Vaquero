@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v0.14.1 (2026-11-17)
+
+### Bug Fixes
+
+- Shorter intro line
+  ([`53ce1aa`](https://github.com/BitWise-0x/facesort/commit/53ce1aae8c26cd7c5c4c9c55ddbdfe7fa4bd7b4f))
+
+### Documentation
+
+- Results screenshot shows the whole log, buffalo banner included
+  ([`cd728f9`](https://github.com/BitWise-0x/facesort/commit/cd728f990c57d1108f93d6be4b38823921a7e569))
+
+- Screenshots at 0.14.0
+  ([`24dc679`](https://github.com/BitWise-0x/facesort/commit/24dc679f5dfd8cca17ccf13605cdbd85bb37415b))
+
+
 ## v0.14.0 (2026-11-17)
 
 ### Documentation

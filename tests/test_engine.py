@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from facesort.engine import (
+from vaquero.engine import (
     Conflict,
     Transfer,
     list_media,
@@ -100,12 +100,12 @@ def test_copy_keeps_the_source(tmp_path: Path) -> None:
 
 
 MODEL_DIR = Path(__file__).resolve().parent.parent / "models" / "buffalo_l"
-TIGHT_CROP = os.environ.get("FACESORT_TIGHT_CROP_SAMPLE")
+TIGHT_CROP = os.environ.get("VAQUERO_TIGHT_CROP_SAMPLE")
 
 
-@pytest.mark.skipif(not (MODEL_DIR.is_dir() and TIGHT_CROP), reason="needs models/buffalo_l and FACESORT_TIGHT_CROP_SAMPLE")
+@pytest.mark.skipif(not (MODEL_DIR.is_dir() and TIGHT_CROP), reason="needs models/buffalo_l and VAQUERO_TIGHT_CROP_SAMPLE")
 def test_face_filling_the_frame_is_found() -> None:
-    from facesort.engine import FaceMatcher, read_image
+    from vaquero.engine import FaceMatcher, read_image
 
     img = read_image(Path(TIGHT_CROP))
     assert img is not None
@@ -113,7 +113,7 @@ def test_face_filling_the_frame_is_found() -> None:
 
 
 def test_parse_version() -> None:
-    from facesort.remote import parse_version
+    from vaquero.remote import parse_version
 
     assert parse_version("v0.10.2") > parse_version("0.9.9")
     assert parse_version("v1.2.3-beta.1") == (1, 2, 3)

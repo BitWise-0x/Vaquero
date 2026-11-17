@@ -1,6 +1,6 @@
 # Versions every push to main from Conventional Commits: fix and perf a patch, feat a minor (a BREAKING CHANGE
 # stays a minor while the version is 0.x). python-semantic-release sets the version in pyproject.toml and
-# facesort/__init__.py, relocks uv.lock, writes CHANGELOG.md, commits them as chore(release), tags vX.Y.Z and
+# vaquero/__init__.py, relocks uv.lock, writes CHANGELOG.md, commits them as chore(release), tags vX.Y.Z and
 # creates the GitHub release with the notes. A push with no fix, perf or feat commit releases nothing.
 # Nothing is tagged by hand. The app is built locally (build.sh), not here.
 name: Release

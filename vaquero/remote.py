@@ -1,4 +1,4 @@
-"""Where FaceSort keeps its files, and what it fetches from its GitHub repository (models, app updates).
+"""Where Vaquero keeps its files, and what it fetches from its GitHub repository (models, app updates).
 
 The repository is private, so downloads go through the GitHub CLI and the account it is logged in with.
 """
@@ -19,18 +19,22 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-log = logging.getLogger("facesort")
+log = logging.getLogger("vaquero")
 
 REPO = "BitWise-0x/facesort"
 MODELS_TAG = "models-buffalo_l"
 MODELS_ASSET = "buffalo_l.zip"
 DEFAULT_PACK = "buffalo_l"
 
-LOG_DIR = Path.home() / "Library" / "Logs" / "FaceSort"
-SUPPORT_DIR = Path.home() / "Library" / "Application Support" / "FaceSort"
+LOG_DIR = Path.home() / "Library" / "Logs" / "Vaquero"
+SUPPORT_DIR = Path.home() / "Library" / "Application Support" / "Vaquero"
 MODELS_DIR = SUPPORT_DIR / "models"
 # partial downloads live here, outside any temp folder, so quitting mid-download resumes on the next launch
 DOWNLOADS_DIR = SUPPORT_DIR / "downloads"
+JOURNAL = SUPPORT_DIR / "vaquero-moves.csv"
+# the app's earlier name: its folders, journal and settings carry over on first launch
+LEGACY_NAME = "FaceSort"
+LEGACY_JOURNAL = "facesort-moves.csv"
 CHUNK = 1 << 20
 
 # a Finder-launched app gets a bare PATH without Homebrew
@@ -174,7 +178,7 @@ def _digest_ok(path: Path, asset: Asset) -> bool:
 
 def ensure_models(progress: Callable[[int, int], None], cancelled: Callable[[], bool] = lambda: False) -> Path:
     """Download and unpack the default model pack into MODELS_DIR unless it is already there."""
-    from facesort.engine import pack_models
+    from vaquero.engine import pack_models
 
     pack = MODELS_DIR / DEFAULT_PACK
     if pack.is_dir() and pack_models(pack):
@@ -202,6 +206,25 @@ def ensure_models(progress: Callable[[int, int], None], cancelled: Callable[[], 
     return pack
 
 
+def migrate_legacy() -> None:
+    """Move the FaceSort-era logs, support folder (models, downloads) and undo journal to their Vaquero names, once."""
+    for new in (LOG_DIR, SUPPORT_DIR):
+        old = new.with_name(LEGACY_NAME)
+        if old.is_dir() and not new.exists():
+            try:
+                old.rename(new)
+            except OSError as e:
+                log.warning("could not move %s to %s: %s", old, new, e)
+                continue
+            log.info("moved %s to %s", old, new)
+    old_journal = SUPPORT_DIR / LEGACY_JOURNAL
+    if old_journal.exists() and not JOURNAL.exists():
+        try:
+            old_journal.rename(JOURNAL)
+        except OSError as e:
+            log.warning("could not rename %s to %s: %s", old_journal, JOURNAL.name, e)
+
+
 def running_bundle() -> Path | None:
     """The .app this process runs from, None when run from source."""
     if not getattr(sys, "frozen", False):
@@ -210,7 +233,7 @@ def running_bundle() -> Path | None:
 
 
 def stage_update(dmg: Path, workdir: Path) -> Path:
-    """Copy FaceSort.app out of a downloaded DMG into workdir; returns the staged bundle."""
+    """Copy Vaquero.app out of a downloaded DMG into workdir; returns the staged bundle."""
     mount = workdir / "mnt"
     mount.mkdir()
     subprocess.run(

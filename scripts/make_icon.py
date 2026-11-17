@@ -1,4 +1,4 @@
-"""Draws the FaceSort art: assets/FaceSort.icns for the bundle, assets/FaceSort.png for the window header,
+"""Draws the Vaquero art: assets/Vaquero.icns for the bundle, assets/Vaquero.png for the window header,
 assets/buffalo.png for the log banner (the buffalo_l model pack's namesake).
 
 Run: uv run python scripts/make_icon.py
@@ -13,7 +13,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QGuiApplication, QImage, QLinearGradient, QPainter, QPainterPath, QPen
 
 SIZE = 1024
-OUT = Path(__file__).resolve().parent.parent / "assets" / "FaceSort.icns"
+OUT = Path(__file__).resolve().parent.parent / "assets" / "Vaquero.icns"
 PNG = OUT.with_suffix(".png")
 PNG_SIZE = 256
 BUFFALO = OUT.with_name("buffalo.png")
@@ -105,7 +105,7 @@ def main() -> None:
     QGuiApplication(sys.argv)
     master = draw()
     with tempfile.TemporaryDirectory() as tmp:
-        iconset = Path(tmp) / "FaceSort.iconset"
+        iconset = Path(tmp) / "Vaquero.iconset"
         iconset.mkdir()
         for size in (16, 32, 128, 256, 512):
             for scale in (1, 2):

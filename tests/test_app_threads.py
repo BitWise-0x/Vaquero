@@ -6,17 +6,17 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QSettings, QTimer  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtCore import QSettings, QTimer
+from PySide6.QtWidgets import QApplication
 
-from facesort import app as ui  # noqa: E402
+from vaquero import app as ui
 
 JOBS = 1000
 
 
 def test_short_jobs_back_to_back_do_not_crash_or_leak(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The launch update check is a job that ends within milliseconds; its cleanup once segfaulted at random."""
-    ini = str(tmp_path / "facesort.ini")
+    ini = str(tmp_path / "vaquero.ini")
     monkeypatch.setattr(ui, "QSettings", lambda *_: QSettings(ini, QSettings.Format.IniFormat))
     qa = QApplication.instance() or QApplication([])
     w = ui.Window()

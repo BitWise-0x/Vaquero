@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="assets/FaceSort.png" alt="FaceSort icon: a buffalo inside an amber viewfinder" width="160"/>
+  <img src="assets/Vaquero.png" alt="Vaquero icon: a buffalo inside an amber viewfinder" width="160"/>
   <br>
   <br>
   <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Apple Silicon"/>
   <br>
   <br>
-  <code><strong>FaceSort</strong></code>
+  <code><strong>Vaquero</strong></code>
 </h1>
 
 <p align="center">
@@ -23,19 +23,19 @@
 </p>
 
 <p align="center">
-  Take control of your photo library by face: point FaceSort at a few photos of someone, and it finds every photo and video of them in a folder of thousands, then copies or moves them where they belong.<br>
+  Take control of your photo library by face: point Vaquero at a few photos of someone, and it finds every photo and video of them in a folder of thousands, then copies or moves them where they belong.<br>
   Single-window macOS app running SCRFD detection and ArcFace recognition on the Apple Neural Engine through Core ML. Fully private: everything runs on your own Mac.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/results.png" alt="FaceSort after a scan: folders, scan and output settings, and a log listing the matches" width="760"/>
+  <img src="docs/screenshots/results.png" alt="Vaquero after a scan: folders, scan and output settings, and a log listing the matches" width="760"/>
 </p>
 
 ---
 
 ## What It's For
 
-Camera rolls, phone backups, shared drives and chat exports pile up into folders where the photos of any one person are scattered among thousands of others. Sorting them by hand means opening every file. FaceSort does the looking:
+Camera rolls, phone backups, shared drives and chat exports pile up into folders where the photos of any one person are scattered among thousands of others. Sorting them by hand means opening every file. Vaquero does the looking:
 
 - **Build a folder per person**: collect every photo of a family member, a friend or yourself from years of backups into one place
 - **Pull someone out of a shared dump**: an event, a trip or a group chat export, filtered down to the photos one person is in
@@ -56,7 +56,7 @@ It is seeded, not trained: five to fifteen clear photos of the person are enough
 | Help | Settings |
 |---|---|
 | <img src="docs/screenshots/help.png" alt="The help dialog explaining every setting" width="420"/> | <img src="docs/screenshots/settings.png" alt="Settings: update check at launch, logs and models folders" width="420"/> |
-| **?** explains what FaceSort does and every setting | **FaceSort > Settings…** (⌘,) |
+| **?** explains what Vaquero does and every setting | **Vaquero > Settings…** (⌘,) |
 
 The screenshots use sample folders and files; `scripts/screenshots.py` renders them from the real window.
 
@@ -64,7 +64,7 @@ The screenshots use sample folders and files; `scripts/screenshots.py` renders t
 
 ## Privacy
 
-FaceSort runs entirely on your own computer. Photos are read from your disks, faces are detected and compared on your Mac's Neural Engine and GPU, and results stay in `~/Library` on that Mac. No photo, face, embedding or log is sent anywhere.
+Vaquero runs entirely on your own computer. Photos are read from your disks, faces are detected and compared on your Mac's Neural Engine and GPU, and results stay in `~/Library` on that Mac. No photo, face, embedding or log is sent anywhere.
 
 The only network traffic is to GitHub: downloading the face model on first launch, and checking for and downloading app updates (the launch check can be turned off in **Settings**).
 
@@ -72,7 +72,7 @@ The only network traffic is to GitHub: downloading the face model on first launc
 
 ## Install
 
-Open `FaceSort-<version>-arm64.dmg` and drag **FaceSort** onto **Applications**. FaceSort runs on Apple Silicon Macs with macOS 14 or later (onnxruntime publishes no Intel macOS builds). The first launch downloads the face model (about 190 MB).
+Open `Vaquero-<version>-arm64.dmg` and drag **Vaquero** onto **Applications**. Vaquero runs on Apple Silicon Macs with macOS 14 or later (onnxruntime publishes no Intel macOS builds). The first launch downloads the face model (about 190 MB).
 
 <br>
 
@@ -80,7 +80,7 @@ Open `FaceSort-<version>-arm64.dmg` and drag **FaceSort** onto **Applications**.
 
 ```sh
 uv sync
-uv run facesort    # downloads the face model on first launch, see Models
+uv run vaquero    # downloads the face model on first launch, see Models
 ```
 
 Pick a folder of reference photos, a folder to scan and a destination, then **Scan**. Review the match count and log, adjust the threshold if needed, pick **Move** or **Copy**, then **Execute**.
@@ -103,11 +103,11 @@ Pick a folder of reference photos, a folder to scan and a destination, then **Sc
 - **Readable logs**: a log view with a buffalo banner, amber section headings, live progress bars for the model download, scan and move or copy, color-coded matches, warnings and errors, and file names that open the photo or video when clicked; a fresh log file for every scan
 - **Single window**: folders, scan and output settings in grouped panels above a tall log; Copy or Move picked with one radio choice
 - **bitwise0x.com theme**: dark surfaces with the sodium amber accent, the same palette as the site; the icon is the buffalo (namesake of the `buffalo_l` model pack) inside an amber viewfinder
-- **Mac menu**: **FaceSort > About**, **Check for Updates…**, **Settings…** (⌘,) and **Quit** (⌘Q) in the application menu
+- **Mac menu**: **Vaquero > About**, **Check for Updates…**, **Settings…** (⌘,) and **Quit** (⌘Q) in the application menu
 - **Apple Silicon native**: Core ML execution on the Neural Engine and GPU, with parallel file decoding feeding the model
 - **Model on first launch**: the face model downloads from the repo's releases with a progress bar; any other InsightFace pack in the models folder appears in the Model dropdown
-- **Updates**: **FaceSort > Check for Updates…** (or the help dialog) downloads the latest release's DMG and restarts the app; FaceSort also checks quietly at launch unless that is turned off in **FaceSort > Settings…** (⌘,). Releases get their DMG from `release-app.sh`
-- **Standalone app**: `build.sh` produces `FaceSort.app`
+- **Updates**: **Vaquero > Check for Updates…** (or the help dialog) downloads the latest release's DMG and restarts the app; Vaquero also checks quietly at launch unless that is turned off in **Vaquero > Settings…** (⌘,). Releases get their DMG from `release-app.sh`
+- **Standalone app**: `build.sh` produces `Vaquero.app`
 - **Built-in help**: the **?** button (top right) opens a guide to every setting, the buttons and how to read the results, one bulleted section per panel with the setting names in light amber
 
 <br>
@@ -130,7 +130,7 @@ graph TD
         rec["<b>ArcFace</b><br>w600k_r50.onnx<br>512-d embedding"]
     end
 
-    disk[("<b>~/Library</b><br>facesort-*.log<br>facesort-scan-*.csv<br>facesort-moves.csv")]
+    disk[("<b>~/Library</b><br>vaquero-*.log<br>vaquero-scan-*.csv<br>vaquero-moves.csv")]
 
     ui -->|"Scan"| worker
     worker --> prefetch
@@ -213,23 +213,23 @@ Scores from 0.35 to 0.45 are where real but hard shots and lookalikes overlap. T
 
 ## Output Files
 
-Logs and scan reports go to `~/Library/Logs/FaceSort` (**Show logs folder** in the help dialog, or **FaceSort > Settings…**); the move journal goes to `~/Library/Application Support/FaceSort`:
+Logs and scan reports go to `~/Library/Logs/Vaquero` (**Show logs folder** in the help dialog, or **Vaquero > Settings…**); the move journal goes to `~/Library/Application Support/Vaquero`:
 
 | File | Contents |
 |---|---|
-| `facesort-<timestamp>.log` | Log of one scan and the move or copy that follows it; each scan starts a new one |
-| `facesort-scan-<timestamp>.csv` | Every scanned file with its score, face count and reference agreement (`ref_agree`, `N/M`) |
-| `facesort-moves.csv` | `source,destination,action` per moved or copied file, for undo; action is `moved` or `copied`, plus `, renamed` (kept both) or `, overwrote` (the replaced file is gone) |
+| `vaquero-<timestamp>.log` | Log of one scan and the move or copy that follows it; each scan starts a new one |
+| `vaquero-scan-<timestamp>.csv` | Every scanned file with its score, face count and reference agreement (`ref_agree`, `N/M`) |
+| `vaquero-moves.csv` | `source,destination,action` per moved or copied file, for undo; action is `moved` or `copied`, plus `, renamed` (kept both) or `, overwrote` (the replaced file is gone) |
 
 <br>
 
 ## Models
 
-Model packs live in `~/Library/Application Support/FaceSort/models/<pack>/`; when run from source, the repo's `models/<pack>/` is read too. Neither is committed: the files are large, and the InsightFace pretrained weights are licensed for non-commercial research use only.
+Model packs live in `~/Library/Application Support/Vaquero/models/<pack>/`; when run from source, the repo's `models/<pack>/` is read too. Neither is committed: the files are large, and the InsightFace pretrained weights are licensed for non-commercial research use only.
 
 On first launch, with no pack installed, the app downloads `buffalo_l.zip` from the repo's `models-buffalo_l` release and unpacks it there, showing "Downloading face detection model, please wait..." with a progress bar under the buttons and in the log. Scanning waits until it finishes. The release is pinned: the app always takes that tag, and the zip on it is replaced by hand to change the model.
 
-Model and update downloads resume: a partial file stays in `~/Library/Application Support/FaceSort/downloads/` when the app quits or the download is cancelled, and the next attempt continues from it. A finished download is checked against GitHub's SHA-256 digest of the asset. The repository is private, so downloads authenticate with the GitHub CLI's login on this Mac.
+Model and update downloads resume: a partial file stays in `~/Library/Application Support/Vaquero/downloads/` when the app quits or the download is cancelled, and the next attempt continues from it. A finished download is checked against GitHub's SHA-256 digest of the asset. The repository is private, so downloads authenticate with the GitHub CLI's login on this Mac.
 
 A pack needs a detector (`det_*` or `scrfd*`) and a recognizer (`w600k*` or `glintr*`); other files are ignored.
 
@@ -267,11 +267,11 @@ Decoding the same photos took 3.05 s, more than inference, so files decode on a 
 
 ```sh
 uv sync
-uv run facesort    # run from source
+uv run vaquero    # run from source
 uv run pytest      # tests
-./build.sh         # dist/FaceSort.app and dist/FaceSort-<version>-arm64.dmg
+./build.sh         # dist/Vaquero.app and dist/Vaquero-<version>-arm64.dmg
 ./release-app.sh   # after a release: build at the release tag and attach the DMG to that GitHub release
-uv run python scripts/make_icon.py   # redraw assets/FaceSort.icns, FaceSort.png and the log's buffalo.png
+uv run python scripts/make_icon.py   # redraw assets/Vaquero.icns, Vaquero.png and the log's buffalo.png
 QT_QPA_PLATFORM=offscreen uv run python scripts/screenshots.py   # re-render docs/screenshots
 ```
 
@@ -290,13 +290,13 @@ Every push to `main` runs `.github/workflows/release.yml`, which uses [python-se
 | `BREAKING CHANGE:` footer | minor while on 0.x, major after |
 | anything else (`docs:`, `chore:`, `test:`, ...) | none |
 
-A release sets the version in `pyproject.toml` and `facesort/__init__.py`, relocks `uv.lock`, updates `CHANGELOG.md`, commits them as `chore(release): X.Y.Z`, tags `vX.Y.Z` and creates the GitHub release. Pull before the next local commit. The app shows its version in **FaceSort > About FaceSort**, in each scan log, and in the `.app` bundle's Info.plist (set by `build.sh`).
+A release sets the version in `pyproject.toml` and `vaquero/__init__.py`, relocks `uv.lock`, updates `CHANGELOG.md`, commits them as `chore(release): X.Y.Z`, tags `vX.Y.Z` and creates the GitHub release. Pull before the next local commit. The app shows its version in **Vaquero > About Vaquero**, in each scan log, and in the `.app` bundle's Info.plist (set by `build.sh`).
 
 <br>
 
 ## Troubleshooting
 
-- **Model download fails on first launch**: check `gh auth status`, then reopen FaceSort. See [Models](#models).
+- **Model download fails on first launch**: check `gh auth status`, then reopen Vaquero. See [Models](#models).
 - **A reference photo was dropped**: its largest face is someone else. Crop it to the right person or remove it.
 - **"Reference has no face"**: no face was found even on the padded retry, usually a profile, a heavily obscured face, or a very small one. Replace it with a clearer photo.
 - **Expected matches missing**: open the scan CSV, sort by score, and lower the threshold to just below the missed files.

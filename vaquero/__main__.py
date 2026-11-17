@@ -1,3 +1,3 @@
-from facesort.app import main
+from vaquero.app import main
 
 main()

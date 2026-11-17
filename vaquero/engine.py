@@ -18,7 +18,7 @@ import cv2
 import numpy as np
 import onnxruntime as ort
 
-log = logging.getLogger("facesort")
+log = logging.getLogger("vaquero")
 # CoreML partition warnings on every session are noise for users
 ort.set_default_logger_severity(3)
 

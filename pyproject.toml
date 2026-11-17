@@ -1,5 +1,5 @@
 [project]
-name = "facesort"
+name = "vaquero"
 version = "0.16.0"
 description = "Find photos and videos containing a reference face and move them to a folder"
 requires-python = ">=3.12,<3.13"
@@ -11,14 +11,14 @@ dependencies = [
 ]
 
 [project.scripts]
-facesort = "facesort.app:main"
+vaquero = "vaquero.app:main"
 
 [dependency-groups]
 dev = ["pyinstaller>=6.10", "pytest>=8"]
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
-version_variables = ["facesort/__init__.py:__version__"]
+version_variables = ["vaquero/__init__.py:__version__"]
 # the project's own version is recorded in uv.lock, so the release commit relocks
 build_command = "pip install --quiet uv && uv lock"
 assets = ["uv.lock"]

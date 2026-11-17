@@ -53,9 +53,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from facesort import __version__, remote, theme
-from facesort.remote import DEFAULT_PACK, LOG_DIR, MODELS_DIR, SUPPORT_DIR, RemoteError, parse_version
-from facesort.engine import (
+from vaquero import __version__, remote, theme
+from vaquero.remote import DEFAULT_PACK, JOURNAL, LOG_DIR, MODELS_DIR, RemoteError, parse_version
+from vaquero.engine import (
     DEFAULT_VIDEO_FRAMES,
     Conflict,
     FaceMatcher,
@@ -67,7 +67,7 @@ from facesort.engine import (
     transfer_matches,
 )
 
-log = logging.getLogger("facesort")
+log = logging.getLogger("vaquero")
 
 DEFAULT_THRESHOLD = 0.35
 # matches below this are lookalike territory: logged as "review" so they get a look before Execute
@@ -94,8 +94,8 @@ def model_packs() -> dict[str, Path]:
 
 
 HELP_HTML = """
-<h2>FaceSort {version}</h2>
-<p>FaceSort finds every photo and video of one person in a folder and moves or copies them to another folder.
+<h2>Vaquero {version}</h2>
+<p>Vaquero finds every photo and video of one person in a folder and moves or copies them to another folder.
 You give it a few photos of the person. It learns their face from those, checks every face in the scanned
 files against it, and lists the matches. Nothing moves until you click <b>Execute</b>.</p>
 
@@ -134,7 +134,7 @@ them out of the scanned folder; Copy leaves the originals where they are.</li>
 <li><span class="term">Scan</span>: checks every file and lists the matches. Moves nothing.</li>
 <li><span class="term">Cancel</span>: stops a scan, move or copy after the current file.</li>
 <li><span class="term">Execute</span>: moves or copies the matches to the destination, per <b>Move</b> / <b>Copy</b>.</li>
-<li><span class="term">Quit</span>: stops anything running after the current file and closes FaceSort. A model or
+<li><span class="term">Quit</span>: stops anything running after the current file and closes Vaquero. A model or
 update download picks up where it stopped the next time.</li>
 </ul>
 
@@ -150,21 +150,21 @@ matches on its own. A real match usually matches most of them (13/13); a lookali
 <span style="color:{error}">red</span> an error, <b style="color:{done}">amber</b> section headings and a finished scan, move or copy.</p>
 
 <h3>Files</h3>
-<p>In <code>~/Library/Logs/FaceSort</code> (<b>Show logs folder</b> below, or <b>FaceSort &gt; Settings</b>):</p>
+<p>In <code>~/Library/Logs/Vaquero</code> (<b>Show logs folder</b> below, or <b>Vaquero &gt; Settings</b>):</p>
 <ul>
-<li><span class="term">facesort-&lt;time&gt;.log</span>: the log of one scan and its move or copy.</li>
-<li><span class="term">facesort-scan-&lt;time&gt;.csv</span>: every scanned file with its score.</li>
+<li><span class="term">vaquero-&lt;time&gt;.log</span>: the log of one scan and its move or copy.</li>
+<li><span class="term">vaquero-scan-&lt;time&gt;.csv</span>: every scanned file with its score.</li>
 </ul>
-<p>In <code>~/Library/Application Support/FaceSort</code>:</p>
+<p>In <code>~/Library/Application Support/Vaquero</code>:</p>
 <ul>
-<li><span class="term">facesort-moves.csv</span>: every moved or copied file's old and new location, for undoing.</li>
+<li><span class="term">vaquero-moves.csv</span>: every moved or copied file's old and new location, for undoing.</li>
 <li><span class="term">models/</span>: the face model, downloaded on first launch.</li>
 </ul>
 
 <h3>Updates</h3>
-<p><b>Check for updates</b> below, or <b>FaceSort &gt; Check for Updates</b>, compares this version with the latest release, then downloads it and
-restarts FaceSort. It uses the GitHub CLI (<code>gh</code>) logged in on this Mac.
-FaceSort also checks when it opens and asks only when an update exists; turn that off in <b>FaceSort &gt; Settings</b>.</p>
+<p><b>Check for updates</b> below, or <b>Vaquero &gt; Check for Updates</b>, compares this version with the latest release, then downloads it and
+restarts Vaquero. It uses the GitHub CLI (<code>gh</code>) logged in on this Mac.
+Vaquero also checks when it opens and asks only when an update exists; turn that off in <b>Vaquero &gt; Settings</b>.</p>
 """
 
 
@@ -188,7 +188,7 @@ AUTO_UPDATE_KEY = "check_updates_on_launch"
 QUEUED = Qt.ConnectionType.QueuedConnection
 
 BAR_CELLS = 30
-BUFFALO_URL = QUrl("facesort:buffalo")
+BUFFALO_URL = QUrl("vaquero:buffalo")
 
 
 def progress_bar_html(label: str, done: int, total: int, detail: str) -> str:
@@ -368,19 +368,29 @@ class TaskWorker(QObject):
             self.failed.emit(str(e))
 
 
+def migrate_settings(settings: QSettings) -> None:
+    """Copy the FaceSort-era settings (folders, options) into a still-empty Vaquero settings store."""
+    if settings.allKeys():
+        return
+    old = QSettings("BitWise", remote.LEGACY_NAME)
+    for key in old.allKeys():
+        settings.setValue(key, old.value(key))
+
+
 class Window(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("FaceSort")
-        self.setWindowIcon(QIcon(str(asset("FaceSort.png"))))
-        self.settings = QSettings("BitWise", "FaceSort")
+        self.setWindowTitle("Vaquero")
+        self.setWindowIcon(QIcon(str(asset("Vaquero.png"))))
+        self.settings = QSettings("BitWise", "Vaquero")
+        migrate_settings(self.settings)
         # the roles move every item into the macOS application menu; Qt then hides this emptied menu
-        menu = self.menuBar().addMenu("FaceSort")
+        menu = self.menuBar().addMenu("Vaquero")
         for text, role, keys, slot in (
-            ("About FaceSort", QAction.MenuRole.AboutRole, None, self.show_about),
+            ("About Vaquero", QAction.MenuRole.AboutRole, None, self.show_about),
             ("Check for Updates…", QAction.MenuRole.ApplicationSpecificRole, None, lambda: self.check_updates()),
             ("Settings…", QAction.MenuRole.PreferencesRole, QKeySequence.StandardKey.Preferences, self.show_settings),
-            ("Quit FaceSort", QAction.MenuRole.QuitRole, QKeySequence.StandardKey.Quit, self.close),
+            ("Quit Vaquero", QAction.MenuRole.QuitRole, QKeySequence.StandardKey.Quit, self.close),
         ):
             action = QAction(text, self)
             action.setMenuRole(role)
@@ -392,7 +402,7 @@ class Window(QMainWindow):
         self.results: list[ScanResult] = []
         self.thread: QThread | None = None
         self.job: ScanWorker | TransferWorker | TaskWorker | None = None
-        self.journal = SUPPORT_DIR / "facesort-moves.csv"
+        self.journal = JOURNAL
         self.file_log: logging.FileHandler | None = None
         self.bytes_text = ""
         self.transfer_mode = Transfer.MOVE
@@ -403,15 +413,15 @@ class Window(QMainWindow):
         outer = QVBoxLayout(central)
         top = QHBoxLayout()
         logo = QLabel()
-        logo.setPixmap(QIcon(str(asset("FaceSort.png"))).pixmap(64, 64))
-        title = QLabel(f"<span style='font-size:28pt; font-weight:700'>FaceSort</span>"
+        logo.setPixmap(QIcon(str(asset("Vaquero.png"))).pixmap(64, 64))
+        title = QLabel(f"<span style='font-size:28pt; font-weight:700'>Vaquero</span>"
                        f"&nbsp;&nbsp;<span style='color:{TIME_COLOR}'>{__version__}</span>")
         top.addWidget(logo)
         top.addWidget(title)
         top.addStretch()
         help_btn = QToolButton()
         help_btn.setText("?")
-        help_btn.setToolTip("Help: what FaceSort does and what each setting means")
+        help_btn.setToolTip("Help: what Vaquero does and what each setting means")
         help_btn.setFixedSize(32, 32)
         help_btn.clicked.connect(self.show_help)
         top.addWidget(help_btn)
@@ -623,7 +633,7 @@ class Window(QMainWindow):
 
     def show_help(self) -> None:
         dialog = QDialog(self)
-        dialog.setWindowTitle("FaceSort Help")
+        dialog.setWindowTitle("Vaquero Help")
         dialog.setModal(True)
         layout = QVBoxLayout(dialog)
         text = QTextBrowser()
@@ -660,7 +670,7 @@ class Window(QMainWindow):
         dialog.setWindowTitle("Settings")
         dialog.setModal(True)
         layout = QVBoxLayout(dialog)
-        auto = QCheckBox("Check for updates when FaceSort opens")
+        auto = QCheckBox("Check for updates when Vaquero opens")
         auto.setChecked(self.settings.value(AUTO_UPDATE_KEY, True, type=bool))
         auto.toggled.connect(lambda on: self.settings.setValue(AUTO_UPDATE_KEY, on))
         layout.addWidget(auto)
@@ -740,14 +750,14 @@ class Window(QMainWindow):
             if quiet:
                 self.status.setText(READY)
                 return
-            self._done(f"FaceSort {__version__} is up to date")
-            QMessageBox.information(self, "Check for updates", f"FaceSort {__version__} is the latest version.")
+            self._done(f"Vaquero {__version__} is up to date")
+            QMessageBox.information(self, "Check for updates", f"Vaquero {__version__} is the latest version.")
             return
         size = rel.assets[dmgs[0]].size
         answer = QMessageBox.question(
             self,
             "Update available",
-            f"FaceSort {rel.tag.lstrip('v')} is available (you have {__version__}).\n\n"
+            f"Vaquero {rel.tag.lstrip('v')} is available (you have {__version__}).\n\n"
             f"Download it ({size / 1e6:.0f} MB) and restart?",
         )
         if answer != QMessageBox.StandardButton.Yes:
@@ -756,12 +766,12 @@ class Window(QMainWindow):
 
         def fetch(progress: Callable[[int, int], None], cancelled: Callable[[], bool]) -> Path:
             dmg = remote.download(rel.assets[dmgs[0]], progress, cancelled)
-            staged = remote.stage_update(dmg, Path(tempfile.mkdtemp(prefix="facesort-update-")))
+            staged = remote.stage_update(dmg, Path(tempfile.mkdtemp(prefix="vaquero-update-")))
             dmg.unlink()
             return staged
 
         job = TaskWorker(fetch)
-        self.bytes_text = f"Downloading FaceSort {rel.tag}..."
+        self.bytes_text = f"Downloading Vaquero {rel.tag}..."
         job.progress.connect(self._on_bytes, QUEUED)
         job.finished.connect(self._on_update_staged, QUEUED)
         self._run(job)
@@ -777,8 +787,8 @@ class Window(QMainWindow):
     def show_about(self) -> None:
         QMessageBox.about(
             self,
-            "About FaceSort",
-            f"<h3 style='color:{theme.SIGNAL}'>FaceSort {__version__}</h3>"
+            "About Vaquero",
+            f"<h3 style='color:{theme.SIGNAL}'>Vaquero {__version__}</h3>"
             "<p>Round up every photo, sorted by face.</p>"
             "<p><b>Fully private.</b> Runs on your own Mac; no photo leaves it.</p>"
             "<p>Detection: SCRFD · Recognition: ArcFace (InsightFace model packs)<br>"
@@ -801,7 +811,7 @@ class Window(QMainWindow):
         refs, source, dest = dirs
         pack = self.packs.get(self.model.currentText())
         if pack is None:
-            self.status.setText("No face model yet; it downloads on launch. Reopen FaceSort to retry.")
+            self.status.setText("No face model yet; it downloads on launch. Reopen Vaquero to retry.")
             return
         self.settings.setValue("videos", self.videos.isChecked())
         self.settings.setValue("subfolders", self.subfolders.isChecked())
@@ -809,8 +819,8 @@ class Window(QMainWindow):
         self.results = []
         stamp = f"{datetime.now():%Y%m%d-%H%M%S}"
         LOG_DIR.mkdir(parents=True, exist_ok=True)
-        self._start_log(LOG_DIR / f"facesort-{stamp}.log")
-        report = LOG_DIR / f"facesort-scan-{stamp}.csv"
+        self._start_log(LOG_DIR / f"vaquero-{stamp}.log")
+        report = LOG_DIR / f"vaquero-scan-{stamp}.csv"
         log.info("scan report: %s", report, extra={"link": report, "link_text": str(report)})
         log.info(
             "model %s, threshold %.2f, subfolders %s, videos %s",
@@ -867,7 +877,7 @@ class Window(QMainWindow):
         self.progress_line = None
         self._banner()
         section("Setup")
-        log.info("FaceSort %s, log file: %s", __version__, path, extra={"link": path, "link_text": str(path)})
+        log.info("Vaquero %s, log file: %s", __version__, path, extra={"link": path, "link_text": str(path)})
 
     def _done(self, text: str, cancelled: bool = False) -> None:
         self.status.setText(f"<b>{'CANCELLED' if cancelled else 'DONE'}</b>: {text}")
@@ -995,7 +1005,7 @@ class Window(QMainWindow):
             '<table cellspacing="0" cellpadding="0"><tr>'
             f'<td valign="middle"><img src="{BUFFALO_URL.toString()}" width="44" height="44"></td>'
             '<td valign="middle" style="padding-left:12px">'
-            f'<span style="color:{theme.SIGNAL}; font-size:15pt; font-weight:700">FaceSort</span>'
+            f'<span style="color:{theme.SIGNAL}; font-size:15pt; font-weight:700">Vaquero</span>'
             f'&nbsp;&nbsp;<span style="color:{TIME_COLOR}">{__version__}</span><br>'
             f'<span style="color:{theme.MUTED}">{html.escape(pack)} · SCRFD detection · ArcFace recognition · Core ML</span>'
             "</td></tr></table>"
@@ -1027,6 +1037,7 @@ class Window(QMainWindow):
 
 def main() -> None:
     log.setLevel(logging.INFO)
+    remote.migrate_legacy()
     app = QApplication(sys.argv)
     theme.apply(app, asset("check.svg").as_posix())
     w = Window()

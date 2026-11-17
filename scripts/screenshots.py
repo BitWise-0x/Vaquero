@@ -15,13 +15,13 @@ from pathlib import Path
 from PySide6.QtCore import QSettings, QTimer
 from PySide6.QtWidgets import QApplication, QDialog
 
-from facesort import app as ui
-from facesort import theme
-from facesort.engine import ScanResult
+from vaquero import app as ui
+from vaquero import theme
+from vaquero.engine import ScanResult
 
 OUT = Path(__file__).resolve().parent.parent / "docs" / "screenshots"
 HOME = Path("/Users/you/Pictures")
-LOG_FILE = Path("/Users/you/Library/Logs/FaceSort/facesort-20250301-101500.log")
+LOG_FILE = Path("/Users/you/Library/Logs/Vaquero/vaquero-20250301-101500.log")
 REFS, SOURCE, DEST = HOME / "People" / "Alex", HOME / "Camera Roll", HOME / "People" / "Alex" / "Found"
 SAMPLE = [  # name, score, reference photos agreeing
     ("2024/IMG_2231.HEIC", 0.712, 9),
@@ -37,7 +37,7 @@ REFS_KEPT = 9
 
 def sandbox(tmp: Path) -> None:
     """Settings in a temp file; the per-scan log file handler writes nowhere."""
-    path = str(tmp / "facesort.ini")
+    path = str(tmp / "vaquero.ini")
     ui.QSettings = lambda *_: QSettings(path, QSettings.Format.IniFormat)  # type: ignore[assignment]
     no_file: Callable[..., logging.Handler] = lambda *_, **__: logging.NullHandler()
     ui.logging.FileHandler = no_file  # type: ignore[assignment]
@@ -122,7 +122,7 @@ def main() -> None:
         w.show_help()
         # the settings dialog lists its folders; show the sample home, not the real one
         ui.LOG_DIR = LOG_FILE.parent
-        ui.MODELS_DIR = Path("/Users/you/Library/Application Support/FaceSort/models")
+        ui.MODELS_DIR = Path("/Users/you/Library/Application Support/Vaquero/models")
         QTimer.singleShot(300, lambda: dialog_shot("settings.png"))
         w.show_settings()
         w.job = None

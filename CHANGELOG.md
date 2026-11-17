@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v0.23.0 (2026-11-17)
+
+### Documentation
+
+- All badges in the bold badge style, one size
+  ([`cbfb751`](https://github.com/BitWise-0x/Vaquero/commit/cbfb7516c0f329dc32a043abe17abde92eb06b11))
+
+- BitWise footer, uniform badge size, smaller download button
+  ([`85a6927`](https://github.com/BitWise-0x/Vaquero/commit/85a6927848e3fecd15d0ddd4aefc31639b3fc911))
+
+- Screenshots at 0.22.0
+  ([`1a13200`](https://github.com/BitWise-0x/Vaquero/commit/1a13200429584255cfdab764c259fa1efc90832d))
+
+### Features
+
+- MIT license, with third-party notices shipped inside the app
+  ([`197492b`](https://github.com/BitWise-0x/Vaquero/commit/197492b0784d9d6d18cf3be23344c51387da0d4d))
+
+
 ## v0.22.0 (2026-11-17)
 
 ### Features

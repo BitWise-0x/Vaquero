@@ -257,6 +257,15 @@ def colorize(record: logging.LogRecord) -> str:
     return f'<span style="color:{TIME_COLOR}">{stamp}</span>&nbsp; {body}'
 
 
+def blocked_message(e: PermissionError) -> str:
+    """macOS privacy controls deny a folder with EPERM; say where to allow it instead of the bare errno."""
+    where = e.filename or "a folder"
+    return (
+        f"macOS blocked access to {where}. Allow Vaquero in System Settings > Privacy & Security > "
+        "Files and Folders (Removable Volumes, Network Volumes) or Full Disk Access, then scan again."
+    )
+
+
 class ScanWorker(QObject):
     progress = Signal(int, int, float)  # done, total, score of the file just scanned
     finished = Signal(list, bool, int)  # list[ScanResult], cancelled, reference photos kept
@@ -316,6 +325,9 @@ class ScanWorker(QObject):
             if self._cancel:
                 log.warning("scan cancelled after %d of %d files", len(results), total)
             self.finished.emit(results, self._cancel, self.ref_count)
+        except PermissionError as e:
+            log.error("%s", blocked_message(e))
+            self.failed.emit(blocked_message(e))
         except Exception as e:  # surfaced in the UI and log, the worker thread must not die silently
             log.exception("scan failed")
             self.failed.emit(str(e))
@@ -340,6 +352,9 @@ class TransferWorker(QObject):
                 self.paths, self.dest, self.journal, self.progress.emit, lambda: self._cancel, self.conflict, self.mode
             )
             self.finished.emit(done, failed, self._cancel)
+        except PermissionError as e:
+            log.error("%s", blocked_message(e))
+            self.failed.emit(blocked_message(e))
         except Exception as e:  # surfaced in the UI and log, the worker thread must not die silently
             log.exception("%s failed", self.mode.value)
             self.failed.emit(str(e))
@@ -530,6 +545,7 @@ class Window(QMainWindow):
         self.progress.setTextVisible(False)  # the status line below carries the counts
         outer.addWidget(self.progress)
         self.status = QLabel(READY)
+        self.status.setWordWrap(True)  # a long error must not widen the window
         self.found = QLabel()
         self.found.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         status_row = QHBoxLayout()

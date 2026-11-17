@@ -20,6 +20,12 @@ plist=dist/Vaquero.app/Contents/Info.plist
 plutil -replace CFBundleShortVersionString -string "$version" "$plist"
 plutil -replace CFBundleVersion -string "$version" "$plist"
 plutil -replace LSMinimumSystemVersion -string "14.0" "$plist"
+# the reasons macOS shows when asking for access to these places
+access="Vaquero reads photos and videos there to find the person you picked, and copies or moves the matches."
+for key in NSRemovableVolumesUsageDescription NSNetworkVolumesUsageDescription NSDocumentsFolderUsageDescription \
+  NSDesktopFolderUsageDescription NSDownloadsFolderUsageDescription; do
+  plutil -replace "$key" -string "$access" "$plist"
+done
 
 # the drag-to-Applications disk image
 dmg="dist/Vaquero-$version-arm64.dmg"

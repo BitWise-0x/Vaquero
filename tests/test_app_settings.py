@@ -36,3 +36,9 @@ def test_a_store_already_in_use_is_left_alone(tmp_path: Path, monkeypatch: pytes
     ui.migrate_settings(new)
 
     assert new.value("refs") == "current"
+
+
+def test_permission_error_says_where_to_allow_access() -> None:
+    msg = ui.blocked_message(PermissionError(1, "Operation not permitted", "/Volumes/Drive/faces"))
+    assert "/Volumes/Drive/faces" in msg
+    assert "Privacy & Security" in msg

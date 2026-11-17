@@ -26,7 +26,17 @@ dmg="dist/FaceSort-$version-arm64.dmg"
 mkdir -p dist/dmg
 ditto dist/FaceSort.app dist/dmg/FaceSort.app
 ln -s /Applications dist/dmg/Applications
+cp assets/FaceSort.icns dist/dmg/.VolumeIcon.icns
 rm -f "$dmg"
-hdiutil create -quiet -volname "FaceSort $version" -srcfolder dist/dmg -fs HFS+ -format UDZO "$dmg"
-rm -rf build dist/dmg dist/FaceSort FaceSort.spec
+# the volume's custom-icon flag does not survive -srcfolder: build writable, flag the mounted root, then compress
+rw=dist/FaceSort-rw.dmg
+mnt=dist/dmg-mnt
+rm -f "$rw"
+hdiutil create -quiet -volname "FaceSort $version" -srcfolder dist/dmg -fs HFS+ -format UDRW "$rw"
+mkdir -p "$mnt"
+hdiutil attach "$rw" -nobrowse -mountpoint "$mnt" -quiet
+SetFile -a C "$mnt"
+hdiutil detach "$mnt" -quiet
+hdiutil convert "$rw" -quiet -format UDZO -o "$dmg"
+rm -rf build dist/dmg "$mnt" "$rw" dist/FaceSort FaceSort.spec
 echo "built: $(pwd)/dist/FaceSort.app and $(pwd)/$dmg ($version)"

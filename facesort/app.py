@@ -103,7 +103,7 @@ def colorize(record: logging.LogRecord) -> str:
 
 
 class ScanWorker(QObject):
-    progress = Signal(int, int)
+    progress = Signal(int, int, float)  # done, total, score of the file just scanned
     finished = Signal(list, bool, int)  # list[ScanResult], cancelled, reference photos kept
     failed = Signal(str)
 
@@ -156,7 +156,7 @@ class ScanWorker(QObject):
                     w.writerow(
                         [r.path.relative_to(self.folder), r.kind, f"{r.score:.3f}", r.faces, f"{r.agree}/{self.ref_count}"]
                     )
-                    self.progress.emit(len(results), total)
+                    self.progress.emit(len(results), total, r.score)
             if self._cancel:
                 log.warning("scan cancelled after %d of %d files", len(results), total)
             self.finished.emit(results, self._cancel, self.ref_count)
@@ -285,7 +285,13 @@ class Window(QMainWindow):
         self.progress = QProgressBar()
         grid.addWidget(self.progress, 6, 0, 1, 3)
         self.status = QLabel("Pick the folders, then Scan. Nothing moves until Execute move.")
-        grid.addWidget(self.status, 7, 0, 1, 3)
+        self.found = QLabel()
+        self.found.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        status_row = QHBoxLayout()
+        status_row.addWidget(self.status, 1)
+        status_row.addWidget(self.found)
+        grid.addLayout(status_row, 7, 0, 1, 3)
+        self.live_found = 0
         self.log_view = QPlainTextEdit()
         self.log_view.setReadOnly(True)
         self.log_view.setMaximumBlockCount(5000)
@@ -341,6 +347,7 @@ class Window(QMainWindow):
         self.settings.setValue("threshold", self.threshold.value())
         if self.results:
             m = self._matches()
+            self._show_found(len(m))
             self.status.setText(f"{len(m)} matches of {len(self.results)} scanned at threshold {self.threshold.value():.2f}")
             self.move_btn.setEnabled(bool(m))
 
@@ -410,6 +417,8 @@ class Window(QMainWindow):
         )
         job.progress.connect(self._on_progress)
         job.finished.connect(self._on_finished)
+        self.live_found = 0
+        self._show_found(0)
         self._run(job)
         self.status.setText("Loading models and references")
 
@@ -419,10 +428,16 @@ class Window(QMainWindow):
             self.cancel_btn.setEnabled(False)
             self.status.setText("Cancelling, finishing the current file")
 
-    def _on_progress(self, done: int, total: int) -> None:
+    def _show_found(self, n: int) -> None:
+        self.found.setText(f"Matches found: <b>{n}</b>")
+
+    def _on_progress(self, done: int, total: int, score: float) -> None:
+        if score >= self.threshold.value():
+            self.live_found += 1
         self.progress.setMaximum(total)
         self.progress.setValue(done)
-        self.status.setText(f"Scanned {done} of {total}")
+        self.status.setText(f"Scanned: {done} of {total}")
+        self._show_found(self.live_found)
 
     def _start_log(self, path: Path) -> None:
         """Each scan, and the move that follows it, gets its own log file and a cleared log view."""

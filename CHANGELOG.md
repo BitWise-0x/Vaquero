@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.18.1 (2026-11-17)
+
+### Bug Fixes
+
+- Point updates, the model download and About at the renamed BitWise-0x/vaquero repository
+  ([`8e89966`](https://github.com/BitWise-0x/vaquero/commit/8e89966fbf3a4636bf657f6b2958eb6a0ad1bc70))
+
+### Documentation
+
+- Screenshots at 0.18.0
+  ([`e86e942`](https://github.com/BitWise-0x/vaquero/commit/e86e9427dca5a05b2716b18d4b4fb4aac77c4a8f))
+
+
 ## v0.18.0 (2026-11-17)
 
 ### Documentation

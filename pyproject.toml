@@ -19,9 +19,13 @@ dev = ["pyinstaller>=6.10", "pytest>=8"]
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
 version_variables = ["vaquero/__init__.py:__version__"]
-# the project's own version is recorded in uv.lock, so the release commit relocks
-build_command = "pip install --quiet uv && uv lock"
-assets = ["uv.lock"]
+# the project's own version is recorded in uv.lock, so the release commit relocks it; staged rather than listed in
+# assets, which would also upload it to the GitHub release
+build_command = """
+    pip install --quiet uv
+    uv lock --upgrade-package "$PACKAGE_NAME"
+    git add uv.lock
+"""
 commit_parser = "conventional"
 tag_format = "v{version}"
 allow_zero_version = true

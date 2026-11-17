@@ -7,7 +7,7 @@
   </picture>
 </h1>
 
-<h3 align="center">Find and round up every photo, by face.</h3>
+<h3 align="center">Find and round up every photo, by face</h3>
 
 <p align="center">
   Point Vaquero at a few photos of someone.<br>
@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/BitWise-0x/Vaquero/releases/latest"><img src="https://img.shields.io/badge/Download-for_macOS-efb146?style=for-the-badge&logo=apple&logoColor=0c0f0e&labelColor=efb146" alt="Download for macOS" height="44"/></a>
+  <a href="https://github.com/BitWise-0x/Vaquero/releases/latest"><img src="https://img.shields.io/badge/Download-for_macOS-efb146?style=for-the-badge&logo=apple&logoColor=0c0f0e&labelColor=efb146" alt="Download for macOS"/></a>
   <br>
   <sub>Apple Silicon · macOS 14 or later · <a href="#install">install steps</a></sub>
 </p>
@@ -32,6 +32,8 @@
   <img src="https://img.shields.io/badge/inference-Core_ML-efb146?style=flat-square" alt="Core ML"/>
   <img src="https://img.shields.io/badge/models-InsightFace_buffalo__l-orange?style=flat-square" alt="InsightFace buffalo_l"/>
 </p>
+
+<br>
 
 <p align="center">
   <img src="docs/screenshots/results.png" alt="Vaquero after a scan, with the matches listed in the log" width="760"/>

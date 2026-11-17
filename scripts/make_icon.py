@@ -26,14 +26,15 @@ def draw() -> QImage:
     # macOS icon grid: 824 px body centred on 1024, corner radius about 22.5% of the body
     body = QRectF(100, 100, 824, 824)
     bg = QLinearGradient(body.topLeft(), body.bottomRight())
-    bg.setColorAt(0, QColor("#1b2a4a"))
-    bg.setColorAt(1, QColor("#0e5a6b"))
+    bg.setColorAt(0, QColor("#1b221f"))
+    bg.setColorAt(1, QColor("#0c0f0e"))
     shape = QPainterPath()
     shape.addRoundedRect(body, 185, 185)
     p.fillPath(shape, QBrush(bg))
+    p.strokePath(shape, QPen(QColor("#2e3733"), 6))
 
-    # viewfinder brackets
-    pen = QPen(QColor("#ffffff"), 44, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+    # viewfinder brackets in the bitwise0x.com signal amber
+    pen = QPen(QColor("#efb146"), 44, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
     p.setPen(pen)
     inset, arm = 230, 130
     lo, hi = inset, SIZE - inset
@@ -42,8 +43,8 @@ def draw() -> QImage:
 
     # face: head and shoulders, clipped to the frame
     face = QLinearGradient(QPointF(512, 330), QPointF(512, 790))
-    face.setColorAt(0, QColor("#5eead4"))
-    face.setColorAt(1, QColor("#22d3ee"))
+    face.setColorAt(0, QColor("#e7ece8"))
+    face.setColorAt(1, QColor("#a2aaa6"))
     p.setPen(Qt.PenStyle.NoPen)
     p.setBrush(QBrush(face))
     p.drawEllipse(QPointF(512, 450), 120, 132)
@@ -56,7 +57,7 @@ def draw() -> QImage:
 
     # match badge
     p.setBrush(QBrush(QColor("#30a46c")))
-    p.setPen(QPen(QColor("#0e3a46"), 18))
+    p.setPen(QPen(QColor("#0c0f0e"), 18))
     p.drawEllipse(QPointF(735, 735), 92, 92)
     p.setPen(QPen(QColor("#ffffff"), 30, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
     p.drawPolyline([QPointF(692, 738), QPointF(724, 770), QPointF(782, 704)])

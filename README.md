@@ -51,6 +51,7 @@ Pick a folder of reference photos, a folder to scan and a destination, then **Sc
 - **Name conflicts**: when the destination already has the name, keep both (Finder-style `name 2.jpg`) or overwrite, set by **Name exists**; every move is journaled for undo
 - **Progress and cancel**: scan and move both run in the background with a progress bar, a DONE or CANCELLED status line, and a Cancel that stops cleanly after the current file
 - **Readable logs**: color-coded log view (matches, warnings, errors, completions), and a fresh log file for every scan
+- **bitwise0x.com theme**: dark surfaces with the sodium amber accent, the same palette as the site
 - **Apple Silicon native**: Core ML execution on the Neural Engine and GPU, with parallel file decoding feeding the model
 - **Model on first launch**: the face model downloads from the repo's releases with a progress bar; any other InsightFace pack in the models folder appears in the Model dropdown
 - **Updates**: **Check for updates** in the help dialog downloads the latest release's DMG and restarts the app; releases get their DMG from `release-app.sh`
@@ -127,7 +128,7 @@ flowchart LR
 - The progress bar tracks both the scan and the move; the line below it shows the count while running, then **DONE** or **CANCELLED** with a summary.
 - **Cancel** stops a scan or a move after the current file. A cancelled scan keeps the results it reached, and its matches can still be moved. A cancelled move leaves every file either fully moved and journaled or untouched.
 - Closing the window during a run cancels it and waits up to 30 s for the current file before quitting.
-- Each **Scan** clears the log view and starts a new log file; the move that follows writes to the same file. The view colors matches green, review matches and warnings amber, errors red and completions blue; the log files stay plain text.
+- Each **Scan** clears the log view and starts a new log file; the move that follows writes to the same file. The view colors matches green, review matches and warnings orange, errors red and completions amber; the log files stay plain text.
 
 <br>
 
@@ -153,7 +154,7 @@ Settings persist between launches.
 
 Score is the cosine similarity between ArcFace embeddings, from -1 to 1. On a 3,800-file test library, the person searched for scored 0.35 and up while everyone else scored 0.30 and below, which sets the 0.35 default. Small, blurred, side-on or heavily filtered faces score lower; lower the threshold to catch them, and check the scan CSV around the cutoff.
 
-Scores from 0.35 to 0.45 are where real but hard shots and lookalikes overlap. Those matches are logged as `review` (amber) rather than `match` (green), and the done line counts them. Each match also shows `refs N/M`: how many of the M reference photos its face reaches 0.35 with on its own. A true match usually agrees with most of them (13/13); a lookalike resembles the average face but few individual photos (0/13, 1/13). Raising the threshold drops review matches without a rescan.
+Scores from 0.35 to 0.45 are where real but hard shots and lookalikes overlap. Those matches are logged as `review` (orange) rather than `match` (green), and the done line counts them. Each match also shows `refs N/M`: how many of the M reference photos its face reaches 0.35 with on its own. A true match usually agrees with most of them (13/13); a lookalike resembles the average face but few individual photos (0/13, 1/13). Raising the threshold drops review matches without a rescan.
 
 <br>
 

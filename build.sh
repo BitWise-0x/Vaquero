@@ -13,6 +13,7 @@ uv run pyinstaller --noconfirm --windowed --name FaceSort \
   --collect-binaries onnxruntime \
   --exclude-module tkinter \
   --add-data assets/FaceSort.png:assets \
+  --add-data assets/check.svg:assets \
   facesort/__main__.py
 plist=dist/FaceSort.app/Contents/Info.plist
 plutil -replace CFBundleShortVersionString -string "$version" "$plist"

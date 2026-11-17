@@ -39,7 +39,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from facesort import __version__, remote
+from facesort import __version__, remote, theme
 from facesort.remote import DEFAULT_PACK, LOG_DIR, MODELS_DIR, SUPPORT_DIR, RemoteError, parse_version
 from facesort.engine import DEFAULT_VIDEO_FRAMES, Conflict, FaceMatcher, ScanResult, list_media, move_matches, pack_models, scan
 
@@ -106,9 +106,9 @@ Changing it after a scan updates the matches without scanning again.</p>
 The line ends with <b>DONE</b> or <b>CANCELLED</b>.</p>
 <p>In the log, each match shows its score and <code>refs N/M</code>: how many of the M reference photos it
 matches on its own. A real match usually matches most of them (13/13); a lookalike only a few (0/13, 1/13).</p>
-<p>Log colors: <span style="color:#30a46c">green</span> a match,
-<span style="color:#d08700">amber</span> a <i>review</i> match (score below {review:.2f}, where lookalikes appear) or a warning,
-<span style="color:#e5484d">red</span> an error, <b style="color:#0090ff">blue</b> a finished scan or move.</p>
+<p>Log colors: <span style="color:{match}">green</span> a match,
+<span style="color:{warn}">orange</span> a <i>review</i> match (score below {review:.2f}, where lookalikes appear) or a warning,
+<span style="color:{error}">red</span> an error, <b style="color:{done}">amber</b> a finished scan or move.</p>
 
 <h3>Files</h3>
 <p>In <code>~/Library/Logs/FaceSort</code> (<b>Show logs folder</b> below):<br>
@@ -139,15 +139,14 @@ class QtLogHandler(logging.Handler, QObject):
 # PySide otherwise calls a Python slot directly on the emitting worker thread, and a widget repaint there crashes
 QUEUED = Qt.ConnectionType.QueuedConnection
 
-# mid-tone colors stay readable on both the light and dark macOS appearance
-LEVEL_COLORS = {logging.WARNING: "#d08700", logging.ERROR: "#e5484d"}
-TIME_COLOR = "#8b8d98"
-MATCH_COLOR = "#30a46c"
-DONE_COLOR = "#0090ff"
+LEVEL_COLORS = {logging.WARNING: theme.REVIEW, logging.ERROR: theme.ERROR}
+TIME_COLOR = theme.DIM
+MATCH_COLOR = theme.MATCH
+DONE_COLOR = theme.SIGNAL
 
 
 def colorize(record: logging.LogRecord) -> str:
-    """One log line as HTML: dim time, level-colored text, green matches, bold blue completions."""
+    """One log line as HTML: dim time, level-colored text, green matches, bold amber completions."""
     stamp = datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
     msg = html.escape(record.getMessage())
     level = html.escape(record.levelname)
@@ -377,6 +376,7 @@ class Window(QMainWindow):
         grid.addLayout(buttons, 5, 0, 1, 3)
 
         self.progress = QProgressBar()
+        self.progress.setTextVisible(False)  # the status line below carries the counts
         grid.addWidget(self.progress, 6, 0, 1, 3)
         self.status = QLabel("Pick the folders, then Scan. Nothing moves until Execute move.")
         self.found = QLabel()
@@ -479,7 +479,10 @@ class Window(QMainWindow):
         layout = QVBoxLayout(dialog)
         text = QTextBrowser()
         text.setOpenExternalLinks(True)
-        text.setHtml(HELP_HTML.format(version=__version__, review=REVIEW_BELOW, threshold=DEFAULT_THRESHOLD))
+        text.setHtml(HELP_HTML.format(
+            version=__version__, review=REVIEW_BELOW, threshold=DEFAULT_THRESHOLD,
+            match=MATCH_COLOR, warn=LEVEL_COLORS[logging.WARNING], error=LEVEL_COLORS[logging.ERROR], done=DONE_COLOR,
+        ))
         layout.addWidget(text)
         close = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         close.rejected.connect(dialog.reject)
@@ -716,6 +719,7 @@ class Window(QMainWindow):
 def main() -> None:
     log.setLevel(logging.INFO)
     app = QApplication(sys.argv)
+    theme.apply(app, asset("check.svg").as_posix())
     w = Window()
     w.show()
     w.ensure_models()

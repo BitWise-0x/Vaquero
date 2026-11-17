@@ -75,6 +75,7 @@ def main() -> None:
         sandbox(Path(tmp))
 
         w = ui.Window()
+        w.menuBar().hide()  # macOS puts the menu in the system bar; offscreen draws it in the window
         w.show()
         fill(w)
 

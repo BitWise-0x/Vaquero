@@ -4,7 +4,7 @@
   <br>
   <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
   <img src="https://img.shields.io/badge/Qt-41CD52?style=for-the-badge&logo=qt&logoColor=white" alt="Qt"/>
-  <img src="https://img.shields.io/badge/ONNX_Runtime-005CED?style=for-the-badge&logo=onnx&logoColor=white" alt="ONNX Runtime"/>
+  <img src="https://img.shields.io/badge/ONNX_Runtime-efb146?style=for-the-badge&logo=onnx&logoColor=0c0f0e" alt="ONNX Runtime"/>
   <img src="https://img.shields.io/badge/Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Apple Silicon"/>
   <br>
   <br>
@@ -23,7 +23,8 @@
 </p>
 
 <p align="center">
-  Point Vaquero at a few photos of someone. It finds every photo and video of them among thousands, then copies, moves or organizes them as you see fit.<br>
+  Point Vaquero at a few photos of someone.<br>
+  It finds every photo and video of them, then copies, moves or organizes them as you see fit.<br>
   Runs on an open-source AI model, right on your Mac.
 </p>
 

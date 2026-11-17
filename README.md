@@ -16,15 +16,15 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python"/>
-  <img src="https://img.shields.io/badge/Qt-41CD52?style=flat-square&logo=qt&logoColor=white" alt="Qt"/>
-  <img src="https://img.shields.io/badge/ONNX_Runtime-efb146?style=flat-square&logo=onnx&logoColor=0c0f0e" alt="ONNX Runtime"/>
-  <img src="https://img.shields.io/badge/Apple_Silicon-000000?style=flat-square&logo=apple&logoColor=white" alt="Apple Silicon"/>
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
+  <img src="https://img.shields.io/badge/Qt-41CD52?style=for-the-badge&logo=qt&logoColor=white" alt="Qt"/>
+  <img src="https://img.shields.io/badge/ONNX_Runtime-efb146?style=for-the-badge&logo=onnx&logoColor=0c0f0e" alt="ONNX Runtime"/>
+  <img src="https://img.shields.io/badge/Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Apple Silicon"/>
   <br>
-  <img src="https://img.shields.io/badge/versioning-semantic--release-e10079?style=flat-square&logo=semantic-release" alt="semantic-release"/>
-  <img src="https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square&logo=apple" alt="macOS"/>
-  <img src="https://img.shields.io/badge/inference-Core_ML-efb146?style=flat-square" alt="Core ML"/>
-  <img src="https://img.shields.io/badge/models-InsightFace_buffalo__l-orange?style=flat-square" alt="InsightFace buffalo_l"/>
+  <img src="https://img.shields.io/badge/versioning-semantic--release-e10079?style=for-the-badge&logo=semantic-release" alt="semantic-release"/>
+  <img src="https://img.shields.io/badge/platform-macOS-lightgrey?style=for-the-badge&logo=apple" alt="macOS"/>
+  <img src="https://img.shields.io/badge/inference-Core_ML-efb146?style=for-the-badge" alt="Core ML"/>
+  <img src="https://img.shields.io/badge/models-InsightFace_buffalo__l-orange?style=for-the-badge" alt="InsightFace buffalo_l"/>
 </p>
 
 <br>

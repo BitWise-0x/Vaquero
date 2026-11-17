@@ -30,9 +30,9 @@
 <br>
 
 <p align="center">
-  <a href="https://github.com/BitWise-0x/Vaquero/releases/latest"><img src="https://img.shields.io/badge/Download-for_macOS-efb146?style=for-the-badge&logo=apple&logoColor=0c0f0e&labelColor=efb146" alt="Download for macOS"/></a>
+  <a href="https://github.com/BitWise-0x/Vaquero/releases/latest"><img src="assets/download-button.png" alt="Download for Apple Silicon Macs" width="260"/></a>
   <br>
-  <sub>Apple Silicon · macOS 14 or later · <a href="#install">install steps</a></sub>
+  <sub>macOS 14 or later · <a href="#install">install steps</a></sub>
 </p>
 
 <br>

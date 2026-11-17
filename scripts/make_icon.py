@@ -1,6 +1,7 @@
 """Draws the Vaquero art: assets/Vaquero.icns for the bundle, assets/Vaquero.png for the window header,
 assets/buffalo.png for the log banner (the buffalo_l model pack's namesake), and the README wordmark in a light
-and a dark version (assets/wordmark-light.png, assets/wordmark-dark.png).
+and a dark version (assets/wordmark-light.png, assets/wordmark-dark.png), and the README download button
+(assets/download-button.png).
 
 Run: uv run python scripts/make_icon.py
 """
@@ -134,6 +135,33 @@ def draw_wordmark(color: str) -> QImage:
     return img
 
 
+def draw_download_button() -> QImage:
+    """Amber rounded button: 'Download' in bold over a small 'for Apple Silicon Macs', drawn at 2x."""
+    w, h, radius = 520, 150, 30
+    img = QImage(w, h, QImage.Format.Format_ARGB32)
+    img.fill(Qt.GlobalColor.transparent)
+    p = QPainter(img)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+    shape = QPainterPath()
+    shape.addRoundedRect(QRectF(3, 3, w - 6, h - 6), radius, radius)
+    p.fillPath(shape, QColor(AMBER))
+    p.strokePath(shape, QPen(QColor("#a96a19"), 4))
+    p.setPen(QColor("#0c0f0e"))
+    title = QFont("Helvetica Neue")
+    title.setPixelSize(58)
+    title.setWeight(QFont.Weight.Bold)
+    p.setFont(title)
+    p.drawText(QRectF(0, 18, w, 70), Qt.AlignmentFlag.AlignCenter, "Download")
+    small = QFont("Helvetica Neue")
+    small.setPixelSize(28)
+    small.setWeight(QFont.Weight.Medium)
+    p.setFont(small)
+    p.drawText(QRectF(0, 88, w, 40), Qt.AlignmentFlag.AlignCenter, "for Apple Silicon Macs")
+    p.end()
+    return img
+
+
 def main() -> None:
     QGuiApplication(sys.argv)
     master = draw()
@@ -157,7 +185,8 @@ def main() -> None:
     ).save(str(BUFFALO))
     for name, color in (("wordmark-light.png", "#e7ece8"), ("wordmark-dark.png", "#0c0f0e")):
         draw_wordmark(color).save(str(OUT.with_name(name)))
-    print(f"wrote {OUT}, {PNG}, {BUFFALO} and the wordmarks")
+    draw_download_button().save(str(OUT.with_name("download-button.png")))
+    print(f"wrote {OUT}, {PNG}, {BUFFALO}, the wordmarks and the download button")
 
 
 if __name__ == "__main__":

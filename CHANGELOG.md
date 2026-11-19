@@ -2,6 +2,28 @@
 
 <!-- version list -->
 
+## v0.24.0 (2026-11-19)
+
+### Documentation
+
+- Performance and Versioning describe the app
+  ([`b3b5c91`](https://github.com/BitWise-0x/Vaquero/commit/b3b5c91d55745632e042cfac1494380599070f29))
+
+- README states what Vaquero is and does
+  ([`caffd93`](https://github.com/BitWise-0x/Vaquero/commit/caffd93dc1869901541de323d8d6af372ddad3d7))
+
+- README sticks to the app
+  ([`92dd566`](https://github.com/BitWise-0x/Vaquero/commit/92dd566f58a4bb62cf8a2a78a6f524613d320460))
+
+- Use cases list albums and slideshows
+  ([`aace168`](https://github.com/BitWise-0x/Vaquero/commit/aace168d7c6d3044ea913a6dfef95bc7513590b2))
+
+### Features
+
+- Sign and notarize the app and DMG with Developer ID
+  ([`43d2657`](https://github.com/BitWise-0x/Vaquero/commit/43d2657ba5f07b0074b44a420305f797a24cc59c))
+
+
 ## v0.23.0 (2026-11-17)
 
 ### Documentation

@@ -76,12 +76,7 @@ Vaquero runs on an open-source AI model, right on your machine. No photo, face o
 
 1. Download `Vaquero-<version>-arm64.dmg` from [Releases](https://github.com/BitWise-0x/Vaquero/releases/latest).
 2. Open it and drag **Vaquero** onto **Applications**.
-3. Open Vaquero. The first time, macOS blocks it because the app is not signed with an Apple developer certificate:
-   - **macOS 15 and later**: click **Done**, open **System Settings > Privacy & Security**, scroll to *"Vaquero" was blocked*, click **Open Anyway**, then confirm.
-   - **macOS 14**: Control-click (or right-click) Vaquero in Applications, choose **Open**, then **Open** again.
-
-   Once per install. Updates from inside the app open directly.
-4. macOS asks once for each kind of place Vaquero opens: external drives, network shares, and the Desktop, Documents and Downloads folders. Click **Allow**. If you clicked Don't Allow, Vaquero shows a window with an **Open Settings** button and the steps to turn it back on.
+3. Open Vaquero. macOS asks once for each kind of place Vaquero opens: external drives, network shares, and the Desktop, Documents and Downloads folders. Click **Allow**. If you clicked Don't Allow, Vaquero shows a window with an **Open Settings** button and the steps to turn it back on.
 
 Requires an Apple Silicon Mac with macOS 14 or later. The first launch downloads the face model (about 290 MB).
 
@@ -248,7 +243,7 @@ Vaquero runs both face models on the Apple Neural Engine and GPU through Core ML
 uv sync
 uv run vaquero    # run from source
 uv run pytest      # tests
-./build.sh         # dist/Vaquero.app and dist/Vaquero-<version>-arm64.dmg
+./build.sh         # signed, notarized dist/Vaquero.app and dist/Vaquero-<version>-arm64.dmg
 ```
 
 Detection (SCRFD) and recognition (ArcFace) run directly on the ONNX models.

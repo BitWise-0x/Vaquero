@@ -13,13 +13,15 @@
 	--sl-color-gray-6: #111513;
 	--sl-color-black: #0c0f0e;
 	--sl-color-text-accent: #efb146;
+	/* text on an amber fill: the app's near-black in both themes */
+	--vq-color-on-accent: #0c0f0e;
 	--sl-font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
 }
 
 :root[data-theme='light'] {
 	--sl-color-accent-low: #f6e3bf;
-	--sl-color-accent: #a96a19;
-	--sl-color-accent-high: #5c3a0c;
+	--sl-color-accent: #efb146;
+	--sl-color-accent-high: #dc9a2e;
 	--sl-color-white: #0c0f0e;
 	--sl-color-gray-1: #1b221f;
 	--sl-color-gray-2: #2e3733;
@@ -29,7 +31,8 @@
 	--sl-color-gray-6: #eef1ef;
 	--sl-color-gray-7: #f6f8f7;
 	--sl-color-black: #ffffff;
-	--sl-color-text-accent: #a96a19;
+	--sl-color-text-accent: #efb146;
+	--sl-color-text-invert: #0c0f0e;
 }
 
 /* a fixed root size, colours and scale: the browser's default font size, text inflation, forced colours and pinch

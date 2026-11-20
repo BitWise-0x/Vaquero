@@ -46,7 +46,6 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 		container-type: inline-size;
 		display: flex;
 		align-items: center;
-		gap: 4cqi;
 	}
 	h1 {
 		margin: 0;
@@ -55,9 +54,12 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 		font-weight: 700;
 		color: var(--sl-color-white);
 	}
+	/* the space to the headline is a margin, not the row's gap: cqi on the container itself would resolve against the
+	   viewport */
 	.hero-icon {
 		flex: none;
 		width: 32cqi;
+		margin-inline-end: 2cqi;
 	}
 	/* the icon art sits inside about 9% transparent margin; scaling it up within its box makes the visible icon a
 	   little taller than the three-line headline without taking width from the text */
@@ -117,7 +119,7 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 	.action.primary {
 		background: var(--sl-color-accent);
 		border-color: var(--sl-color-accent);
-		color: var(--sl-color-black);
+		color: var(--vq-color-on-accent);
 	}
 	.action.primary:hover {
 		background: var(--sl-color-accent-high);

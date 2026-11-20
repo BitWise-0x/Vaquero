@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.26.4 (2026-11-20)
+
+### Bug Fixes
+
+- New slogan, every photo & video, under the name beside the logo
+  ([`b61819d`](https://github.com/BitWise-0x/Vaquero/commit/b61819d836b2d21424f790376c0b901a42a6bebf))
+
+### Chores
+
+- **site**: New slogan, left-aligned lead line, step numbers at body size
+  ([`12dda0e`](https://github.com/BitWise-0x/Vaquero/commit/12dda0ec28267e848bb44a165665a73685f8eb9f))
+
+
 ## v0.26.3 (2026-11-20)
 
 ### Bug Fixes

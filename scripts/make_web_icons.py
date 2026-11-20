@@ -20,7 +20,7 @@ FG = (231, 236, 232)  # the app's text, #e7ece8
 AMBER = (239, 177, 70)
 FONT = "/System/Library/Fonts/HelveticaNeue.ttc"
 HEADLINE = ("Find and round up", "every photo, by face")
-TAGLINE = "Free, open source, no account. Stays on your Mac."
+TAGLINE = ("Free, open source, no account.", "Stays on your Mac.")
 
 
 def icon_1024() -> Image.Image:
@@ -45,15 +45,16 @@ def og_image(icon: Image.Image) -> Image.Image:
     small = icon.resize((side, side), Image.LANCZOS)
     img.paste(small, (50, (h - side) // 2), small)
     draw = ImageDraw.Draw(img)
-    name = ImageFont.truetype(FONT, 58, index=1)
-    bold = ImageFont.truetype(FONT, 64, index=1)
-    regular = ImageFont.truetype(FONT, 26, index=0)
+    name = ImageFont.truetype(FONT, 76, index=1)
+    bold = ImageFont.truetype(FONT, 54, index=1)
+    regular = ImageFont.truetype(FONT, 32, index=0)
     # text, font, color, space below; the block is centered on the icon
-    lines = [("Vaquero", name, AMBER, 30), (HEADLINE[0], bold, FG, 14), (HEADLINE[1], bold, FG, 34), (TAGLINE, regular, AMBER, 0)]
+    lines = [("Vaquero", name, AMBER, 16), (HEADLINE[0], bold, FG, 8), (HEADLINE[1], bold, FG, 24)]
+    lines += [(TAGLINE[0], regular, AMBER, 6), (TAGLINE[1], regular, AMBER, 0)]
     heights = [draw.textbbox((0, 0), text, font=font, anchor="lt")[3] for text, font, _, _ in lines]
     y = (h - sum(heights) - sum(gap for *_, gap in lines)) / 2
     for (text, font, color, gap), height in zip(lines, heights, strict=True):
-        draw.text((500, y), text, font=font, fill=color, anchor="lt")
+        draw.text((465, y), text, font=font, fill=color, anchor="lt")
         y += height + gap
     return img
 

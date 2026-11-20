@@ -1,5 +1,5 @@
 ---
-// The landing hero: a large icon with the headline to its right, then the lead line, the tagline and the actions. An action whose attrs
+// The landing hero: a large icon with the headline to its right, then the tagline, the lead line and the actions. An action whose attrs
 // carry data-note shows that note in small text right below its button.
 
 const { data } = Astro.locals.starlightRoute.entry;
@@ -13,8 +13,8 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 		{iconHtml && <div class="hero-icon" set:html={iconHtml} />}
 		<h1 id="_top" data-page-title set:html={title} />
 	</div>
-	{lead && <p class="lead">{lead}</p>}
 	{tagline && <p class="tagline" set:html={tagline} />}
+	{lead && <p class="lead">{lead}</p>}
 	{
 		actions.length > 0 && (
 			<div class="actions">
@@ -67,15 +67,14 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 		height: auto;
 		transform: scale(1.12);
 	}
-	/* sits a little closer to the headline than the hero's other rows */
+	/* tagline and lead each sit closer to the row above than the hero's other rows */
 	.lead {
 		margin: -1rem 0 0;
-		text-align: center;
 		font-size: var(--sl-text-sm);
 		color: var(--sl-color-accent);
 	}
 	.tagline {
-		margin: 0;
+		margin: -1rem 0 0;
 		max-width: 62ch;
 		font-size: clamp(var(--sl-text-base), calc(0.0625rem + 2vw), var(--sl-text-xl));
 		color: var(--sl-color-gray-2);

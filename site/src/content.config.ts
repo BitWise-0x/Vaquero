@@ -10,7 +10,7 @@ export const collections = {
 			pattern: '*.md',
 			generateId: ({ entry }) => `docs/${entry.replace(/\.md$/, '')}`,
 		}),
-		// lead: the landing page's one-line pitch under the icon and headline
+		// lead: the landing page's one-line pitch between the tagline and the buttons
 		schema: docsSchema({ extend: z.object({ lead: z.string().optional() }) }),
 	}),
 };

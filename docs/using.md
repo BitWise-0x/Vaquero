@@ -3,7 +3,7 @@ title: Using Vaquero
 description: Pick the folders, scan, check the matches, then copy or move them.
 ---
 
-![Vaquero after a scan, with the matches listed in the log](screenshots/results.png)
+![Vaquero scanning a folder, listing the matches, then copying them](screenshots/scan-and-copy.webp)
 
 ## A scan, start to finish
 

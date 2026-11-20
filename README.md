@@ -40,7 +40,7 @@
 <br>
 
 <p align="center">
-  <img src="docs/screenshots/results.png" alt="Vaquero after a scan, with the matches listed in the log" width="760"/>
+  <img src="docs/screenshots/scan-and-copy.webp" alt="Vaquero scanning a folder, listing the matches, then copying them" width="760"/>
 </p>
 
 ---
@@ -60,7 +60,7 @@ Three to five clear photos of the person are enough. No training.
 
 | First launch | Scanning |
 |---|---|
-| <img src="docs/screenshots/first-launch.png" alt="Face model downloading on first launch" width="420"/> | <img src="docs/screenshots/scanning.png" alt="A scan in progress" width="420"/> |
+| <img src="docs/screenshots/first-launch.webp" alt="Face model downloading on first launch" width="420"/> | <img src="docs/screenshots/scanning.webp" alt="A scan in progress" width="420"/> |
 
 | Help | Settings |
 |---|---|

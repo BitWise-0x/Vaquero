@@ -15,6 +15,8 @@ description: Download Vaquero, open it, and allow the folders it reads.
 2. Open it and drag **Vaquero** onto **Applications**.
 3. Open Vaquero from Applications. The first launch downloads the face model (about 290 MB); scanning waits until it finishes.
 
+![The face model downloading on first launch](screenshots/first-launch.webp)
+
 Vaquero is signed with a Developer ID and notarized by Apple.
 
 ## Permissions

@@ -1,4 +1,5 @@
-"""Renders the README screenshots into docs/screenshots from the real window, fed with sample data.
+"""Renders the screenshots into docs/screenshots from the real window, fed with sample data: stills as
+PNG, and the runs that show progress (first launch, a scan, a scan through to a copy) as animated WebP.
 
 Settings go to a throwaway file and no log file is written, so the saved folders of whoever runs this are
 neither shown nor changed.
@@ -6,19 +7,21 @@ neither shown nor changed.
 Run: QT_QPA_PLATFORM=offscreen uv run python scripts/screenshots.py
 """
 
+import io
 import logging
 import sys
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, QTimer
+from PIL import Image
+from PySide6.QtCore import QBuffer, QIODevice, QSettings, QTimer
 from PySide6.QtWidgets import QApplication, QDialog
 
 from vaquero import app as ui
 from vaquero import remote
 from vaquero import theme
-from vaquero.engine import ScanResult
+from vaquero.engine import ScanResult, Transfer
 
 OUT = Path(__file__).resolve().parent.parent / "docs" / "screenshots"
 HOME = Path("/Users/you/Pictures")
@@ -66,6 +69,108 @@ def grab(_: QApplication, widget: object, name: str) -> None:
     print(f"wrote {OUT / name}")
 
 
+FRAME_MS = 80
+HOLD_MS = 2600  # the last frame of an animation stays up this long before it loops
+
+
+class Recorder:
+    """Collects grabs of a widget as animation frames and writes them as one looping animated WebP."""
+
+    def __init__(self, widget: object) -> None:
+        self.widget = widget
+        self.frames: list[Image.Image] = []
+        self.durations: list[int] = []
+
+    def snap(self, ms: int = FRAME_MS) -> None:
+        QApplication.processEvents()
+        buf = QBuffer()
+        buf.open(QIODevice.OpenModeFlag.WriteOnly)
+        self.widget.grab().save(buf, "PNG")  # type: ignore[attr-defined]
+        self.frames.append(Image.open(io.BytesIO(bytes(buf.data()))).convert("RGB"))
+        self.durations.append(ms)
+
+    def save(self, name: str) -> None:
+        self.durations[-1] = HOLD_MS
+        first, *rest = self.frames
+        first.save(OUT / name, save_all=True, append_images=rest, duration=self.durations, loop=0, lossless=True, method=6)
+        print(f"wrote {OUT / name} ({len(self.frames)} frames)")
+
+
+def sample_results() -> list[ScanResult]:
+    results = [ScanResult(SOURCE / name, "image", score, 1, agree) for name, score, agree in SAMPLE]
+    return results + [ScanResult(SOURCE / f"IMG_{i:04d}.JPG", "image", 0.05, 1, 0) for i in range(TOTAL - len(SAMPLE))]
+
+
+def scan_frames(w: ui.Window, rec: Recorder, steps: int) -> None:
+    """A scan from its first file to its last, a frame per step; matches turn up as it goes."""
+    w.progress_line = None
+    w.live_found = 0
+    scan_setup(w)
+    QApplication.processEvents()  # log lines arrive queued; let them land before the progress line
+    w._set_busy(True)
+    hits = {round(TOTAL * k / (len(SAMPLE) + 1)) for k in range(1, len(SAMPLE) + 1)}
+    done = 0
+    for step in range(1, steps + 1):
+        target = TOTAL * step // steps
+        while done < target:
+            done += 1
+            w._on_progress(done, TOTAL, 0.6 if done in hits else 0.1)
+        rec.snap()
+
+
+def animate(w: ui.Window) -> None:
+    # first launch: the face model downloads, then the app is ready
+    w.progress_line = None
+    w.live_found = 0
+    w._show_found(0)
+    w.log_view.clear()
+    w._banner()
+    ui.section("Face model")
+    ui.log.info("Downloading face detection model (%s), please wait...", ui.DEFAULT_PACK)
+    QApplication.processEvents()
+    w.bytes_text = "Downloading face detection model, please wait..."
+    w._set_busy(True)
+    rec = Recorder(w)
+    size = remote.MODEL_ARCHIVE.size
+    for step in range(31):
+        w._on_bytes(size * step // 30, size)
+        rec.snap()
+    w._set_busy(False)
+    ui.log.info("face detection model installed, ready to scan")
+    w._done("face detection model installed")
+    rec.snap()
+    rec.save("first-launch.webp")
+
+    # a scan running
+    rec = Recorder(w)
+    scan_frames(w, rec, 40)
+    rec.save("scanning.webp")
+
+    # a scan through to its matches, then a copy of them
+    w.resize(w.width(), 1050)
+    rec = Recorder(w)
+    scan_frames(w, rec, 24)
+    w._on_finished(sample_results(), False, REFS_KEPT)
+    w.execute_btn.setEnabled(True)
+    w.log_view.verticalScrollBar().setValue(0)
+    for _ in range(18):  # the matches stay up a moment before the copy starts
+        rec.snap()
+    w.transfer_mode = Transfer.COPY
+    ui.section("Copy")
+    ui.log.info("copying %d files to %s", len(SAMPLE), DEST, extra={"link": DEST, "link_text": str(DEST)})
+    QApplication.processEvents()
+    w._set_busy(True)
+    for done in range(len(SAMPLE) + 1):
+        w._on_transfer_progress(done, len(SAMPLE))
+        rec.snap(160)
+    ui.log.info("copy done: %d copied, 0 failed", len(SAMPLE))
+    w._set_busy(False)
+    w._done(f"copied {len(SAMPLE)}, 0 failed. Undo list in vaquero-moves.csv")
+    w.log_view.verticalScrollBar().setValue(w.log_view.verticalScrollBar().maximum())
+    rec.snap()
+    rec.save("scan-and-copy.webp")
+
+
 def main() -> None:
     ui.log.setLevel(logging.INFO)
     qa = QApplication(sys.argv)
@@ -79,34 +184,12 @@ def main() -> None:
         w.show()
         fill(w)
 
-        # first launch: the model pack downloading into the log
-        w.log_view.clear()
-        w._banner()
-        ui.section("Face model")
-        ui.log.info("Downloading face detection model (%s), please wait...", ui.DEFAULT_PACK)
-        QApplication.processEvents()
-        w.bytes_text = "Downloading face detection model, please wait..."
-        w._set_busy(True)
-        w._on_bytes(180_000_000, remote.MODEL_ARCHIVE.size)
-        grab(qa, w, "first-launch.png")
-
-        # mid-scan
-        w.progress_line = None
-        scan_setup(w)
-        QApplication.processEvents()
-        w.live_found = 0
-        for done in range(1, 1490):
-            w._on_progress(done, TOTAL, 0.6 if done % 300 == 0 else 0.1)
-        grab(qa, w, "scanning.png")
-
         # scan finished, matches listed
         w.progress_line = None
         scan_setup(w)
         QApplication.processEvents()
         w._on_progress(TOTAL, TOTAL, 0.1)
-        results = [ScanResult(SOURCE / name, "image", score, 1, agree) for name, score, agree in SAMPLE]
-        results += [ScanResult(SOURCE / f"IMG_{i:04d}.JPG", "image", 0.05, 1, 0) for i in range(TOTAL - len(SAMPLE))]
-        w._on_finished(results, False, REFS_KEPT)
+        w._on_finished(sample_results(), False, REFS_KEPT)
         w._set_busy(False)
         w.execute_btn.setEnabled(True)
         # tall enough that the whole log, buffalo banner included, fits without scrolling
@@ -114,6 +197,9 @@ def main() -> None:
         QApplication.processEvents()
         w.log_view.verticalScrollBar().setValue(0)
         grab(qa, w, "results.png")
+
+        w.resize(w.width(), w.sizeHint().height())
+        animate(w)
 
         def dialog_shot(name: str) -> None:
             dialog = next(x for x in qa.topLevelWidgets() if isinstance(x, QDialog) and x.isVisible())

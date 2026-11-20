@@ -2,6 +2,7 @@
 import { getImage, Image } from 'astro:assets';
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import { Card, CardGrid, LinkCard, Steps } from '@astrojs/starlight/components';
+import FeatureIcon from '../components/FeatureIcon.astro';
 import icon from '../../../assets/Vaquero.png';
 import results from '../../../docs/screenshots/results.png';
 import scanAndCopy from '../../../docs/screenshots/scan-and-copy.webp';
@@ -65,16 +66,16 @@ const shots = [
 	</Steps>
 
 	<h2 id="features">Features</h2>
-	<CardGrid>
-		<Card title="Private" icon="approve-check">Face detection and recognition run on your Mac. No photo, face or log leaves it.</Card>
-		<Card title="No training" icon="star">A few photos of the person are enough. Photos of someone else are spotted and left out.</Card>
-		<Card title="Photos and videos" icon="document">JPEG, HEIC, PNG and more. Videos are checked on evenly spaced frames.</Card>
-		<Card title="Folders and shares" icon="list-format">Subfolders on request. Hidden folders and the destination are skipped.</Card>
-		<Card title="You decide" icon="setting">Matches are listed first. Borderline ones are marked for review, and the threshold updates them without a rescan.</Card>
-		<Card title="Undo" icon="random">Every copy and move is journaled. Keep both or overwrite when a name is taken.</Card>
-		<Card title="Apple Silicon native" icon="rocket">The face models run on the Neural Engine and GPU through Core ML.</Card>
-		<Card title="Signed and notarized" icon="seti:lock">Opens like any Mac app, and updates itself from inside.</Card>
-	</CardGrid>
+	<div class="features not-content">
+		<div class="feature"><FeatureIcon name="private" /><h3>Private</h3><p>Face detection and recognition run on your Mac. No photo, face or log leaves it.</p></div>
+		<div class="feature"><FeatureIcon name="few-photos" /><h3>No training</h3><p>A few photos of the person are enough. Photos of someone else are spotted and left out.</p></div>
+		<div class="feature"><FeatureIcon name="media" /><h3>Photos and videos</h3><p>JPEG, HEIC, PNG and more. Videos are checked on evenly spaced frames.</p></div>
+		<div class="feature"><FeatureIcon name="folders" /><h3>Folders and shares</h3><p>Subfolders on request. Hidden folders and the destination are skipped.</p></div>
+		<div class="feature"><FeatureIcon name="decide" /><h3>You decide</h3><p>Matches are listed first. Borderline ones are marked for review, and the threshold updates them without a rescan.</p></div>
+		<div class="feature"><FeatureIcon name="undo" /><h3>Undo</h3><p>Every copy and move is journaled. Keep both or overwrite when a name is taken.</p></div>
+		<div class="feature"><FeatureIcon name="chip" /><h3>Apple Silicon native</h3><p>The face models run on the Neural Engine and GPU through Core ML.</p></div>
+		<div class="feature"><FeatureIcon name="signed" /><h3>Signed and notarized</h3><p>Opens like any Mac app, and updates itself from inside.</p></div>
+	</div>
 
 	<h2 id="what-its-for">What it's for</h2>
 	<CardGrid>
@@ -169,6 +170,33 @@ const shots = [
 	figure {
 		margin: 0;
 	}
+	.features {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 1rem;
+	}
+	.feature {
+		padding: 1.25rem 1.5rem;
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 8px;
+		background: var(--sl-color-gray-6);
+	}
+	.feature :global(.feature-icon) {
+		display: block;
+		width: 2rem;
+		height: 2rem;
+		color: var(--sl-color-accent);
+	}
+	.feature h3 {
+		margin: 0.75rem 0 0.25rem;
+		font-size: var(--sl-text-lg);
+		font-weight: 600;
+		color: var(--sl-color-accent);
+	}
+	.feature p {
+		margin: 0;
+		color: var(--sl-color-gray-2);
+	}
 	figcaption {
 		margin-top: 0.5rem;
 		color: var(--sl-color-gray-2);
@@ -201,7 +229,8 @@ const shots = [
 		border-radius: 8px;
 	}
 	@media (max-width: 50rem) {
-		.gallery {
+		.gallery,
+		.features {
 			grid-template-columns: 1fr;
 		}
 	}

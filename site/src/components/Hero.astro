@@ -1,6 +1,6 @@
 ---
-// The landing hero: a large icon with the headline to its right, then the tagline and the actions. An action whose attrs carry
-// data-note shows that note as a second, smaller line inside its button.
+// The landing hero: a large icon with the headline to its right, then the tagline and the actions. An action whose attrs
+// carry data-note shows that note in small text right below its button.
 
 const { data } = Astro.locals.starlightRoute.entry;
 const { title = data.title, tagline, image, actions = [] } = data.hero || {};
@@ -19,10 +19,12 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 				{actions.map(({ text, link, variant = 'primary', attrs = {} }) => {
 					const { 'data-note': note, ...rest } = attrs;
 					return (
-						<a class:list={['action', variant, { 'has-note': note }]} href={link} {...rest}>
-							<span class="label">{text}</span>
+						<div class="action-wrap">
+							<a class:list={['action', variant]} href={link} {...rest}>
+								{text}
+							</a>
 							{note && <span class="note">{note}</span>}
-						</a>
+						</div>
 					);
 				})}
 			</div>
@@ -44,14 +46,15 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 	}
 	h1 {
 		margin: 0;
-		font-size: clamp(var(--sl-text-3xl), calc(0.25rem + 5vw), var(--sl-text-6xl));
+		/* sized to the icon: two or three lines fill about its height, never more */
+		font-size: clamp(1.6rem, 4.2vw, 3.25rem);
 		line-height: var(--sl-line-height-headings);
 		font-weight: 700;
 		color: var(--sl-color-white);
 	}
 	.hero-icon {
 		flex: none;
-		width: clamp(5.5rem, 20vw, 13rem);
+		width: clamp(7rem, 20vw, 13rem);
 	}
 	.hero-icon :global(img) {
 		display: block;
@@ -67,20 +70,29 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 	.actions {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1rem;
-		margin-top: 0.5rem;
+		align-items: flex-start;
+		gap: 0.75rem 1rem;
+		margin-top: 0.25rem;
+	}
+	/* the button is at least as wide as its note, and the note sits centered under it */
+	.action-wrap {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.35rem;
 	}
 	.action {
 		display: inline-flex;
-		flex-direction: column;
-		justify-content: center;
 		align-items: center;
-		min-height: 3.25rem;
-		padding: 0.5rem 1.5rem;
+		justify-content: center;
+		min-height: 2.75rem;
+		padding: 0 1.25rem;
 		border: 1px solid var(--sl-color-gray-4);
 		border-radius: 8px;
 		color: var(--sl-color-white);
-		font-weight: 600;
+		font-size: var(--sl-text-base);
+		font-weight: 700;
+		white-space: nowrap;
 		text-decoration: none;
 		transition: background-color 150ms ease, border-color 150ms ease;
 	}
@@ -97,18 +109,29 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 		background: var(--sl-color-accent-high);
 		border-color: var(--sl-color-accent-high);
 	}
-	.label {
-		font-size: var(--sl-text-base);
-	}
 	.note {
-		font-size: var(--sl-text-xs);
-		font-weight: 500;
-		opacity: 0.8;
+		font-size: 0.7rem;
+		color: var(--sl-color-gray-3);
+		text-align: center;
+		white-space: nowrap;
 	}
+	/* phones: the two buttons share the row */
 	@media (max-width: 30rem) {
+		.actions {
+			flex-wrap: nowrap;
+			gap: 0.75rem;
+		}
+		.action-wrap {
+			flex: 1 1 0;
+			min-width: 0;
+		}
+		.note {
+			font-size: 0.6rem;
+		}
 		.action {
-			flex: 1 1 100%;
-			align-items: center;
+			width: 100%;
+			padding: 0 0.5rem;
+			font-size: var(--sl-text-sm);
 		}
 	}
 </style>

@@ -41,7 +41,8 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 		gap: 1.5rem;
 		padding-block: clamp(2rem, calc(1rem + 6vmin), 5rem) 1rem;
 	}
-	/* icon and headline scale together with the hero's width: three lines of text fill about the icon's height */
+	/* icon and headline scale together with the hero's width: on phones three lines of text fill about the icon's
+	   height, and "photos and videos," (about 9em in SF or Helvetica bold) fits beside it */
 	.head {
 		container-type: inline-size;
 		display: flex;
@@ -49,7 +50,7 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 	}
 	h1 {
 		margin: 0;
-		font-size: 8cqi;
+		font-size: 7.2cqi;
 		line-height: var(--sl-line-height-headings);
 		font-weight: 700;
 		color: var(--sl-color-white);
@@ -68,6 +69,17 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 		width: 100%;
 		height: auto;
 		transform: scale(1.12);
+	}
+	/* wider: the headline keeps its two lines as written, the first (about 18em) beside a smaller icon */
+	@container (min-width: 36rem) {
+		h1 {
+			font-size: 4.6cqi;
+			white-space: nowrap;
+		}
+		.hero-icon {
+			width: 13cqi;
+			margin-inline-end: 2.5cqi;
+		}
 	}
 	/* tagline and lead each sit closer to the row above than the hero's other rows */
 	.lead {

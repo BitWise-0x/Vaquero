@@ -99,3 +99,8 @@
 	border-bottom: 1px solid var(--sl-color-gray-5);
 	margin-bottom: 1.25rem;
 }
+
+/* table headers a step above the table text */
+.sl-markdown-content th {
+	font-size: var(--sl-text-lg);
+}

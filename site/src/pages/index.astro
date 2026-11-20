@@ -49,7 +49,7 @@ const shots = [
 		},
 	}}
 >
-	<p class="meta">Free and open source, with no account.</p>
+	<p class="lead">Free and open source, no account, nothing leaves your Mac.</p>
 
 	<button class="zoom" type="button" data-full={scanAndCopy.src} data-alt="Vaquero scanning a folder, listing the matches, then copying them" aria-label="Enlarge: a scan through to a copy">
 		<img src={scanAndCopy.src} width={scanAndCopy.width} height={scanAndCopy.height} alt="Vaquero scanning a folder, listing the matches, then copying them" />
@@ -140,8 +140,17 @@ const shots = [
 </script>
 
 <style>
+	/* the line between the hero buttons and the first screenshot */
+	.lead {
+		/* Starlight's content spacing plus the hero's 1rem sits above; this matches it below */
+		margin: 0 0 2.5rem;
+		text-align: center;
+		font-size: var(--sl-text-lg);
+		font-weight: 600;
+		color: var(--sl-color-accent);
+	}
 	.meta {
-		color: var(--sl-color-gray-3);
+		color: var(--sl-color-gray-2);
 		font-size: var(--sl-text-sm);
 	}
 	.zoom {
@@ -187,18 +196,22 @@ const shots = [
 		height: 2rem;
 		color: var(--sl-color-accent);
 	}
+	/* same type as Starlight's cards in the other sections */
 	.feature h3 {
-		margin: 0.75rem 0 0.25rem;
-		font-size: var(--sl-text-lg);
+		margin: 0.75rem 0 0.5rem;
+		font-size: var(--sl-text-h4);
 		font-weight: 600;
+		line-height: var(--sl-line-height-headings);
 		color: var(--sl-color-accent);
 	}
 	.feature p {
 		margin: 0;
+		font-size: clamp(var(--sl-text-sm), calc(0.5rem + 1vw), var(--sl-text-body));
 		color: var(--sl-color-gray-2);
 	}
 	figcaption {
 		margin-top: 0.5rem;
+		text-align: center;
 		color: var(--sl-color-gray-2);
 		font-size: var(--sl-text-sm);
 		font-weight: 600;

@@ -24,7 +24,32 @@ export default defineConfig({
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/BitWise-0x/Vaquero' }],
 			editLink: { baseUrl: 'https://github.com/BitWise-0x/Vaquero/edit/main/site/' },
 			customCss: ['./src/styles/starlight.css'],
+			components: {
+				Sidebar: './src/components/Sidebar.astro',
+				SocialIcons: './src/components/SocialIcons.astro',
+			},
+			head: [
+				{
+					tag: 'script',
+					content: `addEventListener('DOMContentLoaded', () => {
+	const d = document.createElement('dialog');
+	d.className = 'zoom-viewer';
+	d.append(document.createElement('img'));
+	d.addEventListener('click', () => d.close());
+	document.body.append(d);
+	document.querySelectorAll('.sl-markdown-content img').forEach((img) => {
+		img.addEventListener('click', () => {
+			const full = d.querySelector('img');
+			full.src = img.currentSrc || img.src;
+			full.alt = img.alt;
+			d.showModal();
+		});
+	});
+});`,
+				},
+			],
 			sidebar: [
+				{ label: 'Overview', link: '/' },
 				{
 					label: 'Docs',
 					items: [

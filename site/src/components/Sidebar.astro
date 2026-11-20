@@ -1,0 +1,49 @@
+---
+import Default from '@astrojs/starlight/components/Sidebar.astro';
+import { Icon } from '@astrojs/starlight/components';
+---
+
+<!-- opens the header's search dialog; one search instance serves both -->
+<button class="sidebar-search" type="button" data-sidebar-search aria-label="Search">
+	<Icon name="magnifier" />
+	<span>Search</span>
+	<kbd>⌘K</kbd>
+</button>
+<Default><slot /></Default>
+
+<script>
+	document.querySelectorAll<HTMLButtonElement>('[data-sidebar-search]').forEach((b) =>
+		b.addEventListener('click', () =>
+			document.querySelector<HTMLButtonElement>('site-search button[data-open-modal]')?.click(),
+		),
+	);
+</script>
+
+<style>
+	.sidebar-search {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		width: 100%;
+		min-height: 2.75rem;
+		margin-bottom: 1rem;
+		padding: 0 0.75rem;
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 8px;
+		background: var(--sl-color-black);
+		color: var(--sl-color-gray-2);
+		font-size: var(--sl-text-sm);
+		cursor: pointer;
+		transition: border-color 150ms ease;
+	}
+	.sidebar-search:hover {
+		border-color: var(--sl-color-accent);
+		color: var(--sl-color-white);
+	}
+	.sidebar-search kbd {
+		margin-inline-start: auto;
+		font-family: inherit;
+		font-size: var(--sl-text-xs);
+		color: var(--sl-color-gray-3);
+	}
+</style>

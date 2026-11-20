@@ -2,6 +2,40 @@
 
 <!-- version list -->
 
+## v0.26.1 (2026-11-20)
+
+### Bug Fixes
+
+- Header scan line animates regardless of Reduce motion
+  ([`7001d04`](https://github.com/BitWise-0x/Vaquero/commit/7001d04e92a75ce4ad85a12a5a94d5633892bd15))
+
+### Chores
+
+- **site**: Animated nav logo, motion always on, fixed text size and scale, versioned link preview
+  URL
+  ([`fc23142`](https://github.com/BitWise-0x/Vaquero/commit/fc231428b0e19607aae4de7bb889e4ff7a2cd5d3))
+
+- **site**: Link preview image with a larger name and tagline
+  ([`ba16b70`](https://github.com/BitWise-0x/Vaquero/commit/ba16b70bcce2e4a4986a1e9fcaab2a5266bdb9f2))
+
+- **site**: Name in the link preview image
+  ([`166f40c`](https://github.com/BitWise-0x/Vaquero/commit/166f40c2d1c641ad30e285fb37fe36e5c1361d77))
+
+- **site**: Touch targets, readable note size, dvh lightbox, link preview image, structured data,
+  favicon.ico, manifest and robots.txt
+  ([`7c47d68`](https://github.com/BitWise-0x/Vaquero/commit/7c47d68fbb5a3d9c195bbf38f02218b50076409c))
+
+### Continuous Integration
+
+- **release**: Document recovery when the tag push fails
+  ([`e21969c`](https://github.com/BitWise-0x/Vaquero/commit/e21969cf0e583748ea380d046903ffab18900090))
+
+### Documentation
+
+- Animated screenshots show the header's scan line
+  ([`2222f15`](https://github.com/BitWise-0x/Vaquero/commit/2222f159419b956709ac1e5424f02a6206eb87cf))
+
+
 ## v0.26.0 (2026-11-20)
 
 ### Chores

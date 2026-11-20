@@ -30,9 +30,9 @@
 <br>
 
 <p align="center">
-  <a href="https://github.com/BitWise-0x/Vaquero/releases/latest"><img src="assets/download-button.png" alt="Download for Apple Silicon Macs" width="160"/></a>
+  <a href="https://github.com/BitWise-0x/Vaquero/releases/latest/download/Vaquero-arm64.dmg"><img src="assets/download-button.png" alt="Download for Apple Silicon Macs" width="160"/></a>
   <br>
-  <sub>macOS 14 or later · <a href="#install">install steps</a></sub>
+  <sub>macOS 14 or later · <a href="#install">install steps</a> · <a href="https://vaquero.bitwise0x.com">vaquero.bitwise0x.com</a></sub>
 </p>
 
 <br>
@@ -74,9 +74,9 @@ Vaquero runs on an open-source AI model, right on your machine. No photo, face o
 
 ## Install
 
-1. Download `Vaquero-<version>-arm64.dmg` from [Releases](https://github.com/BitWise-0x/Vaquero/releases/latest).
+1. Download [Vaquero-arm64.dmg](https://github.com/BitWise-0x/Vaquero/releases/latest/download/Vaquero-arm64.dmg).
 2. Open it and drag **Vaquero** onto **Applications**.
-3. Open Vaquero. macOS asks once for each kind of place Vaquero opens: external drives, network shares, and the Desktop, Documents and Downloads folders. Click **Allow**. If you clicked Don't Allow, Vaquero shows a window with an **Open Settings** button and the steps to turn it back on.
+3. Open Vaquero and click **Allow** when macOS asks about a folder.
 
 Requires an Apple Silicon Mac with macOS 14 or later. The first launch downloads the face model (about 290 MB).
 
@@ -84,26 +84,12 @@ Pick the reference photos, a folder to scan and a destination, then **Scan**. Ch
 
 <br>
 
-## Permissions
-
-| Vaquero | Needs |
-|---|---|
-| Downloads the face model, checks for updates | Nothing |
-| Keeps its settings, logs and model | Nothing |
-| Reads photos on an external drive or network share, or in Desktop, Documents or Downloads | A one-time **Allow** for that place |
-| Copies or moves the matches | The same **Allow** for the destination |
-| Reads photos anywhere else in your home folder, such as Pictures | Nothing |
-
-Vaquero checks access to the chosen folders at launch and before each scan.
-
-<br>
-
 ## Features
 
 - **Fully private**: everything runs on your own Mac
 - **A few photos are enough**: no training step
-- **Bad references dropped**: a reference photo of the wrong person is spotted and left out
-- **Photos and videos**: videos are checked on evenly spaced frames (10 by default)
+- **Group photos as references**: Vaquero uses the person common to the photos; a photo of someone else is left out
+- **Photos and videos**: JPEG, HEIC, PNG and more; videos are checked on evenly spaced frames (10 by default)
 - **Subfolders**: optional; hidden folders and the destination are skipped
 - **Live threshold**: change it after a scan and the matches update without rescanning
 - **Lookalikes flagged**: borderline matches are marked `review`
@@ -146,94 +132,16 @@ flowchart LR
 
 <br>
 
-## Under the Hood
+## Documentation
 
-1. **References**: the largest face in each reference photo is embedded with ArcFace. Their mean is the reference face; any reference below 0.4 similarity to it is a different person and is dropped.
-2. **Detection**: SCRFD finds every face and its five landmarks. When it finds none, it retries once on the image with a 25% border. Each face is aligned and embedded.
-3. **Scoring**: a file's score is its best face's cosine similarity to the reference face. Videos take the best across their sampled frames.
-4. **Copying or moving**: files at or above the threshold copy or move to the destination when you click **Execute**.
+Also at [vaquero.bitwise0x.com](https://vaquero.bitwise0x.com/docs/install/).
 
-Both models run through ONNX Runtime on the Neural Engine and GPU. A pool of 4 threads decodes files ahead of the model. Scans, moves and copies run off the window's thread.
-
-<br>
-
-## Progress, Cancel and Logs
-
-- The progress bar tracks the model download, the scan and the move or copy; the line below it shows the count while running, then **DONE** or **CANCELLED** with a summary. The log draws the same progress as a bar of its own, updated in place.
-- **Cancel** stops a scan, move or copy after the current file. A cancelled scan keeps the results it reached, and its matches can still be moved or copied. A cancelled move or copy leaves every file either fully done and journaled or untouched.
-- Closing the window during a run cancels it and waits up to 30 s for the current file before quitting.
-- The log opens with the version and the engine in use. Each **Scan** clears the log view and starts a new log file; the move or copy that follows writes to the same file. The log is split into amber-headed sections (Setup, Scanning, Matches, Result, Move or Copy). The view colors matches green, review matches and warnings orange, errors red and completions amber, and every file name is a link that opens the photo or video; the log files stay plain text with `== Section ==` lines.
-
-<br>
-
-## Options
-
-| Option | Default | Description |
-|---|---|---|
-| Reference faces | | Folder of photos of the person to find |
-| Folder to scan | | Folder searched for that person |
-| Destination | | Where matches go; created if missing |
-| Move / Copy | Move | What **Execute** does with the matches |
-| Name exists | Keep both | A name already in the destination: keep both, the new file numbered (`IMG_1 2.png`), or overwrite |
-| Model | `buffalo_l` | Installed model pack |
-| Scan subfolders | off | Also scan subfolders; matches land flat in the destination |
-| Include videos | on | Score `.mov`, `.mp4`, `.m4v`, `.avi`, `.mkv` |
-| Frames | `10` | Frames sampled per video; scan time per video grows with it |
-| Match threshold | `0.35` | Minimum score to count as a match |
-
-Settings persist between launches.
-
-<br>
-
-## Scores
-
-Score is the cosine similarity between ArcFace embeddings, from -1 to 1. The default threshold is 0.35. Small, blurred, side-on or heavily filtered faces score lower; lower the threshold to catch them, and check the scan CSV around the cutoff.
-
-Scores from 0.35 to 0.45 are where real but hard shots and lookalikes overlap. Those matches are logged as `review` (orange) rather than `match` (green), and the done line counts them. Each match also shows `refs N/M`: how many of the M reference photos its face reaches 0.35 with on its own. A true match usually agrees with most of them (13/13); a lookalike resembles the average face but few individual photos (0/13, 1/13). Raising the threshold drops review matches without a rescan.
-
-<br>
-
-## Output Files
-
-Logs and scan reports go to `~/Library/Logs/Vaquero` (**Show logs folder** in the help dialog, or **Vaquero > Settings…**); the move journal goes to `~/Library/Application Support/Vaquero`:
-
-| File | Contents |
-|---|---|
-| `vaquero-<timestamp>.log` | Log of one scan and the move or copy that follows it; each scan starts a new one |
-| `vaquero-scan-<timestamp>.csv` | Every scanned file with its score, face count and reference agreement (`ref_agree`, `N/M`) |
-| `vaquero-moves.csv` | `source,destination,action` per moved or copied file, for undo; action is `moved` or `copied`, plus `, renamed` (kept both) or `, overwrote` (the replaced file is gone) |
-
-<br>
-
-## Models
-
-Vaquero uses `buffalo_l`, a face model pack from [InsightFace](https://github.com/deepinsight/insightface), the open-source face analysis project ([model zoo](https://github.com/deepinsight/insightface/tree/master/model_zoo)).
-
-Model packs live in `~/Library/Application Support/Vaquero/models/<pack>/`; when run from source, the repo's `models/<pack>/` is read too. Neither is in the repository. The InsightFace pretrained weights are licensed for non-commercial research use only.
-
-On first launch, with no pack installed, the app downloads `buffalo_l.zip` from InsightFace's own [v0.7 release](https://github.com/deepinsight/insightface/releases/tag/v0.7), checks it against a SHA-256 pinned in `vaquero/remote.py`, and unpacks `det_10g.onnx` and `w600k_r50.onnx` there. Scanning waits until it finishes.
-
-Model and update downloads resume: a partial file stays in `~/Library/Application Support/Vaquero/downloads/` when the app quits or the download is cancelled, and the next attempt continues from it. A finished download is checked against its SHA-256. Downloads need no GitHub account.
-
-A pack needs a detector (`det_*` or `scrfd*`) and a recognizer (`w600k*` or `glintr*`); other files are ignored.
-
-| Pack | Files | Size | Recognizer |
-|---|---|---|---|
-| `buffalo_l` | `det_10g.onnx`, `w600k_r50.onnx` | 183 MB | ArcFace R50, WebFace600K |
-
-
-<br>
-
-## Performance
-
-Vaquero runs both face models on the Apple Neural Engine and GPU through Core ML, with files decoded in parallel ahead of the model. On an M1, the models take under 2 seconds for 40 photos.
-
-<br>
-
-## Requirements
-
-- macOS 14 or later on Apple Silicon
-- To run from source: Python 3.12 and [uv](https://docs.astral.sh/uv/)
+- [Install](docs/install.md): requirements, permissions, updates, uninstall
+- [Using Vaquero](docs/using.md): options, file types, scores and the threshold, the log
+- [Reference photos](docs/reference-photos.md): what makes a good set, and how the person is chosen
+- [Files](docs/files.md): logs, scan reports and the move journal
+- [How it works](docs/how-it-works.md): detection, recognition, performance and the face model
+- [Troubleshooting](docs/troubleshooting.md)
 
 <br>
 
@@ -246,24 +154,22 @@ uv run pytest      # tests
 ./build.sh         # signed, notarized dist/Vaquero.app and dist/Vaquero-<version>-arm64.dmg
 ```
 
-Detection (SCRFD) and recognition (ArcFace) run directly on the ONNX models.
+Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). Detection (SCRFD) and recognition (ArcFace) run directly on the ONNX models.
+
+The website is [site/](site/) (Astro and Starlight); it serves `docs/` under `/docs/`:
+
+```sh
+cd site
+pnpm install
+pnpm dev           # http://localhost:4321
+pnpm build         # site/dist
+```
 
 <br>
 
 ## Versioning
 
-Vaquero follows [semantic versioning](https://semver.org/). Every release is listed in [CHANGELOG.md](CHANGELOG.md) and on [Releases](https://github.com/BitWise-0x/Vaquero/releases) with its DMG. The version shows in **Vaquero > About Vaquero** and at the top of each log.
-
-<br>
-
-## Troubleshooting
-
-- **Model download fails on first launch**: check the internet connection, then reopen Vaquero; the download resumes where it stopped. See [Models](#models).
-- **A reference photo was dropped**: its largest face is someone else. Crop it to the right person or remove it.
-- **"Reference has no face"**: no face was found even on the padded retry, usually a profile, a heavily obscured face, or a very small one. Replace it with a clearer photo.
-- **Expected matches missing**: open the scan CSV, sort by score, and lower the threshold to just below the missed files.
-- **Unreadable files**: logged and skipped; the scan continues.
-- **"Still finishing the current file"** on close: a long video is mid-read; close again a moment later.
+Vaquero follows [semantic versioning](https://semver.org/). Every release is listed in [CHANGELOG.md](CHANGELOG.md) and on [Releases](https://github.com/BitWise-0x/Vaquero/releases) with its DMG.
 
 <br>
 

@@ -1,5 +1,6 @@
-# Versions every push to main from Conventional Commits: fix and perf a patch, feat a minor (a BREAKING CHANGE
-# stays a minor while the version is 0.x). python-semantic-release sets the version in pyproject.toml and
+# Runs the tests on a macOS runner first; a failing test stops the release. Then versions every push to main from
+# Conventional Commits: fix and perf a patch, feat a minor (a BREAKING CHANGE stays a minor while the version is
+# 0.x). python-semantic-release sets the version in pyproject.toml and
 # vaquero/__init__.py, relocks uv.lock, writes CHANGELOG.md, commits them as chore(release), tags vX.Y.Z and
 # creates the GitHub release with the notes. A push with no fix, perf or feat commit releases nothing.
 # Nothing is tagged by hand. A release's DMG is built, signed with the Developer ID identity and notarized on a
@@ -26,7 +27,21 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    if: inputs.dmg_tag == ''
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: uv run pytest -q
+
   release:
+    needs: test
     if: inputs.dmg_tag == ''
     runs-on: ubuntu-latest
     permissions:
@@ -93,7 +108,10 @@ jobs:
           export VAQUERO_NOTARY_KEY="$RUNNER_TEMP/notary.p8"
           base64 -d <<<"$ASC_API_KEY" > "$VAQUERO_NOTARY_KEY"
           ./build.sh
+      # the versionless copy keeps releases/latest/download/Vaquero-arm64.dmg pointing at the newest build
       - name: Attach the DMG to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "$TAG" "dist/Vaquero-${TAG#v}-arm64.dmg" --clobber
+        run: |
+          cp "dist/Vaquero-${TAG#v}-arm64.dmg" dist/Vaquero-arm64.dmg
+          gh release upload "$TAG" "dist/Vaquero-${TAG#v}-arm64.dmg" dist/Vaquero-arm64.dmg --clobber

@@ -32,6 +32,16 @@
 	--sl-color-text-accent: #a96a19;
 }
 
+/* a fixed root size, colours and scale: the browser's default font size, text inflation, forced colours and pinch
+   zoom leave the layout as designed */
+html {
+	font-size: 16px;
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+	forced-color-adjust: none;
+	touch-action: pan-x pan-y;
+}
+
 .sl-markdown-content img {
 	border: 1px solid var(--sl-color-gray-5);
 	border-radius: 8px;
@@ -89,10 +99,6 @@
 }
 
 /* header logo sits close to the name */
-.site-title {
-	gap: 0.35rem;
-}
-
 /* section headings sit on a divider line, on the landing page and in the docs */
 .sl-markdown-content h2 {
 	padding-bottom: 0.5rem;

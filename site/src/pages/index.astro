@@ -1,9 +1,9 @@
 ---
-import { getImage, Image } from 'astro:assets';
+import { Image } from 'astro:assets';
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import { Card, CardGrid, LinkCard, Steps } from '@astrojs/starlight/components';
 import FeatureIcon from '../components/FeatureIcon.astro';
-import icon from '../../../assets/Vaquero.png';
+import { ogImage } from '../og-image.mjs';
 import scanIcon from '../../../assets/Vaquero-scan.webp';
 import scanAndCopy from '../../../docs/screenshots/scan-and-copy.webp';
 import firstLaunch from '../../../docs/screenshots/first-launch.webp';
@@ -13,7 +13,6 @@ import settings from '../../../docs/screenshots/settings.png';
 
 const repo = 'https://github.com/BitWise-0x/Vaquero';
 const download = `${repo}/releases/latest/download/Vaquero-arm64.dmg`;
-const heroIcon = await getImage({ src: icon, width: 400 });
 const site = 'https://vaquero.bitwise0x.com/';
 const description =
 	'Find every photo and video of one person by face, then copy or move them. Free, open source and private: it runs on your Mac.';
@@ -23,7 +22,7 @@ const app = {
 	name: 'Vaquero',
 	description,
 	url: site,
-	image: `${site}og-image.png`,
+	image: ogImage,
 	applicationCategory: 'MultimediaApplication',
 	operatingSystem: 'macOS 14 or later, Apple Silicon',
 	downloadUrl: download,
@@ -55,8 +54,7 @@ const shots = [
 			tagline:
 				'Point Vaquero at a few photos of someone. It finds every photo and video of them, then copies or moves them where you want. It runs on your Mac, and nothing leaves it.',
 			image: {
-				// the scan line loops; with reduced motion the still icon shows instead
-				html: `<picture><source srcset="${heroIcon.src}" media="(prefers-reduced-motion: reduce)" /><img src="${scanIcon.src}" width="240" height="240" alt="Vaquero icon: a buffalo inside an amber viewfinder" /></picture>`,
+				html: `<img src="${scanIcon.src}" width="240" height="240" alt="Vaquero icon: a buffalo inside an amber viewfinder" />`,
 			},
 			actions: [
 				{ text: 'Download for Mac', link: download, variant: 'primary', attrs: { 'data-note': 'Apple Silicon · macOS 14+' } },

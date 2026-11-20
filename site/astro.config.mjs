@@ -1,6 +1,7 @@
 import { defineConfig } from 'astro/config';
 import { satteri } from '@astrojs/markdown-satteri';
 import starlight from '@astrojs/starlight';
+import { ogImage } from './src/og-image.mjs';
 
 // the docs are the repo's docs/*.md, written with GitHub-style links (install.md, using.md#file-types);
 // this rewrites them to the site's /docs/<page>/ routes
@@ -19,7 +20,6 @@ export default defineConfig({
 		starlight({
 			title: 'Vaquero',
 			description: 'Find and round up every photo of one person, by face, on your Mac.',
-			logo: { src: '../assets/Vaquero.png', alt: 'Vaquero' },
 			favicon: '/favicon.png',
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/BitWise-0x/Vaquero' }],
 			editLink: { baseUrl: 'https://github.com/BitWise-0x/Vaquero/edit/main/site/' },
@@ -29,11 +29,21 @@ export default defineConfig({
 				MobileMenuToggle: './src/components/MobileMenuToggle.astro',
 				ThemeProvider: './src/components/ThemeProvider.astro',
 				Sidebar: './src/components/Sidebar.astro',
+				SiteTitle: './src/components/SiteTitle.astro',
 				SocialIcons: './src/components/SocialIcons.astro',
 			},
 			head: [
+				// fixed scale: no pinch or double-tap zoom
+				{ tag: 'meta', attrs: { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no' } },
+				// the browser's zoom keys, a held Ctrl or Cmd over the wheel and a trackpad pinch are not passed on; back to actual size (0) is
+				{
+					tag: 'script',
+					content: `addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && ['+', '=', '-', '_'].includes(e.key)) e.preventDefault(); });
+addEventListener('wheel', (e) => { if (e.ctrlKey || e.metaKey) e.preventDefault(); }, { passive: false });
+addEventListener('gesturestart', (e) => e.preventDefault());`,
+				},
 				// shared by every page: link preview, icons beyond the favicon, and the web manifest
-				{ tag: 'meta', attrs: { property: 'og:image', content: 'https://vaquero.bitwise0x.com/og-image.png' } },
+				{ tag: 'meta', attrs: { property: 'og:image', content: ogImage } },
 				{ tag: 'meta', attrs: { property: 'og:image:width', content: '1200' } },
 				{ tag: 'meta', attrs: { property: 'og:image:height', content: '630' } },
 				{ tag: 'meta', attrs: { property: 'og:image:alt', content: 'The Vaquero icon beside the line: Find and round up every photo, by face' } },

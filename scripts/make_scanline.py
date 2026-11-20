@@ -1,5 +1,5 @@
 """Renders assets/Vaquero-scan.webp: the app icon with an amber line sweeping down inside its viewfinder corners,
-looping, for the README and the website. The app draws the same sweep live in its window header (vaquero/app.py,
+looping, for the README and the website, and assets/Vaquero-scan-96.webp, the same at the website's nav bar size. The app draws the same sweep live in its window header (vaquero/app.py,
 ScanIcon); both follow the recipe below.
 
 Every size is a fraction of the icon edge. The line is a sharp core plus a soft halo, blended toward the accent
@@ -19,8 +19,10 @@ from PIL import Image
 
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
 ICNS = ASSETS / "Vaquero.icns"
-OUT = ASSETS / "Vaquero-scan.webp"
-SIZE = 480  # shown at up to 240 css px on the website, so sharp on 2x screens
+OUTPUTS = {
+    480: ASSETS / "Vaquero-scan.webp",  # shown at up to 240 css px on the website, so sharp on 2x screens
+    96: ASSETS / "Vaquero-scan-96.webp",  # the nav bar logo, about 32 css px, sharp on 3x screens
+}
 QUALITY = 82
 
 AMBER = np.array([239, 177, 70], dtype=np.float32)
@@ -45,21 +47,21 @@ def icon_1024() -> Image.Image:
         return Image.open(png).convert("RGBA").copy()
 
 
-def main() -> None:
-    icon = icon_1024().resize((SIZE, SIZE), Image.LANCZOS)
+def render(icon_full: Image.Image, size: int, out: Path) -> None:
+    icon = icon_full.resize((size, size), Image.LANCZOS)
     base = np.asarray(icon, dtype=np.float32)
     rgb, alpha = base[..., :3], base[..., 3:]
-    lo, hi = int(SIZE * INSET), SIZE - int(SIZE * INSET)
-    pad = int(SIZE * SPILL)
-    rows = slice(max(lo - pad, 0), min(hi + pad, SIZE))
-    ys = np.arange(SIZE, dtype=np.float32)[rows, None]
+    lo, hi = int(size * INSET), size - int(size * INSET)
+    pad = int(size * SPILL)
+    rows = slice(max(lo - pad, 0), min(hi + pad, size))
+    ys = np.arange(size, dtype=np.float32)[rows, None]
 
     frames: list[Image.Image] = []
     for t in range(PERIOD):
         f = rgb.copy()
         if t < SWEEP:
             p = t / (SWEEP - 1)
-            a = sweep_alpha(ys, lo + p * (hi - lo), SIZE, p)
+            a = sweep_alpha(ys, lo + p * (hi - lo), size, p)
             band = f[rows, lo:hi]
             band += (AMBER - band) * a[:, :, None] * 0.9
         frames.append(Image.fromarray(np.clip(np.concatenate([f, alpha], axis=2), 0, 255).astype(np.uint8), "RGBA"))
@@ -67,8 +69,14 @@ def main() -> None:
     first, *rest = frames
     # whole-millisecond frame times that add up to exactly the loop length
     durations = [round((t + 1) * 1000 / FPS) - round(t * 1000 / FPS) for t in range(PERIOD)]
-    first.save(OUT, save_all=True, append_images=rest, duration=durations, loop=0, quality=QUALITY, method=6)
-    print(f"wrote {OUT} ({OUT.stat().st_size // 1024} KB, {len(frames)} frames)", file=sys.stderr)
+    first.save(out, save_all=True, append_images=rest, duration=durations, loop=0, quality=QUALITY, method=6)
+    print(f"wrote {out} ({out.stat().st_size // 1024} KB, {len(frames)} frames)", file=sys.stderr)
+
+
+def main() -> None:
+    icon = icon_1024()
+    for size, out in OUTPUTS.items():
+        render(icon, size, out)
 
 
 if __name__ == "__main__":

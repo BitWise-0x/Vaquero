@@ -19,7 +19,7 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'Vaquero',
-			description: 'Find and round up every photo of one person, by face, on your Mac.',
+			description: 'Find and round up every photo and video of one person, by face, on your Mac.',
 			favicon: '/favicon.png',
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/BitWise-0x/Vaquero' }],
 			editLink: { baseUrl: 'https://github.com/BitWise-0x/Vaquero/edit/main/site/' },
@@ -49,7 +49,7 @@ addEventListener('gesturestart', (e) => e.preventDefault());`,
 				{ tag: 'meta', attrs: { property: 'og:image', content: ogImage } },
 				{ tag: 'meta', attrs: { property: 'og:image:width', content: '1200' } },
 				{ tag: 'meta', attrs: { property: 'og:image:height', content: '630' } },
-				{ tag: 'meta', attrs: { property: 'og:image:alt', content: 'The Vaquero icon beside the line: Find and round up every photo, by face' } },
+				{ tag: 'meta', attrs: { property: 'og:image:alt', content: 'The Vaquero icon beside the line: Find and round up every photo & video, by face' } },
 				{ tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
 				{ tag: 'meta', attrs: { name: 'theme-color', content: '#0c0f0e' } },
 				{ tag: 'link', attrs: { rel: 'icon', href: '/favicon.ico', sizes: '32x32' } },

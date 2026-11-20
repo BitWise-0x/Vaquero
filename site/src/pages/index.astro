@@ -42,7 +42,7 @@ const shots = [
 
 <StarlightPage
 	frontmatter={{
-		title: 'Find and round up every photo, by face',
+		title: 'Find and round up every photo & video, by face',
 		tableOfContents: false,
 		head: [
 			{ tag: 'meta', attrs: { property: 'og:type', content: 'website' } },
@@ -51,7 +51,7 @@ const shots = [
 		description,
 		lead: 'Free, open source, no account, stays on your Mac',
 		hero: {
-			title: 'Find and round up every&nbsp;photo, by&nbsp;face',
+			title: 'Find and round up every photo &amp;&nbsp;video, by&nbsp;face',
 			tagline:
 				'Point Vaquero at a few photos of someone. It can then scan and find every matching photo or video of them, and copy / move them wherever you want. It all runs locally, nothing leaves your Mac.',
 			image: {
@@ -92,9 +92,9 @@ const shots = [
 
 	<h2 id="what-its-for">What it's for</h2>
 	<CardGrid>
-		<Card title="A folder per person">Every photo of a family member, a friend or yourself, out of years of backups.</Card>
+		<Card title="A folder per person">Every photo and video of a family member, a friend or yourself, out of years of backups.</Card>
 		<Card title="One person from a shared dump">An event, a trip or a group chat export.</Card>
-		<Card title="Albums and slideshows">Every photo of one person, in one place.</Card>
+		<Card title="Albums and slideshows">Every photo and video of one person, in one place.</Card>
 		<Card title="Clean-up">Move someone's photos out of a mixed folder, or copy them and leave the originals.</Card>
 	</CardGrid>
 
@@ -184,10 +184,7 @@ const shots = [
 	figure {
 		margin: 0;
 	}
-	/* step numbers in the accent, inside viewfinder corners like the feature icons, with room for a readable number */
-	:global(.sl-steps) {
-		--bullet-size: 2.25rem;
-	}
+	/* step numbers in the accent, inside the viewfinder corners the feature icons use */
 	:global(.sl-steps > li::before) {
 		color: var(--sl-color-accent);
 		font-size: var(--sl-text-base);
@@ -203,7 +200,7 @@ const shots = [
 		width: var(--bullet-size);
 		height: var(--bullet-size);
 		background-color: var(--sl-color-accent);
-		mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'><path d='M2 6.5V4a2 2 0 0 1 2-2h2.5 M17.5 2H20a2 2 0 0 1 2 2v2.5 M22 17.5V20a2 2 0 0 1-2 2h-2.5 M6.5 22H4a2 2 0 0 1-2-2v-2.5'/></svg>")
+		mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M3.5 8V5.5a2 2 0 0 1 2-2H8 M16 3.5h2.5a2 2 0 0 1 2 2V8 M20.5 16v2.5a2 2 0 0 1-2 2H16 M8 20.5H5.5a2 2 0 0 1-2-2V16'/></svg>")
 			center / contain no-repeat;
 	}
 	/* the frame takes ::after, so the guideline between steps moves to the item's background */

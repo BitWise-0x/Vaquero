@@ -2,6 +2,30 @@
 
 <!-- version list -->
 
+## v0.26.3 (2026-11-20)
+
+### Bug Fixes
+
+- Confirm before stopping a running job, status line and log in step with each action, 2x
+  screenshots
+  ([`171ceb6`](https://github.com/BitWise-0x/Vaquero/commit/171ceb6d0b16d8af36235de1d4c72b5ca93f821e))
+
+### Chores
+
+- **site**: Amber accent in light mode, hero and nav logo spacing
+  ([`b4f54a4`](https://github.com/BitWise-0x/Vaquero/commit/b4f54a43ca80e3aaed835bb0bcff9792f998e592))
+
+- **site**: Center the hero lead line
+  ([`dc62a5f`](https://github.com/BitWise-0x/Vaquero/commit/dc62a5fbbc167ebe3b58e1be566e02d6e7cc9c2f))
+
+- **site**: Current page sections in the sidebar, larger step numbers, full-quality stills
+  ([`64ec428`](https://github.com/BitWise-0x/Vaquero/commit/64ec4289591409860e50347a80687122308be440))
+
+- **site**: Page contents under the header on every docs page, page titles and step numbers in the
+  accent
+  ([`3096a55`](https://github.com/BitWise-0x/Vaquero/commit/3096a55c8347d20b8681937d1273886d79b4c6ed))
+
+
 ## v0.26.2 (2026-11-20)
 
 ### Bug Fixes

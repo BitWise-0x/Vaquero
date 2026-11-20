@@ -21,7 +21,7 @@
 
 <p align="center">
   <strong>Find and round up photos and videos by face.</strong><br>
-  Point Vaquero at a few photos of someone. It can then scan and find every matching photo or video of them, and copy / move them wherever you want. It all runs locally, nothing leaves your Mac.<br>
+  Point Vaquero at a few photos of someone. It can then scan and find every matching photo or video, and copy / move them wherever you want. It all runs locally. Nothing leaves your Mac.<br>
   Free, open source, no account, 100% private
 </p>
 

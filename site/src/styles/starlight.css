@@ -119,6 +119,15 @@ html {
 }
 
 /* touch screens: every tap target at least 44px */
+/* the menu button is a bare icon like the header's GitHub icon, not a filled circle */
+.sl-menu-button,
+.sl-menu-button:has(~ :popover-open) {
+	background-color: transparent;
+	border-radius: 0;
+	box-shadow: none;
+	color: var(--sl-color-white);
+}
+
 @media (pointer: coarse) {
 	:root {
 		--sl-menu-button-size: 2.75rem;

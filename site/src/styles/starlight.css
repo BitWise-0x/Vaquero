@@ -1,0 +1,38 @@
+/* the app's palette (vaquero/theme.py): near-black green-tinted surfaces, sodium amber signal */
+:root,
+:root[data-theme='dark'] {
+	--sl-color-accent-low: #2b200c;
+	--sl-color-accent: #efb146;
+	--sl-color-accent-high: #f7d08a;
+	--sl-color-white: #e7ece8;
+	--sl-color-gray-1: #d4dad6;
+	--sl-color-gray-2: #a2aaa6;
+	--sl-color-gray-3: #6b7470;
+	--sl-color-gray-4: #2e3733;
+	--sl-color-gray-5: #1f2623;
+	--sl-color-gray-6: #111513;
+	--sl-color-black: #0c0f0e;
+	--sl-color-text-accent: #efb146;
+	--sl-font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+}
+
+:root[data-theme='light'] {
+	--sl-color-accent-low: #f6e3bf;
+	--sl-color-accent: #a96a19;
+	--sl-color-accent-high: #5c3a0c;
+	--sl-color-white: #0c0f0e;
+	--sl-color-gray-1: #1b221f;
+	--sl-color-gray-2: #2e3733;
+	--sl-color-gray-3: #6b7470;
+	--sl-color-gray-4: #a2aaa6;
+	--sl-color-gray-5: #d4dad6;
+	--sl-color-gray-6: #eef1ef;
+	--sl-color-gray-7: #f6f8f7;
+	--sl-color-black: #ffffff;
+	--sl-color-text-accent: #a96a19;
+}
+
+.sl-markdown-content img {
+	border: 1px solid var(--sl-color-gray-5);
+	border-radius: 8px;
+}

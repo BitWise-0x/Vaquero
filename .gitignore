@@ -7,3 +7,5 @@ vaquero*.log
 vaquero-scan-*.csv
 vaquero-moves.csv
 models/
+node_modules/
+.astro/

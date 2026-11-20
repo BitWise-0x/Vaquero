@@ -1,0 +1,415 @@
+---
+import { Image } from 'astro:assets';
+import icon from '../../../assets/Vaquero.png';
+import wordmark from '../../../assets/wordmark-light.png';
+import results from '../../../docs/screenshots/results.png';
+import firstLaunch from '../../../docs/screenshots/first-launch.png';
+import scanning from '../../../docs/screenshots/scanning.png';
+import help from '../../../docs/screenshots/help.png';
+import settings from '../../../docs/screenshots/settings.png';
+
+const repo = 'https://github.com/BitWise-0x/Vaquero';
+const download = `${repo}/releases/latest/download/Vaquero-arm64.dmg`;
+const title = 'Vaquero: find every photo of one person, by face';
+const description =
+	'Point Vaquero at a few photos of someone. It finds every photo and video of them, then copies or moves them. Free, open source, and private: it runs on your Mac.';
+const shots = [
+	{ src: firstLaunch, alt: 'The face model downloading on first launch', caption: 'First launch' },
+	{ src: scanning, alt: 'A scan in progress', caption: 'Scanning' },
+	{ src: help, alt: 'The built-in help', caption: 'Help' },
+	{ src: settings, alt: 'Settings', caption: 'Settings' },
+];
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<link rel="icon" href="/favicon.png" type="image/png" />
+		<link rel="canonical" href={Astro.site} />
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={Astro.site} />
+		<meta property="og:image" content={new URL(results.src, Astro.site)} />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="theme-color" content="#0c0f0e" />
+	</head>
+	<body>
+		<header class="bar">
+			<div class="wrap bar-inner">
+				<a class="brand" href="/">
+					<Image src={icon} alt="" width={28} height={28} />
+					<span>Vaquero</span>
+				</a>
+				<nav>
+					<a href="/docs/install/">Docs</a>
+					<a href={repo}>GitHub</a>
+					<a class="button small" href={download}>Download</a>
+				</nav>
+			</div>
+		</header>
+
+		<main>
+			<section class="wrap intro">
+				<Image class="icon" src={icon} alt="Vaquero icon: a buffalo inside an amber viewfinder" width={112} height={112} />
+				<Image class="wordmark" src={wordmark} alt="Vaquero" width={300} />
+				<h1>Find and round up every photo, by face</h1>
+				<p class="lede">
+					Point Vaquero at a few photos of someone. It finds every photo and video of them, then copies or moves
+					them where you want. It runs on your Mac, and nothing leaves it.
+				</p>
+				<div class="actions">
+					<a class="button" href={download}>Download for Mac</a>
+					<a class="button plain" href={repo}>View on GitHub</a>
+				</div>
+				<p class="meta">Free and open source · Apple Silicon · macOS 14 or later</p>
+			</section>
+
+			<section class="wrap">
+				<Image class="shot" src={results} alt="Vaquero after a scan, with the matches listed in the log" widths={[640, 1100, 1600]} sizes="(max-width: 1100px) 100vw, 1100px" loading="eager" />
+			</section>
+
+			<section class="wrap columns">
+				<div>
+					<h2>What it's for</h2>
+					<ul>
+						<li><strong>A folder per person</strong>: every photo of a family member, a friend or yourself, out of years of backups</li>
+						<li><strong>One person from a shared dump</strong>: an event, a trip or a group chat export</li>
+						<li><strong>Albums and slideshows</strong>: every photo of one person</li>
+						<li><strong>Clean-up</strong>: move someone's photos out of a mixed folder, or copy them and leave the originals</li>
+					</ul>
+				</div>
+				<div>
+					<h2>How it works</h2>
+					<ol>
+						<li>Pick three to five photos of the person. Group photos are fine.</li>
+						<li>Pick a folder to scan, and where the matches go.</li>
+						<li>Click <strong>Scan</strong>. Every photo and video is checked; nothing moves yet.</li>
+						<li>Check the matches, then <strong>Copy</strong> or <strong>Move</strong> them.</li>
+					</ol>
+					<p><a href="/docs/using/">Using Vaquero</a></p>
+				</div>
+			</section>
+
+			<section class="wrap">
+				<h2>Features</h2>
+				<dl class="features">
+					<div><dt>Private</dt><dd>Face detection and recognition run on your Mac. No photo, face or log leaves it.</dd></div>
+					<div><dt>No training</dt><dd>A few photos of the person are enough. Photos of someone else are spotted and left out.</dd></div>
+					<div><dt>Photos and videos</dt><dd>JPEG, HEIC, PNG and more. Videos are checked on evenly spaced frames.</dd></div>
+					<div><dt>Folders and network shares</dt><dd>Subfolders on request; hidden folders and the destination are skipped.</dd></div>
+					<div><dt>You decide</dt><dd>Matches are listed first. Borderline ones are marked for review, and the threshold updates them without a rescan.</dd></div>
+					<div><dt>Undo</dt><dd>Every copy and move is journaled. Keep both or overwrite when a name is taken.</dd></div>
+					<div><dt>Apple Silicon native</dt><dd>The face models run on the Neural Engine and GPU through Core ML.</dd></div>
+					<div><dt>Signed and notarized</dt><dd>Opens like any Mac app, and updates itself from inside.</dd></div>
+				</dl>
+			</section>
+
+			<section class="wrap">
+				<h2>Screenshots</h2>
+				<div class="gallery">
+					{
+						shots.map((s) => (
+							<figure>
+								<Image src={s.src} alt={s.alt} widths={[480, 760]} sizes="(max-width: 700px) 100vw, 540px" />
+								<figcaption>{s.caption}</figcaption>
+							</figure>
+						))
+					}
+				</div>
+			</section>
+
+			<section class="wrap columns">
+				<div>
+					<h2>Docs</h2>
+					<ul class="links">
+						<li><a href="/docs/install/">Install</a></li>
+						<li><a href="/docs/using/">Using Vaquero</a></li>
+						<li><a href="/docs/reference-photos/">Reference photos</a></li>
+						<li><a href="/docs/files/">Files</a></li>
+						<li><a href="/docs/how-it-works/">How it works</a></li>
+						<li><a href="/docs/troubleshooting/">Troubleshooting</a></li>
+					</ul>
+				</div>
+				<div>
+					<h2>Get it</h2>
+					<p>Free, with no account. Download the app, or build it from <a href={repo}>source</a>.</p>
+					<div class="actions left">
+						<a class="button" href={download}>Download for Mac</a>
+					</div>
+					<p class="meta">Every version is on <a href={`${repo}/releases`}>Releases</a>, with its changes.</p>
+				</div>
+			</section>
+		</main>
+
+		<footer class="wrap foot">
+			<p>
+				<a href={repo}>GitHub</a> · <a href={`${repo}/blob/main/LICENSE`}>MIT license</a> ·
+				<a href={`${repo}/issues`}>Issues</a>
+			</p>
+			<p class="meta">
+				The face model is InsightFace's <code>buffalo_l</code>, licensed for non-commercial research use only.
+				Vaquero is not affiliated with InsightFace or Apple Inc.
+			</p>
+			<p class="meta">A <a href="https://bitwise0x.com">BitWise</a> product</p>
+		</footer>
+	</body>
+</html>
+
+<style is:global>
+	:root {
+		--bg: #0c0f0e;
+		--surface: #111513;
+		--raised: #1b221f;
+		--line: #1f2623;
+		--line-strong: #2e3733;
+		--fg: #e7ece8;
+		--fg-soft: #d4dad6;
+		--muted: #a2aaa6;
+		--signal: #efb146;
+		--signal-light: #f7d08a;
+		--on-signal: #0c0f0e;
+		color-scheme: dark;
+	}
+	* {
+		box-sizing: border-box;
+	}
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--fg);
+		font: 16px/1.6 -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+		-webkit-text-size-adjust: 100%;
+	}
+	a {
+		color: var(--signal);
+		text-decoration: none;
+	}
+	a:hover {
+		text-decoration: underline;
+	}
+	img {
+		max-width: 100%;
+		height: auto;
+		display: block;
+	}
+	.wrap {
+		max-width: 1100px;
+		margin: 0 auto;
+		padding-left: max(16px, env(safe-area-inset-left));
+		padding-right: max(16px, env(safe-area-inset-right));
+	}
+	.bar {
+		border-bottom: 1px solid var(--line);
+		background: var(--surface);
+	}
+	.bar-inner {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		min-height: 56px;
+		gap: 16px;
+	}
+	.brand {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		color: var(--fg);
+		font-weight: 600;
+	}
+	.brand:hover {
+		text-decoration: none;
+	}
+	nav {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+	nav a:not(.button) {
+		color: var(--fg-soft);
+		padding: 10px 12px;
+		min-height: 44px;
+		display: inline-flex;
+		align-items: center;
+	}
+	.button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 44px;
+		padding: 0 20px;
+		border-radius: 8px;
+		background: var(--signal);
+		color: var(--on-signal);
+		font-weight: 600;
+		border: 1px solid var(--signal);
+		transition: background-color 150ms ease;
+	}
+	.button:hover {
+		background: var(--signal-light);
+		text-decoration: none;
+	}
+	.button.plain {
+		background: transparent;
+		color: var(--fg);
+		border-color: var(--line-strong);
+	}
+	.button.plain:hover {
+		background: var(--raised);
+	}
+	.button.small {
+		min-height: 36px;
+		padding: 0 14px;
+		margin-left: 8px;
+	}
+	.intro {
+		text-align: center;
+		padding-top: 56px;
+		padding-bottom: 32px;
+	}
+	.intro .icon,
+	.intro .wordmark {
+		margin: 0 auto;
+	}
+	.intro .wordmark {
+		margin-top: 16px;
+		width: 300px;
+	}
+	h1 {
+		font-size: 28px;
+		line-height: 1.25;
+		margin: 24px 0 12px;
+		font-weight: 600;
+	}
+	h2 {
+		font-size: 20px;
+		margin: 0 0 12px;
+		font-weight: 600;
+	}
+	.lede {
+		max-width: 620px;
+		margin: 0 auto;
+		color: var(--fg-soft);
+		font-size: 17px;
+	}
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px;
+		justify-content: center;
+		margin: 28px 0 12px;
+	}
+	.actions.left {
+		justify-content: flex-start;
+		margin: 16px 0;
+	}
+	.meta {
+		color: var(--muted);
+		font-size: 14px;
+		margin: 0;
+	}
+	main > section {
+		margin-bottom: 64px;
+	}
+	.shot {
+		width: 100%;
+		border: 1px solid var(--line-strong);
+		border-radius: 8px;
+	}
+	.columns {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 48px;
+	}
+	ul,
+	ol {
+		padding-left: 20px;
+		margin: 0;
+	}
+	li {
+		margin-bottom: 8px;
+		color: var(--fg-soft);
+	}
+	li strong,
+	dt {
+		color: var(--fg);
+	}
+	.links {
+		list-style: none;
+		padding: 0;
+	}
+	.features {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 0 48px;
+		margin: 0;
+	}
+	.features div {
+		padding: 16px 0;
+		border-top: 1px solid var(--line);
+	}
+	dt {
+		font-weight: 600;
+		margin-bottom: 4px;
+	}
+	dd {
+		margin: 0;
+		color: var(--muted);
+	}
+	.gallery {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 24px;
+	}
+	figure {
+		margin: 0;
+	}
+	figure img {
+		border: 1px solid var(--line-strong);
+		border-radius: 8px;
+	}
+	figcaption {
+		color: var(--muted);
+		font-size: 14px;
+		margin-top: 8px;
+	}
+	code {
+		font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+		font-size: 0.9em;
+	}
+	.foot {
+		border-top: 1px solid var(--line);
+		padding-top: 24px;
+		padding-bottom: max(32px, env(safe-area-inset-bottom));
+	}
+	.foot p {
+		margin: 0 0 8px;
+	}
+	@media (max-width: 760px) {
+		.columns,
+		.features,
+		.gallery {
+			grid-template-columns: 1fr;
+			gap: 32px;
+		}
+		.features {
+			gap: 0;
+		}
+		.intro {
+			padding-top: 32px;
+		}
+		.intro .wordmark {
+			width: 220px;
+		}
+		h1 {
+			font-size: 24px;
+		}
+		nav a:not(.button) {
+			padding: 10px 8px;
+		}
+	}
+</style>

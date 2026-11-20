@@ -913,11 +913,13 @@ class Window(QMainWindow):
             "About Vaquero",
             f"<h3 style='color:{theme.SIGNAL}'>Vaquero {__version__}</h3>"
             f"<p>{SLOGAN}</p>"
-            "<p><b>Fully private.</b> Runs on your own Mac; no photo leaves it.</p>"
+            "<p><b>Fully private.</b> It all runs locally; nothing leaves your Mac.</p>"
+            "<p>Free and open source, MIT licensed.</p>"
             "<p>Detection: SCRFD · Recognition: ArcFace (InsightFace model packs)<br>"
             "Inference: ONNX Runtime with Core ML on Apple Silicon</p>"
             "<p>InsightFace pretrained models are licensed for non-commercial research use only.</p>"
-            '<p><a href="https://github.com/BitWise-0x/Vaquero">github.com/BitWise-0x/Vaquero</a></p>',
+            '<p><a href="https://vaquero.bitwise0x.com">vaquero.bitwise0x.com</a> · '
+            '<a href="https://github.com/BitWise-0x/Vaquero">github.com/BitWise-0x/Vaquero</a></p>',
         )
 
     def _on_thread_finished(self, thread: QThread, job: QObject) -> None:

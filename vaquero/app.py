@@ -318,20 +318,9 @@ def switch_guide() -> QPixmap:
     return pix
 
 
-def reduce_motion() -> bool:
-    """macOS Accessibility > Display > Reduce motion."""
-    try:
-        out = subprocess.run(
-            ["defaults", "read", "com.apple.universalaccess", "reduceMotion"], capture_output=True, text=True, timeout=2
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    return out.stdout.strip() == "1"
-
-
 class ScanIcon(QLabel):
     """The app icon with the amber scan line sweeping down inside its viewfinder corners, as on the website and in
-    the README (scripts/make_scanline.py renders that file with the same recipe). Still with Reduce motion on."""
+    the README (scripts/make_scanline.py renders that file with the same recipe)."""
 
     PERIOD_MS, SWEEP_MS, FRAME_MS = 4000, 2400, 33
     INSET = 0.14  # the line stays inside the viewfinder corners
@@ -346,8 +335,7 @@ class ScanIcon(QLabel):
         self.started = time.monotonic()
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update)
-        if not reduce_motion():
-            self.timer.start(self.FRAME_MS)
+        self.timer.start(self.FRAME_MS)
 
     def stop(self) -> None:
         """Hold the plain icon."""

@@ -55,16 +55,12 @@ def test_blocked_folders_lists_only_unreadable_ones(tmp_path: Path) -> None:
         locked.chmod(0o755)
 
 
-def test_header_icon_sweeps_and_holds_still_with_reduce_motion(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_header_icon_sweeps_until_stopped() -> None:
     from PySide6.QtWidgets import QApplication
 
     QApplication.instance() or QApplication([])
-    monkeypatch.setattr(ui, "reduce_motion", lambda: False)
     moving = ui.ScanIcon(64)
     assert moving.timer.isActive()
     moving.grab()  # paints a frame of the sweep
     moving.stop()
     assert not moving.timer.isActive()
-
-    monkeypatch.setattr(ui, "reduce_motion", lambda: True)
-    assert not ui.ScanIcon(64).timer.isActive()

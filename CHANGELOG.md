@@ -2,6 +2,29 @@
 
 <!-- version list -->
 
+## v0.26.6 (2026-11-20)
+
+### Bug Fixes
+
+- **app**: Slogan "Find and round up photos and videos by face", lead line "Free, open source, no
+  account, 100% private"
+  ([`62e7e1e`](https://github.com/BitWise-0x/Vaquero/commit/62e7e1ec822ab8bc634f84af4e5428d0448f78ea))
+
+### Chores
+
+- **site**: Hero headline on two lines beside a smaller icon on wide screens, three on phones
+  ([`f6416cf`](https://github.com/BitWise-0x/Vaquero/commit/f6416cfb4080e03282a1a05e914488751b5b45ca))
+
+- **site**: Hero icon and headline at full size, headline on three lines: "Find and round up /
+  photos and videos, / by face"
+  ([`5bfcfd5`](https://github.com/BitWise-0x/Vaquero/commit/5bfcfd5ab78738fd6ca3fead25af41af0adb5f44))
+
+### Documentation
+
+- Screenshots at 0.26.5
+  ([`8077730`](https://github.com/BitWise-0x/Vaquero/commit/80777309c6ec7736b014350f4c6a5e7fb1cf278f))
+
+
 ## v0.26.5 (2026-11-20)
 
 ### Bug Fixes

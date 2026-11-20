@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v0.26.7 (2026-11-20)
+
+### Bug Fixes
+
+- **app**: Tagline "every matching photo or video, and copy / move them wherever you want. It all
+  runs locally. Nothing leaves your Mac."
+  ([`097618f`](https://github.com/BitWise-0x/Vaquero/commit/097618f11df6a0f30a666e26feb2aca53eccdf19))
+
+### Documentation
+
+- Screenshots at 0.26.6
+  ([`b51ff9f`](https://github.com/BitWise-0x/Vaquero/commit/b51ff9f85c3a79810e26c30e6d5839422f58ff2a))
+
+
 ## v0.26.6 (2026-11-20)
 
 ### Bug Fixes

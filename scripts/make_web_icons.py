@@ -19,7 +19,7 @@ BG = (12, 15, 14)  # the app's background, #0c0f0e
 FG = (231, 236, 232)  # the app's text, #e7ece8
 AMBER = (239, 177, 70)
 FONT = "/System/Library/Fonts/HelveticaNeue.ttc"
-HEADLINE = ("Find and round up every", "photo & video, by face")
+HEADLINE = ("Find and round up", "every photo & video, by face")  # "every photo & video" stays on one line
 TAGLINE = ("Free, open source, no account.", "Stays on your Mac.")
 
 
@@ -46,7 +46,7 @@ def og_image(icon: Image.Image) -> Image.Image:
     img.paste(small, (50, (h - side) // 2), small)
     draw = ImageDraw.Draw(img)
     name = ImageFont.truetype(FONT, 76, index=1)
-    bold = ImageFont.truetype(FONT, 54, index=1)
+    bold = ImageFont.truetype(FONT, 50, index=1)  # the longer headline line fits with a margin to the right edge
     regular = ImageFont.truetype(FONT, 32, index=0)
     # text, font, color, space below; the block is centered on the icon
     lines = [("Vaquero", name, AMBER, 16), (HEADLINE[0], bold, FG, 8), (HEADLINE[1], bold, FG, 24)]

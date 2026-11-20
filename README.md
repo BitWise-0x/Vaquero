@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <strong>Find and round up every photo, by face.</strong><br>
+  <strong>Find and round up every photo &amp; video, by face.</strong><br>
   Point Vaquero at a few photos of someone. It can then scan and find every matching photo or video of them, and copy / move them wherever you want. It all runs locally, nothing leaves your Mac.
 </p>
 
@@ -44,9 +44,9 @@
 
 ## What It's For
 
-- **A folder per person**: every photo of a family member, a friend or yourself, out of years of backups
+- **A folder per person**: every photo and video of a family member, a friend or yourself, out of years of backups
 - **One person from a shared dump**: an event, a trip or a group chat export
-- **Albums and slideshows**: every photo of one person
+- **Albums and slideshows**: every photo and video of one person
 - **Clean-up**: move someone's photos out of a mixed folder, or copy them and leave the originals
 
 Three to five clear photos of the person are enough. No training.

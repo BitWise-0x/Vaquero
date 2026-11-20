@@ -188,7 +188,7 @@ class QtLogHandler(logging.Handler, QObject):
         self.record_emitted.emit(colorize(record), getattr(record, "section", False))
 
 
-SLOGAN = "Find and round up every photo, by face"
+SLOGAN = "Find and round up every photo & video, by face"
 READY = "Ready"
 AUTO_UPDATE_KEY = "check_updates_on_launch"
 
@@ -545,8 +545,17 @@ class Window(QMainWindow):
         self.logo = ScanIcon(64)
         title = QLabel(f"<span style='font-size:28pt; font-weight:700'>Vaquero</span>"
                        f"&nbsp;&nbsp;<span style='color:{TIME_COLOR}'>{__version__}</span>")
+        # the slogan sits under the name, beside the logo
+        intro = QLabel(SLOGAN)
+        intro.setStyleSheet(f"color: {theme.FG_SOFT}; font-size: 12pt;")
+        lockup = QVBoxLayout()
+        lockup.setSpacing(0)
+        lockup.addStretch()
+        lockup.addWidget(title)
+        lockup.addWidget(intro)
+        lockup.addStretch()
         top.addWidget(self.logo)
-        top.addWidget(title)
+        top.addLayout(lockup)
         top.addStretch()
         help_btn = QToolButton()
         help_btn.setText("?")
@@ -555,10 +564,6 @@ class Window(QMainWindow):
         help_btn.clicked.connect(self.show_help)
         top.addWidget(help_btn)
         outer.addLayout(top)
-        intro = QLabel(SLOGAN)
-        intro.setStyleSheet(f"color: {theme.FG_SOFT}; font-size: 14pt;")
-        outer.addSpacing(4)
-        outer.addWidget(intro)
         outer.addSpacing(10)
         folders = QGroupBox("Folders")
         grid = QGridLayout(folders)
@@ -917,7 +922,7 @@ class Window(QMainWindow):
             self,
             "About Vaquero",
             f"<h3 style='color:{theme.SIGNAL}'>Vaquero {__version__}</h3>"
-            f"<p>{SLOGAN}</p>"
+            f"<p>{html.escape(SLOGAN)}</p>"
             "<p><b>Fully private.</b> It all runs locally; nothing leaves your Mac.</p>"
             "<p>Free and open source, MIT licensed.</p>"
             "<p>Detection: SCRFD · Recognition: ArcFace (InsightFace model packs)<br>"

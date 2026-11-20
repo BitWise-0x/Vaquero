@@ -19,7 +19,7 @@ BG = (12, 15, 14)  # the app's background, #0c0f0e
 FG = (231, 236, 232)  # the app's text, #e7ece8
 AMBER = (239, 177, 70)
 FONT = "/System/Library/Fonts/HelveticaNeue.ttc"
-HEADLINE = ("Find and round up", "every photo, by face")
+HEADLINE = ("Find and round up every", "photo & video, by face")
 TAGLINE = ("Free, open source, no account.", "Stays on your Mac.")
 
 

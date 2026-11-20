@@ -93,8 +93,8 @@ Pick the reference photos, a folder to scan and a destination, then **Scan**. Ch
 - **Live threshold**: change it after a scan and the matches update without rescanning
 - **Lookalikes flagged**: borderline matches are marked `review`
 - **Copy or move**: with keep-both or overwrite when a name is taken; every copy and move can be undone from its journal
-- **Progress and cancel**: for the scan, the copy or move, and the model download
-- **Clickable log**: every file name opens the photo or video
+- **Progress and cancel**: progress in the log for the scan, the copy or move, and the model download; cancel and quit ask first while one runs
+- **Clickable log**: every file and folder name opens it
 - **Apple Silicon native**: Core ML on the Neural Engine and GPU
 - **Updates**: **Vaquero > Check for Updates…**, or automatically at launch
 - **Built-in help**: the **?** button explains every setting

@@ -74,8 +74,6 @@ QRadioButton::indicator:checked {{
     background: qradialgradient(cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5,
         stop:0 {ON_SIGNAL}, stop:0.32 {ON_SIGNAL}, stop:0.42 {SIGNAL}, stop:1 {SIGNAL});
 }}
-QProgressBar {{ background: {RAISED}; border: none; border-radius: 3px; max-height: 6px; }}
-QProgressBar::chunk {{ background: {SIGNAL}; border-radius: 3px; }}
 QMenuBar, QMenu {{ background: {SURFACE}; }}
 QMenu::item:selected {{ background: {SIGNAL}; color: {ON_SIGNAL}; }}
 QToolTip {{ background: {RAISED}; color: {FG}; border: 1px solid {LINE_STRONG}; }}

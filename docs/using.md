@@ -52,8 +52,9 @@ Changing the threshold after a scan updates the matches without scanning again. 
 
 ## Progress and cancelling
 
-- The progress bar tracks the model download, the scan and the copy or move. The line below it shows the count while running, then **DONE** or **CANCELLED** with a summary.
+- The log draws a progress bar for the model download, the scan and the copy or move. The status line above the log shows the counts in amber while running, then **DONE** or **CANCELLED** with a summary.
 - **Cancel** stops a scan, copy or move after the current file. A cancelled scan keeps the results it reached, and its matches can still be copied or moved. A cancelled copy or move leaves every file either fully done and journaled or untouched.
+- **Cancel**, **Quit** and closing the window ask before stopping a scan, copy, move or download.
 - Closing the window during a run cancels it and waits up to 30 seconds for the current file.
 
 ## The log

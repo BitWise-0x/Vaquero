@@ -1,4 +1,4 @@
-"""Renders the screenshots into docs/screenshots from the real window, fed with sample data: stills as
+"""Renders the screenshots into docs/screenshots from the real window at 2x, fed with sample data: stills as
 PNG, and the runs that show progress (first launch, a scan, a scan through to a copy) as animated WebP.
 
 Settings go to a throwaway file and no log file is written, so the saved folders of whoever runs this are
@@ -9,6 +9,7 @@ Run: QT_QPA_PLATFORM=offscreen uv run python scripts/screenshots.py
 
 import io
 import logging
+import os
 import sys
 import tempfile
 import time
@@ -187,6 +188,7 @@ def animate(w: ui.Window) -> None:
 
 def main() -> None:
     ui.log.setLevel(logging.INFO)
+    os.environ["QT_SCALE_FACTOR"] = "2"  # Retina pixels; offscreen renders at 1x otherwise
     qa = QApplication(sys.argv)
     theme.apply(qa, ui.asset("check.svg").as_posix())
     OUT.mkdir(parents=True, exist_ok=True)

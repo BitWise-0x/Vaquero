@@ -51,7 +51,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMainWindow,
     QMessageBox,
-    QProgressBar,
     QPushButton,
     QRadioButton,
     QSpinBox,
@@ -142,17 +141,17 @@ them out of the scanned folder; Copy leaves the originals where they are.</li>
 <h3>Buttons</h3>
 <ul>
 <li><span class="term">Scan</span>: checks every file and lists the matches. Moves nothing.</li>
-<li><span class="term">Cancel</span>: stops a scan, move or copy after the current file.</li>
+<li><span class="term">Cancel</span>: stops a scan, move or copy after the current file, once you confirm.</li>
 <li><span class="term">Execute</span>: moves or copies the matches to the destination, per <b>Move</b> / <b>Copy</b>.</li>
-<li><span class="term">Quit</span>: stops anything running after the current file and closes Vaquero. A model or
-update download picks up where it stopped the next time.</li>
+<li><span class="term">Quit</span>: closes Vaquero. With a scan, move, copy or download running, it asks first, then stops
+it after the current file. A model or update download picks up where it stopped the next time.</li>
 </ul>
 
 <h3>Reading the results</h3>
-<p>Below the progress bar, <b>Scanned</b> counts files done and <b>Matches found</b> counts matches so far.
+<p>Above the log, <b>Scanned</b> counts files done and <b>Matches found</b> counts matches so far, in amber.
 The line ends with <b>DONE</b> or <b>CANCELLED</b>.</p>
 <p>The log is split into sections: <b>Setup</b>, <b>Scanning</b>, <b>Matches</b>, <b>Result</b>, then
-<b>Move</b> or <b>Copy</b>. Click a file name in the log to open the photo or video.</p>
+<b>Move</b> or <b>Copy</b>. Click a file or folder name in the log to open it.</p>
 <p>Each match shows its score and <code>refs N/M</code>: how many of the M reference photos it
 matches on its own. A real match usually matches most of them (13/13); a lookalike only a few (0/13, 1/13).</p>
 <p>Log colors: <span style="color:{match}">green</span> a match,
@@ -199,6 +198,11 @@ QUEUED = Qt.ConnectionType.QueuedConnection
 
 BAR_CELLS = 30
 BUFFALO_URL = QUrl("vaquero:buffalo")
+
+
+def status_value(text: str) -> str:
+    """A count or summary in the status line above the log, in amber."""
+    return f'<b style="color:{theme.SIGNAL}">{html.escape(text)}</b>'
 
 
 def progress_bar_html(label: str, done: int, total: int, detail: str) -> str:
@@ -412,7 +416,7 @@ class ScanWorker(QObject):
             paths = list_media(self.folder, self.include_videos, self.recursive, self.dest)
             total = len(paths)
             section("Scanning")
-            log.info("%d files in %s", total, self.folder)
+            log.info("%d files in %s", total, self.folder, extra={"link": self.folder, "link_text": str(self.folder)})
             results: list[ScanResult] = []
             with self.report.open("w", newline="") as fh:
                 w = csv.writer(fh)
@@ -481,7 +485,8 @@ class TaskWorker(QObject):
         try:
             self.finished.emit(self.fn(self.progress.emit, lambda: self._cancel))
         except (RemoteError, OSError, subprocess.CalledProcessError) as e:
-            log.error("%s", e)
+            # a stopped download raises too, and is not an error
+            (log.warning if self._cancel else log.error)("%s", e)
             self.failed.emit(str(e))
 
 
@@ -525,6 +530,8 @@ class Window(QMainWindow):
         self.results: list[ScanResult] = []
         self.thread: QThread | None = None
         self.job: ScanWorker | TransferWorker | TaskWorker | None = None
+        self.task: str | None = None  # the running job as a confirmation names it; None needs no confirmation
+        self.stopping = False  # a cancel or quit asked the running job to stop
         self.journal = JOURNAL
         self.file_log: logging.FileHandler | None = None
         self.bytes_text = ""
@@ -644,14 +651,12 @@ class Window(QMainWindow):
         self.execute_btn.clicked.connect(self.execute)
         outer.addLayout(buttons)
 
-        self.progress = QProgressBar()
-        self.progress.setTextVisible(False)  # the status line below carries the counts
-        outer.addWidget(self.progress)
         self.status = QLabel(READY)
         self.status.setWordWrap(True)  # a long error must not widen the window
         self.found = QLabel()
         self.found.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         status_row = QHBoxLayout()
+        status_row.setContentsMargins(4, 10, 4, 6)  # room between the buttons above and the log below
         status_row.addWidget(self.status, 1)
         status_row.addWidget(self.found)
         outer.addLayout(status_row)
@@ -668,6 +673,7 @@ class Window(QMainWindow):
         outer.addWidget(log_box, 1)
 
         bottom = QHBoxLayout()
+        bottom.setContentsMargins(0, 8, 0, 0)  # room between the log and Quit
         bottom.addStretch()
         self.quit_btn = QPushButton("Quit")
         self.quit_btn.clicked.connect(self.close)
@@ -731,12 +737,13 @@ class Window(QMainWindow):
             self.execute_btn.setEnabled(bool(m))
 
     def _set_busy(self, busy: bool) -> None:
-        self.scan_btn.setEnabled(not busy)
+        self.scan_btn.setEnabled(not busy and bool(self.packs))  # no model yet: the download failed or was cancelled
         self.cancel_btn.setEnabled(busy)
         self.execute_btn.setEnabled(not busy and bool(self._matches()))
 
-    def _run(self, job: ScanWorker | TransferWorker | TaskWorker) -> None:
-        """Run job on a fresh thread; both are released on the main thread once it ends."""
+    def _run(self, job: ScanWorker | TransferWorker | TaskWorker, task: str | None = None) -> None:
+        """Run job on a fresh thread; both are released on the main thread once it ends. task names it for the
+        confirmation before a quit or cancel stops it; jobs without one stop without asking."""
         thread = QThread()
         job.moveToThread(thread)
         thread.started.connect(job.run)
@@ -748,9 +755,9 @@ class Window(QMainWindow):
         # PySide's disconnect hook then reads a freed wrapper (segfault). The QThread lives on the main thread,
         # so this queued lambda runs there and drops the last references after the thread has stopped.
         thread.finished.connect(lambda: self._on_thread_finished(thread, job), QUEUED)
-        self.thread, self.job = thread, job
+        self.thread, self.job, self.task = thread, job, task
+        self.stopping = False
         self.progress_line = None  # each job draws its own progress line in the log
-        self.progress.setValue(0)
         self._set_busy(True)
         thread.start()
 
@@ -820,15 +827,13 @@ class Window(QMainWindow):
         self.bytes_text = "Downloading face detection model, please wait..."
         job.progress.connect(self._on_bytes, QUEUED)
         job.finished.connect(self._on_models_ready, QUEUED)
-        self._run(job)
+        self._run(job, "the face model download")
         self.status.setText("Downloading face detection model, please wait...")
         section("Face model")
         log.info("Downloading face detection model (%s), please wait...", DEFAULT_PACK)
 
     def _on_bytes(self, done: int, total: int) -> None:
-        self.progress.setMaximum(max(total // 1024, 1))
-        self.progress.setValue(done // 1024)
-        self.status.setText(f"{self.bytes_text} {done / 1e6:.0f} of {total / 1e6:.0f} MB")
+        self.status.setText(f"{self.bytes_text} {status_value(f'{done / 1e6:.0f} of {total / 1e6:.0f} MB')}")
         self._log_progress("download", done, total, f"{done / 1e6:.0f} of {total / 1e6:.0f} MB")
 
     def _on_models_ready(self, _: object) -> None:
@@ -897,7 +902,7 @@ class Window(QMainWindow):
         self.bytes_text = f"Downloading Vaquero {rel.tag}..."
         job.progress.connect(self._on_bytes, QUEUED)
         job.finished.connect(self._on_update_staged, QUEUED)
-        self._run(job)
+        self._run(job, "the update download")
 
     def _on_update_staged(self, staged: Path) -> None:
         bundle = remote.running_bundle()
@@ -927,7 +932,7 @@ class Window(QMainWindow):
         thread.finished.disconnect()  # the connection's lambda holds the only other references
         # a job started from the old one's finished handler may already own self.thread
         if self.thread is thread:
-            self.thread = self.job = None
+            self.thread = self.job = self.task = None
 
     def check_access_at_launch(self) -> None:
         """Touch the saved folders off the main thread: macOS asks now, and a refusal gets the access dialog.
@@ -1020,24 +1025,38 @@ class Window(QMainWindow):
         job.finished.connect(self._on_finished, QUEUED)
         self.live_found = 0
         self._show_found(0)
-        self._run(job)
+        self._run(job, "a scan")
         self.status.setText("Loading models and references")
 
+    def _confirm_stop(self, title: str, stop: str) -> bool:
+        """Ask before a quit or cancel stops a running scan, move, copy or download; True to go ahead."""
+        if not self.task:
+            return True
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setWindowTitle(title)
+        box.setText(f"{self.task[0].upper()}{self.task[1:]} is in progress.")
+        go = box.addButton(stop, QMessageBox.ButtonRole.DestructiveRole)
+        keep = box.addButton("Keep running", QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(keep)
+        box.exec()
+        return box.clickedButton() is go
+
     def cancel_job(self) -> None:
-        if self.job:
+        # the job may end while the question is open
+        if self.job and self._confirm_stop("Cancel", "Stop") and self.job:
+            self.task, self.stopping = None, True
             self.job.cancel()
             self.cancel_btn.setEnabled(False)
             self.status.setText("Cancelling, finishing the current file")
 
     def _show_found(self, n: int) -> None:
-        self.found.setText(f"Matches found: <b>{n}</b>")
+        self.found.setText(f"Matches found: {status_value(str(n))}")
 
     def _on_progress(self, done: int, total: int, score: float) -> None:
         if score >= self.threshold.value():
             self.live_found += 1
-        self.progress.setMaximum(total)
-        self.progress.setValue(done)
-        self.status.setText(f"Scanned: {done} of {total}")
+        self.status.setText(f"Scanned: {status_value(f'{done} of {total}')}")
         self._log_progress("scan", done, total, f"{done} of {total} files")
         self._show_found(self.live_found)
 
@@ -1056,7 +1075,7 @@ class Window(QMainWindow):
         log.info("Vaquero %s, log file: %s", __version__, path, extra={"link": path, "link_text": str(path)})
 
     def _done(self, text: str, cancelled: bool = False) -> None:
-        self.status.setText(f"<b>{'CANCELLED' if cancelled else 'DONE'}</b>: {text}")
+        self.status.setText(f"<b>{'CANCELLED' if cancelled else 'DONE'}</b>: {status_value(text)}")
 
     def _on_finished(self, results: list[ScanResult], cancelled: bool, refs: int) -> None:
         self.results = results
@@ -1087,7 +1106,10 @@ class Window(QMainWindow):
     def _on_failed(self, msg: str) -> None:
         self.results = [r for r in self.results if r.path.exists()]
         self._set_busy(False)
-        self.status.setText(f"Failed: {msg}")
+        if self.stopping:  # a stopped download ends this way: it resumes next time
+            self._done(msg, cancelled=True)
+        else:
+            self.status.setText(f"Failed: {msg}")
 
     def execute(self) -> None:
         dirs = self._dirs()
@@ -1110,12 +1132,10 @@ class Window(QMainWindow):
         self.transfer_mode = mode
         job.progress.connect(self._on_transfer_progress, QUEUED)
         job.finished.connect(self._on_transfer_finished, QUEUED)
-        self._run(job)
+        self._run(job, f"a {mode.value}")
 
     def _on_transfer_progress(self, done: int, total: int) -> None:
-        self.progress.setMaximum(total)
-        self.progress.setValue(done)
-        self.status.setText(f"{self._transfer_verb().capitalize()} {done} of {total}")
+        self.status.setText(f"{self._transfer_verb().capitalize()} {status_value(f'{done} of {total}')}")
         self._log_progress(self.transfer_mode.value, done, total, f"{done} of {total} files")
 
     def _on_transfer_finished(self, done: int, failed: int, cancelled: bool) -> None:
@@ -1199,7 +1219,12 @@ class Window(QMainWindow):
         QDesktopServices.openUrl(url)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (Qt override)
+        if self.job and not self._confirm_stop("Quit Vaquero", "Quit"):
+            event.ignore()
+            return
         if self.job and self.thread:
+            # asked once; closing again while it finishes the current file does not ask again
+            self.task, self.stopping = None, True
             self.job.cancel()
             # a running QThread destroyed at exit aborts the process; the job stops after its current file
             if not self.thread.wait(CLOSE_WAIT_MS):

@@ -216,6 +216,7 @@ class FaceMatcher:
         A photo may show other people too: in each, the face of the person who appears across the photos is used.
         A photo whose face differs from the average of the other photos is someone else and is dropped."""
         photos: list[tuple[str, np.ndarray]] = []  # name, that photo's embeddings with the largest face first
+        ref_paths: dict[str, Path] = {}  # name to file, so the log can link each photo it mentions
         for p in sorted(ref_dir.iterdir()):
             if p.suffix.lower() not in IMAGE_EXTS:
                 continue
@@ -224,9 +225,10 @@ class FaceMatcher:
                 continue
             found = sorted(self.embeddings(img), key=lambda fe: -fe[0].area)
             if not found:
-                log.warning("reference has no face: %s", p.name)
+                log.warning("reference has no face: %s", p.name, extra={"link": p, "link_text": p.name})
                 continue
             photos.append((p.name, np.stack([e for _, e in found])))
+            ref_paths[p.name] = p
         if not photos:
             raise ValueError(f"no faces found in reference folder {ref_dir}")
 
@@ -235,14 +237,20 @@ class FaceMatcher:
         for name, faces in photos:
             i = int(np.argmax(faces @ person))
             if i:
-                log.info("reference %s: %d faces, using the one that matches the other photos", name, len(faces))
+                log.info(
+                    "reference %s: %d faces, using the one that matches the other photos", name, len(faces),
+                    extra={"link": ref_paths[name], "link_text": name},
+                )
             chosen.append((name, faces[i]))
         kept = []
         for i, (name, e) in enumerate(chosen):
             others = [o for j, (_, o) in enumerate(chosen) if j != i]
             sim = float(e @ _unit(np.mean(others, 0))) if others else 1.0
             if sim < REF_OUTLIER_SIM:
-                log.warning("reference dropped, its face is a different person from the others (sim %.3f): %s", sim, name)
+                log.warning(
+                    "reference dropped, its face is a different person from the others (sim %.3f): %s", sim, name,
+                    extra={"link": ref_paths[name], "link_text": name},
+                )
             else:
                 kept.append(e)
         if not kept:
@@ -300,7 +308,7 @@ def read_image(path: Path) -> np.ndarray | None:
         data = np.fromfile(str(path), dtype=np.uint8)
         img = cv2.imdecode(data, cv2.IMREAD_COLOR) if data.size else None
     if img is None:
-        log.warning("unreadable image: %s", path)
+        log.warning("unreadable image: %s", path, extra={"link": path, "link_text": str(path)})
     return img
 
 
@@ -321,7 +329,7 @@ def video_frames(path: Path, samples: int = DEFAULT_VIDEO_FRAMES) -> Iterator[np
     try:
         total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         if not cap.isOpened() or total <= 0:
-            log.warning("unreadable video: %s", path)
+            log.warning("unreadable video: %s", path, extra={"link": path, "link_text": str(path)})
             return
         for i in range(samples):
             cap.set(cv2.CAP_PROP_POS_FRAMES, int(total * (i + 0.5) / samples))
@@ -348,7 +356,9 @@ def list_media(folder: Path, include_videos: bool, recursive: bool = False, excl
         except OSError as e:
             if current == os.fspath(folder):
                 raise
-            log.warning("skipped unreadable folder %s: %s", current, e.strerror or e)
+            log.warning(
+                "skipped unreadable folder %s: %s", current, e.strerror or e, extra={"link": Path(current), "link_text": current}
+            )
             continue
         for entry in entries:
             if entry.name.startswith("."):
@@ -397,7 +407,7 @@ def scan(
             try:
                 best, n, agree = fut.result()
             except (cv2.error, ValueError, OSError) as e:
-                log.error("failed on %s: %s", path.name, e)
+                log.error("failed on %s: %s", path.name, e, extra={"link": path, "link_text": path.name})
                 continue
             yield ScanResult(path=path, kind=kind, score=best, faces=n, agree=agree)
 
@@ -466,7 +476,7 @@ def transfer_matches(
                 else:
                     shutil.copy2(src, dst)
             except OSError as e:
-                log.error("%s failed %s -> %s: %s", mode.value, src, dst, e)
+                log.error("%s failed %s -> %s: %s", mode.value, src, dst, e, extra={"link": src, "link_text": str(src)})
                 failed += 1
                 continue
             w.writerow([str(src), str(dst), action])

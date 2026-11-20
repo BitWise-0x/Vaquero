@@ -4,6 +4,7 @@ import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import { Card, CardGrid, LinkCard, Steps } from '@astrojs/starlight/components';
 import FeatureIcon from '../components/FeatureIcon.astro';
 import icon from '../../../assets/Vaquero.png';
+import scanIcon from '../../../assets/Vaquero-scan.webp';
 import results from '../../../docs/screenshots/results.png';
 import scanAndCopy from '../../../docs/screenshots/scan-and-copy.webp';
 import firstLaunch from '../../../docs/screenshots/first-launch.webp';
@@ -40,7 +41,8 @@ const shots = [
 			tagline:
 				'Point Vaquero at a few photos of someone. It finds every photo and video of them, then copies or moves them where you want. It runs on your Mac, and nothing leaves it.',
 			image: {
-				html: `<img src="${heroIcon.src}" width="200" height="200" alt="Vaquero icon: a buffalo inside an amber viewfinder" />`,
+				// the scan line loops; with reduced motion the still icon shows instead
+				html: `<picture><source srcset="${heroIcon.src}" media="(prefers-reduced-motion: reduce)" /><img src="${scanIcon.src}" width="240" height="240" alt="Vaquero icon: a buffalo inside an amber viewfinder" /></picture>`,
 			},
 			actions: [
 				{ text: 'Download for Mac', link: download, variant: 'primary', attrs: { 'data-note': 'Apple Silicon · macOS 14 or later' } },

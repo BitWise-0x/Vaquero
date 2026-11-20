@@ -104,3 +104,10 @@
 .sl-markdown-content th {
 	font-size: var(--sl-text-lg);
 }
+
+/* card text reads like the body text: same size on every screen, same color */
+.card .body,
+.sl-link-card .description {
+	font-size: var(--sl-text-body);
+	color: var(--sl-color-text);
+}

@@ -58,10 +58,13 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 		flex: none;
 		width: 32cqi;
 	}
+	/* the icon art sits inside about 9% transparent margin; scaling it up within its box makes the visible icon a
+	   little taller than the three-line headline without taking width from the text */
 	.hero-icon :global(img) {
 		display: block;
 		width: 100%;
 		height: auto;
+		transform: scale(1.12);
 	}
 	.tagline {
 		margin: 0;

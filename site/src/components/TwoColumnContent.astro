@@ -1,0 +1,14 @@
+---
+// One column at every width: the page contents dropdown (the right-sidebar slot) sits fixed under the header.
+---
+
+<slot name="right-sidebar" />
+<div class="main-pane"><slot /></div>
+
+<style>
+	@layer starlight.core {
+		.main-pane {
+			isolation: isolate;
+		}
+	}
+</style>

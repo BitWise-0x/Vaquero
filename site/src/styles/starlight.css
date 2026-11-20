@@ -93,6 +93,24 @@ html {
 	color: var(--sl-color-accent);
 }
 
+/* the page contents dropdown stays under the header on wide screens too, and the header lays out as on pages without
+   contents */
+@media (min-width: 50rem) {
+	:root {
+		--__toc-width: 0rem;
+	}
+}
+@media (min-width: 72rem) {
+	:root[data-has-toc] {
+		--sl-mobile-toc-height: 3rem;
+	}
+}
+
+/* docs page titles in the accent; the landing headline keeps its own color */
+h1#_top:not(.hero h1) {
+	color: var(--sl-color-accent);
+}
+
 /* search lives in the sidebar; the header keeps the dialog it opens, without its own button */
 .header site-search > button[data-open-modal] {
 	display: none;

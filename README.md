@@ -21,7 +21,7 @@
 
 <p align="center">
   <strong>Find and round up every photo, by face.</strong><br>
-  Point Vaquero at a few photos of someone. It finds every photo and video of them, then copies, moves or organizes them as you see fit. Runs on an open-source AI model, right on your Mac, fully private.
+  Point Vaquero at a few photos of someone. It can then scan and find every matching photo or video of them, and copy / move them wherever you want. It all runs locally, nothing leaves your Mac.
 </p>
 
 <br>

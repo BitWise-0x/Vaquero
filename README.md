@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/Vaquero.png" alt="Vaquero icon: a buffalo inside an amber viewfinder" width="120"/>
+  <img src="assets/Vaquero-scan.webp" alt="Vaquero icon: a buffalo inside an amber viewfinder, with a scan line sweeping down" width="120"/>
 </p>
 
 <h1 align="center">

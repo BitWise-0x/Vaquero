@@ -19,7 +19,7 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'Vaquero',
-			description: 'Find and round up every photo and video of one person, by face, on your Mac.',
+			description: 'Find and round up photos and videos by face. Free, open source, no account, 100% private.',
 			favicon: '/favicon.png',
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/BitWise-0x/Vaquero' }],
 			editLink: { baseUrl: 'https://github.com/BitWise-0x/Vaquero/edit/main/site/' },

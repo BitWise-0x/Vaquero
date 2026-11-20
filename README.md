@@ -86,7 +86,7 @@ Pick the reference photos, a folder to scan and a destination, then **Scan**. Ch
 
 ## Features
 
-- **Fully private**: everything runs on your own Mac
+- **100% private**: everything runs on your own Mac
 - **A few photos are enough**: no training step
 - **Group photos as references**: Vaquero uses the person common to the photos; a photo of someone else is left out
 - **Photos and videos**: JPEG, HEIC, PNG and more; videos are checked on evenly spaced frames (10 by default)

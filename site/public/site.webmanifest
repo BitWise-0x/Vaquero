@@ -1,7 +1,7 @@
 {
 	"name": "Vaquero",
 	"short_name": "Vaquero",
-	"description": "Find and round up every photo and video of one person, by face, on your Mac.",
+	"description": "Find and round up photos and videos by face. Free, open source, no account, 100% private.",
 	"start_url": "/",
 	"display": "browser",
 	"background_color": "#0c0f0e",

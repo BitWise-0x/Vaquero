@@ -25,6 +25,11 @@ import { Icon } from '@astrojs/starlight/components';
 		white-space: nowrap;
 		transition: background-color 150ms ease;
 	}
+	@media (pointer: coarse) {
+		.download {
+			min-height: 2.75rem;
+		}
+	}
 	.download:hover {
 		background: var(--sl-color-accent-high);
 		color: var(--sl-color-black);

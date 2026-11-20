@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://vaquero.bitwise0x.com/sitemap-index.xml

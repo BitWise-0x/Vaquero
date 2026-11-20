@@ -32,6 +32,16 @@ export default defineConfig({
 				SocialIcons: './src/components/SocialIcons.astro',
 			},
 			head: [
+				// shared by every page: link preview, icons beyond the favicon, and the web manifest
+				{ tag: 'meta', attrs: { property: 'og:image', content: 'https://vaquero.bitwise0x.com/og-image.png' } },
+				{ tag: 'meta', attrs: { property: 'og:image:width', content: '1200' } },
+				{ tag: 'meta', attrs: { property: 'og:image:height', content: '630' } },
+				{ tag: 'meta', attrs: { property: 'og:image:alt', content: 'The Vaquero icon beside the line: Find and round up every photo, by face' } },
+				{ tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
+				{ tag: 'meta', attrs: { name: 'theme-color', content: '#0c0f0e' } },
+				{ tag: 'link', attrs: { rel: 'icon', href: '/favicon.ico', sizes: '32x32' } },
+				{ tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' } },
+				{ tag: 'link', attrs: { rel: 'manifest', href: '/site.webmanifest' } },
 				{
 					tag: 'script',
 					content: `addEventListener('DOMContentLoaded', () => {

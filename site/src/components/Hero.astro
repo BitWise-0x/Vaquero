@@ -116,7 +116,7 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 		border-color: var(--sl-color-accent-high);
 	}
 	.note {
-		font-size: 0.7rem;
+		font-size: var(--sl-text-xs);
 		color: var(--sl-color-gray-2);
 		text-align: center;
 		white-space: nowrap;
@@ -129,9 +129,6 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 		}
 		.action-wrap {
 			flex: none;
-		}
-		.note {
-			font-size: 0.6rem;
 		}
 		.action {
 			padding: 0 0.85rem;

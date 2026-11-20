@@ -1,7 +1,7 @@
 """Renders the website's icons and link-preview image into site/public from assets/Vaquero.icns:
 favicon.ico (16, 32, 48 px), apple-touch-icon.png (180 px, opaque), icon-192.png and icon-512.png for the web manifest,
 icon-maskable-512.png (the icon inside the maskable safe zone on the app's background), and og-image.png
-(1200x630: the icon beside the headline).
+(1200x630: the icon beside the name and headline).
 
 Run: uv run python scripts/make_web_icons.py
 """
@@ -45,13 +45,16 @@ def og_image(icon: Image.Image) -> Image.Image:
     small = icon.resize((side, side), Image.LANCZOS)
     img.paste(small, (50, (h - side) // 2), small)
     draw = ImageDraw.Draw(img)
+    name = ImageFont.truetype(FONT, 58, index=1)
     bold = ImageFont.truetype(FONT, 64, index=1)
     regular = ImageFont.truetype(FONT, 26, index=0)
-    x, y = 500, 200
-    for line in HEADLINE:
-        draw.text((x, y), line, font=bold, fill=FG)
-        y += 78
-    draw.text((x, y + 34), TAGLINE, font=regular, fill=AMBER)
+    # text, font, color, space below; the block is centered on the icon
+    lines = [("Vaquero", name, AMBER, 30), (HEADLINE[0], bold, FG, 14), (HEADLINE[1], bold, FG, 34), (TAGLINE, regular, AMBER, 0)]
+    heights = [draw.textbbox((0, 0), text, font=font, anchor="lt")[3] for text, font, _, _ in lines]
+    y = (h - sum(heights) - sum(gap for *_, gap in lines)) / 2
+    for (text, font, color, gap), height in zip(lines, heights, strict=True):
+        draw.text((500, y), text, font=font, fill=color, anchor="lt")
+        y += height + gap
     return img
 
 

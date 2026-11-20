@@ -1,7 +1,6 @@
 ---
-// The landing hero: headline with the icon beside it, the tagline, then the actions. An action whose attrs carry
+// The landing hero: a large icon with the headline to its right, then the tagline and the actions. An action whose attrs carry
 // data-note shows that note as a second, smaller line inside its button.
-import { Icon } from '@astrojs/starlight/components';
 
 const { data } = Astro.locals.starlightRoute.entry;
 const { title = data.title, tagline, image, actions = [] } = data.hero || {};
@@ -10,21 +9,18 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 
 <div class="hero">
 	<div class="head">
-		<h1 id="_top" data-page-title set:html={title} />
 		{iconHtml && <div class="hero-icon" set:html={iconHtml} />}
+		<h1 id="_top" data-page-title set:html={title} />
 	</div>
 	{tagline && <p class="tagline" set:html={tagline} />}
 	{
 		actions.length > 0 && (
 			<div class="actions">
-				{actions.map(({ text, link, icon, variant = 'primary', attrs = {} }) => {
+				{actions.map(({ text, link, variant = 'primary', attrs = {} }) => {
 					const { 'data-note': note, ...rest } = attrs;
 					return (
 						<a class:list={['action', variant, { 'has-note': note }]} href={link} {...rest}>
-							<span class="label">
-								{text}
-								{icon && <Icon name={icon as any} size="1.25rem" />}
-							</span>
+							<span class="label">{text}</span>
 							{note && <span class="note">{note}</span>}
 						</a>
 					);
@@ -42,10 +38,9 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 		padding-block: clamp(2rem, calc(1rem + 6vmin), 5rem) 1rem;
 	}
 	.head {
-		display: grid;
-		grid-template-columns: 1fr auto;
+		display: flex;
 		align-items: center;
-		gap: clamp(1rem, 4vw, 3rem);
+		gap: clamp(1rem, 3vw, 2.5rem);
 	}
 	h1 {
 		margin: 0;
@@ -55,7 +50,8 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 		color: var(--sl-color-white);
 	}
 	.hero-icon {
-		width: clamp(5rem, 16vw, 12rem);
+		flex: none;
+		width: clamp(5.5rem, 20vw, 13rem);
 	}
 	.hero-icon :global(img) {
 		display: block;
@@ -78,6 +74,7 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 		display: inline-flex;
 		flex-direction: column;
 		justify-content: center;
+		align-items: center;
 		min-height: 3.25rem;
 		padding: 0.5rem 1.5rem;
 		border: 1px solid var(--sl-color-gray-4);
@@ -101,9 +98,6 @@ const iconHtml = image && 'html' in image ? image.html : undefined;
 		border-color: var(--sl-color-accent-high);
 	}
 	.label {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
 		font-size: var(--sl-text-base);
 	}
 	.note {

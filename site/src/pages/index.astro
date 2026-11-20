@@ -4,25 +4,34 @@ import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import { Card, CardGrid, LinkCard, Steps } from '@astrojs/starlight/components';
 import icon from '../../../assets/Vaquero.png';
 import results from '../../../docs/screenshots/results.png';
-import firstLaunch from '../../../docs/screenshots/first-launch.png';
-import scanning from '../../../docs/screenshots/scanning.png';
+import scanAndCopy from '../../../docs/screenshots/scan-and-copy.webp';
+import firstLaunch from '../../../docs/screenshots/first-launch.webp';
+import scanning from '../../../docs/screenshots/scanning.webp';
 import help from '../../../docs/screenshots/help.png';
 import settings from '../../../docs/screenshots/settings.png';
 
 const repo = 'https://github.com/BitWise-0x/Vaquero';
 const download = `${repo}/releases/latest/download/Vaquero-arm64.dmg`;
 const heroIcon = await getImage({ src: icon, width: 400 });
+// link previews need a still: the results screenshot
+const preview = new URL(results.src, Astro.site).href;
+// animated captures are served as they are: the image optimizer would keep only their first frame
 const shots = [
-	{ src: scanning, alt: 'A scan in progress', caption: 'Scanning' },
-	{ src: firstLaunch, alt: 'The face model downloading on first launch', caption: 'First launch' },
-	{ src: help, alt: 'The built-in help', caption: 'Help' },
-	{ src: settings, alt: 'Settings', caption: 'Settings' },
+	{ src: scanning, alt: 'A scan in progress', caption: 'Scanning', animated: true },
+	{ src: firstLaunch, alt: 'The face model downloading on first launch', caption: 'First launch', animated: true },
+	{ src: help, alt: 'The built-in help', caption: 'Help', animated: false },
+	{ src: settings, alt: 'Settings', caption: 'Settings', animated: false },
 ];
 ---
 
 <StarlightPage
 	frontmatter={{
 		title: 'Vaquero',
+		tableOfContents: false,
+		head: [
+			{ tag: 'meta', attrs: { property: 'og:image', content: preview } },
+			{ tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
+		],
 		description:
 			'Point Vaquero at a few photos of someone. It finds every photo and video of them, then copies or moves them. Free, open source, and private: it runs on your Mac.',
 		hero: {
@@ -33,16 +42,16 @@ const shots = [
 				html: `<img src="${heroIcon.src}" width="200" height="200" alt="Vaquero icon: a buffalo inside an amber viewfinder" />`,
 			},
 			actions: [
-				{ text: 'Download for Mac', link: download, icon: 'download', variant: 'primary', attrs: { 'data-note': 'Apple Silicon · macOS 14 or later' } },
-				{ text: 'Read the docs', link: '/docs/install/', icon: 'open-book', variant: 'secondary' },
+				{ text: 'Download for Mac', link: download, variant: 'primary', attrs: { 'data-note': 'Apple Silicon · macOS 14 or later' } },
+				{ text: 'Read the docs', link: '/docs/install/', variant: 'secondary' },
 			],
 		},
 	}}
 >
 	<p class="meta">Free and open source, with no account.</p>
 
-	<button class="zoom" type="button" data-full={results.src} data-alt="Vaquero after a scan, with the matches listed in the log" aria-label="Enlarge screenshot: matches after a scan">
-		<Image src={results} alt="Vaquero after a scan, with the matches listed in the log" widths={[640, 1100, 1600]} sizes="(max-width: 1100px) 100vw, 1000px" loading="eager" />
+	<button class="zoom" type="button" data-full={scanAndCopy.src} data-alt="Vaquero scanning a folder, listing the matches, then copying them" aria-label="Enlarge: a scan through to a copy">
+		<img src={scanAndCopy.src} width={scanAndCopy.width} height={scanAndCopy.height} alt="Vaquero scanning a folder, listing the matches, then copying them" />
 	</button>
 
 	<h2 id="how-it-works">How it works</h2>
@@ -81,7 +90,11 @@ const shots = [
 			shots.map((s) => (
 				<figure>
 					<button class="zoom" type="button" data-full={s.src.src} data-alt={s.alt} aria-label={`Enlarge screenshot: ${s.caption}`}>
-						<Image src={s.src} alt={s.alt} widths={[480, 760]} sizes="(max-width: 760px) 100vw, 520px" />
+						{s.animated ? (
+							<img src={s.src.src} width={s.src.width} height={s.src.height} alt={s.alt} loading="lazy" />
+						) : (
+							<Image src={s.src} alt={s.alt} widths={[480, 760]} sizes="(max-width: 760px) 100vw, 520px" />
+						)}
 					</button>
 					<figcaption>{s.caption}</figcaption>
 				</figure>

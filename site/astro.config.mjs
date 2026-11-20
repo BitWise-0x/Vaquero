@@ -26,6 +26,7 @@ export default defineConfig({
 			customCss: ['./src/styles/starlight.css'],
 			components: {
 				Hero: './src/components/Hero.astro',
+				MobileMenuToggle: './src/components/MobileMenuToggle.astro',
 				ThemeProvider: './src/components/ThemeProvider.astro',
 				Sidebar: './src/components/Sidebar.astro',
 				SocialIcons: './src/components/SocialIcons.astro',

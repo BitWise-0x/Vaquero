@@ -1,0 +1,36 @@
+---
+// Starlight's menu button, with the GitHub link beside it on narrow screens, where the header hides its icons.
+import Default from '@astrojs/starlight/components/MobileMenuToggle.astro';
+import { Icon } from '@astrojs/starlight/components';
+---
+
+<a class="github print:hidden" href="https://github.com/BitWise-0x/Vaquero" aria-label="GitHub">
+	<Icon name="github" size="1.75rem" />
+</a>
+<Default />
+
+<style>
+	/* narrow screens only, matching Starlight's 50rem breakpoint; wider ones show GitHub in the header */
+	.github {
+		display: none;
+	}
+	@media (max-width: 49.99rem) {
+		.github {
+			display: flex;
+		}
+	}
+	.github {
+		position: fixed;
+		top: calc((var(--sl-nav-height) - var(--sl-menu-button-size)) / 2);
+		inset-inline-end: calc(var(--sl-nav-pad-x) + var(--sl-menu-button-size) + 0.75rem);
+		z-index: var(--sl-z-index-navbar);
+		align-items: center;
+		justify-content: center;
+		width: var(--sl-menu-button-size);
+		height: var(--sl-menu-button-size);
+		color: var(--sl-color-accent);
+	}
+	.github:hover {
+		color: var(--sl-color-accent-high);
+	}
+</style>

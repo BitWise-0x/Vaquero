@@ -90,7 +90,7 @@
 
 /* header logo sits close to the name */
 .site-title {
-	gap: 0.6rem;
+	gap: 0.35rem;
 }
 
 /* section headings sit on a divider line, on the landing page and in the docs */

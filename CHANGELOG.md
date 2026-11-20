@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.26.8 (2026-11-20)
+
+### Bug Fixes
+
+- **app**: About box and site descriptions carry "Free, open source, no account, 100% private"
+  ([`d13d3e0`](https://github.com/BitWise-0x/Vaquero/commit/d13d3e0e0217f8f61a289986d88ea2cafaf72845))
+
+### Documentation
+
+- Screenshots at 0.26.7
+  ([`00e5b16`](https://github.com/BitWise-0x/Vaquero/commit/00e5b1653ed0db0e4dd21e44644d3a4da6122de5))
+
+
 ## v0.26.7 (2026-11-20)
 
 ### Bug Fixes

@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v0.25.0 (2026-11-20)
+
+### Continuous Integration
+
+- Run tests before each release and attach a versionless DMG
+  ([`9eef2f6`](https://github.com/BitWise-0x/Vaquero/commit/9eef2f6c8806bb0d15054f295d802365b2015671))
+
+### Documentation
+
+- User guide in docs/, linked from the README
+  ([`cc29dbd`](https://github.com/BitWise-0x/Vaquero/commit/cc29dbdc1d81f71c634690860b90838fb967d2dc))
+
+### Features
+
+- Group reference photos, HEIC support and faster scans
+  ([`af23a89`](https://github.com/BitWise-0x/Vaquero/commit/af23a899df364e28806935d7ae141c50234a2e6a))
+
+- **site**: Vaquero.bitwise0x.com from site/ and docs/
+  ([`14446ab`](https://github.com/BitWise-0x/Vaquero/commit/14446abbc71d9625ed57d32356e7db2e268a2760))
+
+
 ## v0.24.0 (2026-11-19)
 
 ### Documentation

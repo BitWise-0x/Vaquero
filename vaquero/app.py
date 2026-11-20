@@ -5,16 +5,18 @@ from __future__ import annotations
 import csv
 import html
 import logging
+import math
 import os
 import subprocess
 import sys
 import tempfile
 import threading
+import time
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QSettings, Qt, QThread, QUrl, Signal
+from PySide6.QtCore import QObject, QRectF, QSettings, Qt, QThread, QTimer, QUrl, Signal
 from PySide6.QtGui import (
     QAction,
     QImage,
@@ -24,6 +26,7 @@ from PySide6.QtGui import (
     QFont,
     QIcon,
     QKeySequence,
+    QLinearGradient,
     QPainter,
     QPixmap,
     QTextBlockFormat,
@@ -315,6 +318,66 @@ def switch_guide() -> QPixmap:
     return pix
 
 
+def reduce_motion() -> bool:
+    """macOS Accessibility > Display > Reduce motion."""
+    try:
+        out = subprocess.run(
+            ["defaults", "read", "com.apple.universalaccess", "reduceMotion"], capture_output=True, text=True, timeout=2
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return out.stdout.strip() == "1"
+
+
+class ScanIcon(QLabel):
+    """The app icon with the amber scan line sweeping down inside its viewfinder corners, as on the website and in
+    the README (scripts/make_scanline.py renders that file with the same recipe). Still with Reduce motion on."""
+
+    PERIOD_MS, SWEEP_MS, FRAME_MS = 4000, 2400, 33
+    INSET = 0.14  # the line stays inside the viewfinder corners
+    CORE, HALO = 3 / 480, 26 / 480  # gaussian widths of the sharp core and the soft halo, per icon edge
+    SPILL = 40 / 480  # how far the glow may reach past the sweep's ends
+    STOPS = 61
+
+    def __init__(self, size: int) -> None:
+        super().__init__()
+        self.setFixedSize(size, size)
+        self.icon = QIcon(str(asset("Vaquero.png"))).pixmap(size, size)
+        self.started = time.monotonic()
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update)
+        if not reduce_motion():
+            self.timer.start(self.FRAME_MS)
+
+    def stop(self) -> None:
+        """Hold the plain icon."""
+        self.timer.stop()
+        self.update()
+
+    def paintEvent(self, _: object) -> None:
+        p = QPainter(self)
+        p.drawPixmap(0, 0, self.icon)
+        t = (time.monotonic() - self.started) * 1000 % self.PERIOD_MS
+        if not self.timer.isActive() or t >= self.SWEEP_MS:
+            return
+        progress = t / self.SWEEP_MS
+        edge = float(self.width())
+        lo, hi = edge * self.INSET, edge * (1 - self.INSET)
+        y = lo + progress * (hi - lo)
+        fade = math.sin(math.pi * progress) ** 0.6
+        reach = 3 * edge * self.HALO
+        grad = QLinearGradient(0, y - reach, 0, y + reach)
+        for i in range(self.STOPS):
+            d = (2 * i / (self.STOPS - 1) - 1) * reach
+            a = 0.85 * math.exp(-((d / (edge * self.CORE)) ** 2)) + 0.22 * math.exp(-((d / (edge * self.HALO)) ** 2))
+            color = QColor(theme.SIGNAL)
+            # painting the accent over the icon at this opacity blends it toward the accent, as the recipe does
+            color.setAlphaF(min(1.0, a * fade * 0.9))
+            grad.setColorAt(i / (self.STOPS - 1), color)
+        top, bottom = max(y - reach, lo - edge * self.SPILL), min(y + reach, hi + edge * self.SPILL)
+        p.fillRect(QRectF(lo, top, hi - lo, bottom - top), grad)
+
+
 def blocked_message(e: PermissionError) -> str:
     """macOS privacy controls deny a folder with EPERM; say where to allow it instead of the bare errno."""
     where = e.filename or "a folder"
@@ -484,11 +547,10 @@ class Window(QMainWindow):
         self.setCentralWidget(central)
         outer = QVBoxLayout(central)
         top = QHBoxLayout()
-        logo = QLabel()
-        logo.setPixmap(QIcon(str(asset("Vaquero.png"))).pixmap(64, 64))
+        self.logo = ScanIcon(64)
         title = QLabel(f"<span style='font-size:28pt; font-weight:700'>Vaquero</span>"
                        f"&nbsp;&nbsp;<span style='color:{TIME_COLOR}'>{__version__}</span>")
-        top.addWidget(logo)
+        top.addWidget(self.logo)
         top.addWidget(title)
         top.addStretch()
         help_btn = QToolButton()

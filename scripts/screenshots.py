@@ -181,6 +181,7 @@ def main() -> None:
 
         w = ui.Window()
         w.menuBar().hide()  # macOS puts the menu in the system bar; offscreen draws it in the window
+        w.logo.stop()  # the header's scan line would land at a random point in each shot
         w.show()
         fill(w)
 

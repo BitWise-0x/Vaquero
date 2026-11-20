@@ -3,7 +3,9 @@
 # 0.x). python-semantic-release sets the version in pyproject.toml and
 # vaquero/__init__.py, relocks uv.lock, writes CHANGELOG.md, commits them as chore(release), tags vX.Y.Z and
 # creates the GitHub release with the notes. A push with no fix, perf or feat commit releases nothing.
-# Nothing is tagged by hand. A release's DMG is built, signed with the Developer ID identity and notarized on a
+# Nothing is tagged by hand. If the tag push fails after the chore(release) commit lands, main carries that version
+# with no tag: revert the chore(release) commit and push it with a releasing commit, and the next run versions again
+# from the last tag. A release's DMG is built, signed with the Developer ID identity and notarized on a
 # macOS runner, then attached to that release, where the app's Check for Updates and the README's download link
 # find it. Signing reads the repo secrets DEVELOPER_ID_P12 (base64 .p12), DEVELOPER_ID_P12_PASSWORD,
 # ASC_API_KEY (base64 .p8), ASC_API_KEY_ID and ASC_ISSUER_ID.

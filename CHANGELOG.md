@@ -2,58 +2,6 @@
 
 <!-- version list -->
 
-## v0.26.0 (2026-11-20)
-
-### Chores
-
-- Retire the unused wordmark images and their drawing code
-  ([`60a9761`](https://github.com/BitWise-0x/Vaquero/commit/60a97612baf67c7bc9fc19b6f93f65dde102a57d))
-
-- **site**: Animated scan-line hero icon, still with reduced motion
-  ([`19b2ea7`](https://github.com/BitWise-0x/Vaquero/commit/19b2ea754fd8eb4270cb471ed3e34ff2ea57b82a))
-
-- **site**: Dark by default, hero beside the icon, download requirements, sidebar-only search,
-  heading dividers
-  ([`d9b1be7`](https://github.com/BitWise-0x/Vaquero/commit/d9b1be70be27b0fd5ed483bd8084a0c6da057e8d))
-
-- **site**: Docs layout for the whole site, header download button, sidebar search, accent
-  navigation, screenshot zoom
-  ([`aa7d60c`](https://github.com/BitWise-0x/Vaquero/commit/aa7d60cc089f8f9f4656a1fab3b9de763e3189c8))
-
-- **site**: Headline scales with the icon, snug buttons, lighter grey, centred captions and lead
-  line, matching card and table type
-  ([`118129a`](https://github.com/BitWise-0x/Vaquero/commit/118129a411711a6d1b96c24fc98a834ae2d791b4))
-
-- **site**: Headline wrapping, landing tab title, lead line wording and size
-  ([`eb709e6`](https://github.com/BitWise-0x/Vaquero/commit/eb709e678cd46ff781a49a0f7cc84c67b9416e32))
-
-- **site**: Hero sized to the icon, slim buttons with requirements below, custom feature icons
-  ([`28e3e74`](https://github.com/BitWise-0x/Vaquero/commit/28e3e74de2200a3e5db1c23f8a32bfe3c0e79401))
-
-- **site**: Icon beside the headline, no page contents on the landing, mobile GitHub icon, tighter
-  logo
-  ([`68d7d28`](https://github.com/BitWise-0x/Vaquero/commit/68d7d289724d02d4c6e41d098ab193741ea424ef))
-
-### Documentation
-
-- Animated scan-line icon at the top of the README
-  ([`f5cc3ac`](https://github.com/BitWise-0x/Vaquero/commit/f5cc3acb5aac67a31895fc349995d5a85b5fc6e1))
-
-- Animated screenshots of the first launch, a scan, and a scan through to a copy
-  ([`1b1919d`](https://github.com/BitWise-0x/Vaquero/commit/1b1919d45653b45295fe447b616c3eb105f511cf))
-
-- README header in the same layout as the other repos, compact badges
-  ([`39a39d9`](https://github.com/BitWise-0x/Vaquero/commit/39a39d9183aa36e0358eaee70d03a11a2d71592b))
-
-- README site link layout and shorter development commands
-  ([`dfd91c8`](https://github.com/BitWise-0x/Vaquero/commit/dfd91c870d900dae057efa0deed0d869048bb3d0))
-
-### Features
-
-- Amber scan line sweeping across the window's header icon
-  ([`bc3073a`](https://github.com/BitWise-0x/Vaquero/commit/bc3073a97c980bd82eee03bff97b857120220966))
-
-
 ## v0.25.0 (2026-11-20)
 
 ### Continuous Integration

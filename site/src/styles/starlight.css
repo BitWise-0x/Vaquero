@@ -109,6 +109,16 @@ html {
 	}
 }
 
+/* the current page's sections, indented under its sidebar entry */
+a.sidebar-section {
+	padding-inline-start: calc(var(--sl-sidebar-item-padding-inline) + 0.75rem);
+	font-size: var(--sl-text-xs);
+	color: var(--sl-color-gray-3);
+}
+a.sidebar-section:hover {
+	color: var(--sl-color-accent);
+}
+
 /* docs page titles in the accent; the landing headline keeps its own color */
 h1#_top:not(.hero h1) {
 	color: var(--sl-color-accent);

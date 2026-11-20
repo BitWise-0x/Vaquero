@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v0.26.5 (2026-11-20)
+
+### Bug Fixes
+
+- **app**: Slogan "Find and round up photos and videos, by face"
+  ([`78654e0`](https://github.com/BitWise-0x/Vaquero/commit/78654e0de687e6a9c81298dbc7ba53d6c7790004))
+
+### Chores
+
+- **site**: Keep "every photo & video" on one line in the headline and link preview
+  ([`822db0b`](https://github.com/BitWise-0x/Vaquero/commit/822db0be08d42bf335fc65aed9ee0fb0e8388ed0))
+
+### Documentation
+
+- Slogan "Find and round up photos and videos, by face", new screenshots and preview card
+  ([`7756d86`](https://github.com/BitWise-0x/Vaquero/commit/7756d867f54fcff6e3fa0ee50dd4938fa2a6d980))
+
+
 ## v0.26.4 (2026-11-20)
 
 ### Bug Fixes

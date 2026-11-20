@@ -1,6 +1,6 @@
 [project]
 name = "vaquero"
-version = "0.26.4"
+version = "0.26.5"
 description = "Find and round up photos and videos, by face"
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]

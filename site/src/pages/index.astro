@@ -49,6 +49,7 @@ const shots = [
 			{ tag: 'script', attrs: { type: 'application/ld+json' }, content: JSON.stringify(app) },
 		],
 		description,
+		lead: 'Free, open source, no account. Stays on your Mac.',
 		hero: {
 			title: 'Find and round up every&nbsp;photo, by&nbsp;face',
 			tagline:
@@ -63,8 +64,6 @@ const shots = [
 		},
 	}}
 >
-	<p class="lead">Free, open source, no account. Stays on your Mac.</p>
-
 	<button class="zoom" type="button" data-full={scanAndCopy.src} data-alt="Vaquero scanning a folder, listing the matches, then copying them" aria-label="Enlarge: a scan through to a copy">
 		<img src={scanAndCopy.src} width={scanAndCopy.width} height={scanAndCopy.height} alt="Vaquero scanning a folder, listing the matches, then copying them" />
 	</button>
@@ -155,13 +154,6 @@ const shots = [
 
 <style>
 	/* the line between the hero buttons and the first screenshot */
-	.lead {
-		/* Starlight's content spacing plus the hero's 1rem sits above; this matches it below */
-		margin: 0 0 2.5rem;
-		text-align: center;
-		font-size: var(--sl-text-sm);
-		color: var(--sl-color-accent);
-	}
 	.meta {
 		color: var(--sl-color-gray-2);
 		font-size: var(--sl-text-sm);

@@ -123,6 +123,13 @@ html {
 	:root {
 		--sl-menu-button-size: 2.75rem;
 	}
+	/* the larger menu button keeps its icon centred, at the share of the circle it has at Starlight's size */
+	.sl-menu-button {
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+		font-size: 1.375rem;
+	}
 	.sidebar-content a,
 	.sidebar-content summary,
 	.sl-link-card a,

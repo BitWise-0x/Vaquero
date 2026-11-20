@@ -1,4 +1,4 @@
-import { defineCollection } from 'astro:content';
+import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { docsSchema } from '@astrojs/starlight/schema';
 
@@ -10,6 +10,7 @@ export const collections = {
 			pattern: '*.md',
 			generateId: ({ entry }) => `docs/${entry.replace(/\.md$/, '')}`,
 		}),
-		schema: docsSchema(),
+		// lead: the landing page's one-line pitch under the icon and headline
+		schema: docsSchema({ extend: z.object({ lead: z.string().optional() }) }),
 	}),
 };

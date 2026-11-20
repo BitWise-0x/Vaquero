@@ -9,8 +9,12 @@ Vaquero is MIT licensed (see `LICENSE`). The app bundles the libraries below, ea
 | ONNX Runtime | MIT | https://github.com/microsoft/onnxruntime |
 | OpenCV (opencv-python-headless) | Apache-2.0; its bundled FFmpeg is LGPL-2.1 | https://github.com/opencv/opencv-python |
 | NumPy | BSD-3-Clause | https://numpy.org/ |
+| pi-heif | BSD-3-Clause | https://github.com/bigcat88/pillow_heif |
+| libheif | LGPL-3.0 | https://github.com/strukturag/libheif |
+| libde265 | LGPL-3.0 | https://github.com/strukturag/libde265 |
+| Pillow | MIT-CMU | https://python-pillow.org/ |
 
-Qt, PySide6 and FFmpeg are linked dynamically and ship as separate libraries inside `Vaquero.app/Contents/Frameworks`, so they can be replaced with other builds of the same version. Their source code is available from the links above.
+Qt, PySide6, FFmpeg, libheif and libde265 are linked dynamically and ship as separate libraries inside `Vaquero.app/Contents/Frameworks`, so they can be replaced with other builds of the same version. Their source code is available from the links above.
 
 ## Face model
 

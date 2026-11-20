@@ -1,7 +1,10 @@
 import csv
 import os
+import shutil
+import subprocess
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from vaquero.engine import (
@@ -117,3 +120,74 @@ def test_parse_version() -> None:
 
     assert parse_version("v0.10.2") > parse_version("0.9.9")
     assert parse_version("v1.2.3-beta.1") == (1, 2, 3)
+
+
+def test_list_media_skips_an_unreadable_subfolder_but_not_an_unreadable_root(tmp_path: Path) -> None:
+    touch(tmp_path / "a.jpg")
+    locked = tmp_path / "locked"
+    touch(locked / "b.jpg")
+    locked.chmod(0)
+    try:
+        assert [p.name for p in list_media(tmp_path, include_videos=False, recursive=True)] == ["a.jpg"]
+        with pytest.raises(PermissionError):
+            list_media(locked, include_videos=False)
+    finally:
+        locked.chmod(0o755)
+
+
+def test_list_media_includes_heic(tmp_path: Path) -> None:
+    touch(tmp_path / "IMG_0001.HEIC")
+    touch(tmp_path / "IMG_0002.heif")
+    assert [p.name for p in list_media(tmp_path, include_videos=False)] == ["IMG_0001.HEIC", "IMG_0002.heif"]
+
+
+@pytest.mark.skipif(shutil.which("sips") is None, reason="needs macOS sips to write a HEIC file")
+def test_heic_decodes_to_bgr(tmp_path: Path) -> None:
+    import cv2
+
+    from vaquero.engine import read_image
+
+    png, heic = tmp_path / "red.png", tmp_path / "red.heic"
+    img = np.zeros((64, 96, 3), np.uint8)
+    img[:, :] = (0, 0, 255)  # BGR red
+    cv2.imwrite(str(png), img)
+    subprocess.run(["sips", "-s", "format", "heic", str(png), "--out", str(heic)], check=True, capture_output=True)
+
+    out = read_image(heic)
+    assert out is not None
+    assert out.shape == (64, 96, 3)
+    b, g, r = out[32, 48]
+    assert r > 200 and g < 60 and b < 60
+
+
+@pytest.mark.skipif(shutil.which("sips") is None, reason="needs macOS sips to write a HEIC file")
+def test_truncated_heic_does_not_raise(tmp_path: Path) -> None:
+    import cv2
+
+    from vaquero.engine import read_image
+
+    png, heic = tmp_path / "noise.png", tmp_path / "noise.heic"
+    cv2.imwrite(str(png), np.random.default_rng(0).integers(0, 255, (600, 800, 3), dtype=np.uint8))
+    subprocess.run(["sips", "-s", "format", "heic", str(png), "--out", str(heic)], check=True, capture_output=True)
+    data = heic.read_bytes()
+    heic.write_bytes(data[: len(data) // 2])
+    out = read_image(heic)
+    assert out is None or out.shape[2] == 3
+
+
+def test_corrupt_heic_reads_as_none(tmp_path: Path) -> None:
+    from vaquero.engine import read_image
+
+    assert read_image(touch(tmp_path / "broken.heic", b"not a heif file")) is None
+
+
+def test_similarity_transform_recovers_rotation_scale_and_shift() -> None:
+    from vaquero.engine import ARCFACE_DST, similarity_transform
+
+    a, s, t = np.deg2rad(23.0), 1.7, np.array([12.5, -4.0])
+    rot = s * np.array([[np.cos(a), -np.sin(a)], [np.sin(a), np.cos(a)]])
+    src = ARCFACE_DST.astype(np.float64)
+    dst = src @ rot.T + t
+    m = similarity_transform(src, dst)
+    assert np.allclose(m[:, :2], rot, atol=1e-4)
+    assert np.allclose(m[:, 2], t, atol=1e-3)

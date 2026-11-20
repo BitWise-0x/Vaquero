@@ -107,9 +107,11 @@ files against it, and lists the matches. Nothing moves until you click <b>Execut
 <h3>Folders</h3>
 <ul>
 <li><span class="term">Reference faces</span>: a folder of photos of the person to find. Three to five clear photos
-from different angles work best. The largest face in each photo is used. A photo whose largest face is someone else
-is dropped and noted in the log.</li>
-<li><span class="term">Folder to scan</span>: where to look for the person.</li>
+from different angles work best. Other people may be in them: Vaquero uses the person who appears across the photos.
+If every photo shows the same two people, add one of the person alone. A photo of someone else is dropped and noted
+in the log.</li>
+<li><span class="term">Folder to scan</span>: where to look for the person. Photos (JPEG, HEIC, PNG, WebP, TIFF, BMP)
+and videos (MOV, MP4, M4V, AVI, MKV) are checked; other files are left alone.</li>
 <li><span class="term">Destination</span>: where the matches go. Created if it does not exist. It is never scanned.</li>
 </ul>
 
@@ -356,22 +358,15 @@ class ScanWorker(QObject):
                 log.warning("scan cancelled before scanning")
                 self.finished.emit([], True, self.ref_count)
                 return
-            total = len(list_media(self.folder, self.include_videos, self.recursive, self.dest))
+            paths = list_media(self.folder, self.include_videos, self.recursive, self.dest)
+            total = len(paths)
             section("Scanning")
             log.info("%d files in %s", total, self.folder)
             results: list[ScanResult] = []
             with self.report.open("w", newline="") as fh:
                 w = csv.writer(fh)
                 w.writerow(["file", "kind", "score", "faces", "ref_agree"])
-                results_iter = scan(
-                    matcher,
-                    self.folder,
-                    self.include_videos,
-                    lambda: self._cancel,
-                    recursive=self.recursive,
-                    exclude=self.dest,
-                    video_samples=self.frames,
-                )
+                results_iter = scan(matcher, paths, lambda: self._cancel, video_samples=self.frames)
                 for r in results_iter:
                     results.append(r)
                     w.writerow(

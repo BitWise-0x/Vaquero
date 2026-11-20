@@ -32,7 +32,9 @@
 <p align="center">
   <a href="https://github.com/BitWise-0x/Vaquero/releases/latest/download/Vaquero-arm64.dmg"><img src="assets/download-button.png" alt="Download for Apple Silicon Macs" width="160"/></a>
   <br>
-  <sub>macOS 14 or later · <a href="#install">install steps</a> · <a href="https://vaquero.bitwise0x.com">vaquero.bitwise0x.com</a></sub>
+  <sub>macOS 14 or later · <a href="#install">install steps</a></sub>
+  <br>
+  <sub><a href="https://vaquero.bitwise0x.com">vaquero.bitwise0x.com</a></sub>
 </p>
 
 <br>
@@ -134,7 +136,7 @@ flowchart LR
 
 ## Documentation
 
-Also at [vaquero.bitwise0x.com](https://vaquero.bitwise0x.com/docs/install/).
+Also at [vaquero.bitwise0x.com](https://vaquero.bitwise0x.com/docs/install/)
 
 - [Install](docs/install.md): requirements, permissions, updates, uninstall
 - [Using Vaquero](docs/using.md): options, file types, scores and the threshold, the log
@@ -150,8 +152,8 @@ Also at [vaquero.bitwise0x.com](https://vaquero.bitwise0x.com/docs/install/).
 ```sh
 uv sync
 uv run vaquero    # run from source
-uv run pytest      # tests
-./build.sh         # signed, notarized dist/Vaquero.app and dist/Vaquero-<version>-arm64.dmg
+uv run pytest     # tests
+./build.sh        # signed, notarized app and DMG in dist/
 ```
 
 Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). Detection (SCRFD) and recognition (ArcFace) run directly on the ONNX models.
@@ -161,8 +163,8 @@ The website is [site/](site/) (Astro and Starlight); it serves `docs/` under `/d
 ```sh
 cd site
 pnpm install
-pnpm dev           # http://localhost:4321
-pnpm build         # site/dist
+pnpm dev          # http://localhost:4321
+pnpm build        # site/dist
 ```
 
 <br>

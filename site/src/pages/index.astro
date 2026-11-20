@@ -27,7 +27,7 @@ const shots = [
 
 <StarlightPage
 	frontmatter={{
-		title: 'Vaquero',
+		title: 'Find and round up every photo, by face',
 		tableOfContents: false,
 		head: [
 			{ tag: 'meta', attrs: { property: 'og:image', content: preview } },
@@ -36,7 +36,7 @@ const shots = [
 		description:
 			'Point Vaquero at a few photos of someone. It finds every photo and video of them, then copies or moves them. Free, open source, and private: it runs on your Mac.',
 		hero: {
-			title: 'Find and round up every photo, by face',
+			title: 'Find and round up every&nbsp;photo, by&nbsp;face',
 			tagline:
 				'Point Vaquero at a few photos of someone. It finds every photo and video of them, then copies or moves them where you want. It runs on your Mac, and nothing leaves it.',
 			image: {
@@ -49,7 +49,7 @@ const shots = [
 		},
 	}}
 >
-	<p class="lead">Free and open source, no account, nothing leaves your Mac.</p>
+	<p class="lead">Free, open source, no account. Stays on your Mac.</p>
 
 	<button class="zoom" type="button" data-full={scanAndCopy.src} data-alt="Vaquero scanning a folder, listing the matches, then copying them" aria-label="Enlarge: a scan through to a copy">
 		<img src={scanAndCopy.src} width={scanAndCopy.width} height={scanAndCopy.height} alt="Vaquero scanning a folder, listing the matches, then copying them" />
@@ -145,8 +145,7 @@ const shots = [
 		/* Starlight's content spacing plus the hero's 1rem sits above; this matches it below */
 		margin: 0 0 2.5rem;
 		text-align: center;
-		font-size: var(--sl-text-lg);
-		font-weight: 600;
+		font-size: var(--sl-text-sm);
 		color: var(--sl-color-accent);
 	}
 	.meta {

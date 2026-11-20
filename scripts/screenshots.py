@@ -11,6 +11,7 @@ import io
 import logging
 import sys
 import tempfile
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -74,22 +75,35 @@ HOLD_MS = 2600  # the last frame of an animation stays up this long before it lo
 
 
 class Recorder:
-    """Collects grabs of a widget as animation frames and writes them as one looping animated WebP."""
+    """Collects grabs of the window as animation frames and writes them as one looping animated WebP. The header's
+    scan line runs on the animation's own clock, so it sweeps as in the app however long each grab takes."""
 
-    def __init__(self, widget: object) -> None:
+    def __init__(self, widget: ui.Window) -> None:
         self.widget = widget
         self.frames: list[Image.Image] = []
         self.durations: list[int] = []
+        self.elapsed = 0
+
+    def frame(self) -> Image.Image:
+        buf = QBuffer()
+        buf.open(QIODevice.OpenModeFlag.WriteOnly)
+        self.widget.grab().save(buf, "PNG")
+        return Image.open(io.BytesIO(bytes(buf.data()))).convert("RGB")
 
     def snap(self, ms: int = FRAME_MS) -> None:
         QApplication.processEvents()
-        buf = QBuffer()
-        buf.open(QIODevice.OpenModeFlag.WriteOnly)
-        self.widget.grab().save(buf, "PNG")  # type: ignore[attr-defined]
-        self.frames.append(Image.open(io.BytesIO(bytes(buf.data()))).convert("RGB"))
+        logo = self.widget.logo
+        if not logo.timer.isActive():
+            logo.timer.start(logo.FRAME_MS)
+        logo.started = time.monotonic() - self.elapsed / 1000
+        self.frames.append(self.frame())
         self.durations.append(ms)
+        self.elapsed += ms
 
     def save(self, name: str) -> None:
+        # the last frame holds before the loop, so it shows the icon between sweeps
+        self.widget.logo.stop()
+        self.frames[-1] = self.frame()
         self.durations[-1] = HOLD_MS
         first, *rest = self.frames
         first.save(OUT / name, save_all=True, append_images=rest, duration=self.durations, loop=0, lossless=True, method=6)
@@ -181,7 +195,7 @@ def main() -> None:
 
         w = ui.Window()
         w.menuBar().hide()  # macOS puts the menu in the system bar; offscreen draws it in the window
-        w.logo.stop()  # the header's scan line would land at a random point in each shot
+        w.logo.stop()  # stills show the plain icon; Recorder runs the scan line in the animations
         w.show()
         fill(w)
 

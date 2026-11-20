@@ -2,6 +2,36 @@
 
 <!-- version list -->
 
+## v0.26.2 (2026-11-20)
+
+### Bug Fixes
+
+- About box states free and open source and links the website
+  ([`568e512`](https://github.com/BitWise-0x/Vaquero/commit/568e512eef3d024e58a0d6f5ede6afa324ffcb38))
+
+### Chores
+
+- **site**: Drop an unused hero line height
+  ([`d77ac05`](https://github.com/BitWise-0x/Vaquero/commit/d77ac050b3e90ee38491b42168c833b8e716560c))
+
+- **site**: Lead line between the hero tagline and the buttons
+  ([`727980b`](https://github.com/BitWise-0x/Vaquero/commit/727980b78940ad84d83f7f929a7a58c6e4fabb1e))
+
+- **site**: Lead line under the hero headline, centred menu icon on touch screens
+  ([`1ccb491`](https://github.com/BitWise-0x/Vaquero/commit/1ccb4912558970091d8bf2c189cc4dd89b5e7932))
+
+- **site**: Menu button as a bare icon
+  ([`b204347`](https://github.com/BitWise-0x/Vaquero/commit/b2043479660116476de3e93ded337a852e1b0f2c))
+
+- **site**: One-line lead closer to the hero headline
+  ([`c736162`](https://github.com/BitWise-0x/Vaquero/commit/c7361628634dedf096d17c9fb62cd994840abea3))
+
+### Documentation
+
+- Reword the intro on the site and in the README
+  ([`ef8a8b7`](https://github.com/BitWise-0x/Vaquero/commit/ef8a8b7351ae4e120b7ed996ca89effb4f98d12c))
+
+
 ## v0.26.1 (2026-11-20)
 
 ### Bug Fixes

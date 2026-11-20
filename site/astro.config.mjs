@@ -25,6 +25,8 @@ export default defineConfig({
 			editLink: { baseUrl: 'https://github.com/BitWise-0x/Vaquero/edit/main/site/' },
 			customCss: ['./src/styles/starlight.css'],
 			components: {
+				Hero: './src/components/Hero.astro',
+				ThemeProvider: './src/components/ThemeProvider.astro',
 				Sidebar: './src/components/Sidebar.astro',
 				SocialIcons: './src/components/SocialIcons.astro',
 			},

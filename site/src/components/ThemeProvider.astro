@@ -1,0 +1,14 @@
+{/* Starlight's provider with dark as the default: a first visit saves "dark", so the theme menu shows it too.
+   Inlined to avoid a flash of the wrong theme. */}
+<script is:inline>
+	(() => {
+		let theme = 'dark';
+		try {
+			theme = localStorage.getItem('starlight-theme') || 'dark';
+			localStorage.setItem('starlight-theme', theme);
+		} catch {
+			// storage blocked (private window): dark for this visit
+		}
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+	})();
+</script>

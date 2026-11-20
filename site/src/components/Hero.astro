@@ -1,0 +1,120 @@
+---
+// The landing hero: headline with the icon beside it, the tagline, then the actions. An action whose attrs carry
+// data-note shows that note as a second, smaller line inside its button.
+import { Icon } from '@astrojs/starlight/components';
+
+const { data } = Astro.locals.starlightRoute.entry;
+const { title = data.title, tagline, image, actions = [] } = data.hero || {};
+const iconHtml = image && 'html' in image ? image.html : undefined;
+---
+
+<div class="hero">
+	<div class="head">
+		<h1 id="_top" data-page-title set:html={title} />
+		{iconHtml && <div class="hero-icon" set:html={iconHtml} />}
+	</div>
+	{tagline && <p class="tagline" set:html={tagline} />}
+	{
+		actions.length > 0 && (
+			<div class="actions">
+				{actions.map(({ text, link, icon, variant = 'primary', attrs = {} }) => {
+					const { 'data-note': note, ...rest } = attrs;
+					return (
+						<a class:list={['action', variant, { 'has-note': note }]} href={link} {...rest}>
+							<span class="label">
+								{text}
+								{icon && <Icon name={icon as any} size="1.25rem" />}
+							</span>
+							{note && <span class="note">{note}</span>}
+						</a>
+					);
+				})}
+			</div>
+		)
+	}
+</div>
+
+<style>
+	.hero {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+		padding-block: clamp(2rem, calc(1rem + 6vmin), 5rem) 1rem;
+	}
+	.head {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		align-items: center;
+		gap: clamp(1rem, 4vw, 3rem);
+	}
+	h1 {
+		margin: 0;
+		font-size: clamp(var(--sl-text-3xl), calc(0.25rem + 5vw), var(--sl-text-6xl));
+		line-height: var(--sl-line-height-headings);
+		font-weight: 700;
+		color: var(--sl-color-white);
+	}
+	.hero-icon {
+		width: clamp(5rem, 16vw, 12rem);
+	}
+	.hero-icon :global(img) {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+	.tagline {
+		margin: 0;
+		max-width: 62ch;
+		font-size: clamp(var(--sl-text-base), calc(0.0625rem + 2vw), var(--sl-text-xl));
+		color: var(--sl-color-gray-2);
+	}
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1rem;
+		margin-top: 0.5rem;
+	}
+	.action {
+		display: inline-flex;
+		flex-direction: column;
+		justify-content: center;
+		min-height: 3.25rem;
+		padding: 0.5rem 1.5rem;
+		border: 1px solid var(--sl-color-gray-4);
+		border-radius: 8px;
+		color: var(--sl-color-white);
+		font-weight: 600;
+		text-decoration: none;
+		transition: background-color 150ms ease, border-color 150ms ease;
+	}
+	.action:hover {
+		border-color: var(--sl-color-accent);
+		background: var(--sl-color-accent-low);
+	}
+	.action.primary {
+		background: var(--sl-color-accent);
+		border-color: var(--sl-color-accent);
+		color: var(--sl-color-black);
+	}
+	.action.primary:hover {
+		background: var(--sl-color-accent-high);
+		border-color: var(--sl-color-accent-high);
+	}
+	.label {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: var(--sl-text-base);
+	}
+	.note {
+		font-size: var(--sl-text-xs);
+		font-weight: 500;
+		opacity: 0.8;
+	}
+	@media (max-width: 30rem) {
+		.action {
+			flex: 1 1 100%;
+			align-items: center;
+		}
+	}
+</style>

@@ -188,7 +188,7 @@ class QtLogHandler(logging.Handler, QObject):
         self.record_emitted.emit(colorize(record), getattr(record, "section", False))
 
 
-SLOGAN = "Find and round up every photo & video, by face"
+SLOGAN = "Find and round up photos and videos, by face"
 READY = "Ready"
 AUTO_UPDATE_KEY = "check_updates_on_launch"
 

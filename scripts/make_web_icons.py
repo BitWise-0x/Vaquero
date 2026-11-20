@@ -19,7 +19,7 @@ BG = (12, 15, 14)  # the app's background, #0c0f0e
 FG = (231, 236, 232)  # the app's text, #e7ece8
 AMBER = (239, 177, 70)
 FONT = "/System/Library/Fonts/HelveticaNeue.ttc"
-HEADLINE = ("Find and round up", "every photo & video, by face")  # "every photo & video" stays on one line
+HEADLINE = ("Find and round up", "photos and videos,", "by face")
 TAGLINE = ("Free, open source, no account.", "Stays on your Mac.")
 
 
@@ -49,7 +49,7 @@ def og_image(icon: Image.Image) -> Image.Image:
     bold = ImageFont.truetype(FONT, 50, index=1)  # the longer headline line fits with a margin to the right edge
     regular = ImageFont.truetype(FONT, 32, index=0)
     # text, font, color, space below; the block is centered on the icon
-    lines = [("Vaquero", name, AMBER, 16), (HEADLINE[0], bold, FG, 8), (HEADLINE[1], bold, FG, 24)]
+    lines = [("Vaquero", name, AMBER, 16), (HEADLINE[0], bold, FG, 8), (HEADLINE[1], bold, FG, 8), (HEADLINE[2], bold, FG, 24)]
     lines += [(TAGLINE[0], regular, AMBER, 6), (TAGLINE[1], regular, AMBER, 0)]
     heights = [draw.textbbox((0, 0), text, font=font, anchor="lt")[3] for text, font, _, _ in lines]
     y = (h - sum(heights) - sum(gap for *_, gap in lines)) / 2

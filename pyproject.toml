@@ -1,7 +1,7 @@
 [project]
 name = "vaquero"
 version = "0.26.4"
-description = "Find and round up every photo & video, by face"
+description = "Find and round up photos and videos, by face"
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 requires-python = ">=3.12,<3.13"

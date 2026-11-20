@@ -1,30 +1,27 @@
-<h1 align="center">
-  <img src="assets/Vaquero.png" alt="Vaquero icon: a buffalo inside an amber viewfinder" width="160"/>
-  <br>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/wordmark-light.png">
-    <img src="assets/wordmark-dark.png" alt="Vaquero" width="380">
-  </picture>
-</h1>
-
-<h3 align="center">Find and round up every photo, by face</h3>
-
 <p align="center">
-  Point Vaquero at a few photos of someone.<br>
-  It finds every photo and video of them, then copies, moves or organizes them as you see fit.<br>
-  Runs on an open-source AI model, right on your Mac, fully private.
+  <img src="assets/Vaquero.png" alt="Vaquero icon: a buffalo inside an amber viewfinder" width="120"/>
 </p>
 
-<p align="center">
+<h1 align="center">
   <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
   <img src="https://img.shields.io/badge/Qt-41CD52?style=for-the-badge&logo=qt&logoColor=white" alt="Qt"/>
   <img src="https://img.shields.io/badge/ONNX_Runtime-efb146?style=for-the-badge&logo=onnx&logoColor=0c0f0e" alt="ONNX Runtime"/>
-  <img src="https://img.shields.io/badge/Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Apple Silicon"/>
+  <img src="https://img.shields.io/badge/Core_ML-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Core ML"/>
   <br>
-  <img src="https://img.shields.io/badge/platform-macOS-lightgrey?style=for-the-badge&logo=apple" alt="macOS"/>
-  <img src="https://img.shields.io/badge/inference-Core_ML-efb146?style=for-the-badge" alt="Core ML"/>
-  <img src="https://img.shields.io/badge/models-InsightFace_buffalo__l-orange?style=for-the-badge" alt="InsightFace buffalo_l"/>
-  <img src="https://img.shields.io/badge/license-MIT-efb146?style=for-the-badge" alt="MIT license"/>
+  <br>
+  <code><strong>Vaquero</strong></code>
+</h1>
+
+<p align="center">
+  <img src="https://img.shields.io/github/v/release/BitWise-0x/Vaquero?style=flat-square&color=efb146" alt="Latest release"/>
+  <img src="https://img.shields.io/badge/macOS_14+-Apple_Silicon-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 14 or later on Apple Silicon"/>
+  <img src="https://img.shields.io/badge/model-InsightFace_buffalo__l-orange?style=flat-square" alt="InsightFace buffalo_l"/>
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT license"/>
+</p>
+
+<p align="center">
+  <strong>Find and round up every photo, by face.</strong><br>
+  Point Vaquero at a few photos of someone. It finds every photo and video of them, then copies, moves or organizes them as you see fit. Runs on an open-source AI model, right on your Mac, fully private.
 </p>
 
 <br>

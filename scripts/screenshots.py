@@ -302,6 +302,9 @@ def main() -> None:
         QTimer.singleShot(300, lambda: dialog_shot("undo.png"))
         w.undo_last()
         w.close()
+    # end here: Qt would write the throwaway settings again while tearing down, recreating the folder just removed
+    sys.stdout.flush()
+    os._exit(0)
 
 
 if __name__ == "__main__":

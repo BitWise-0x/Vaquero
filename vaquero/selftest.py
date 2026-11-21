@@ -5,10 +5,12 @@ from or written to the user's settings, folders or logs."""
 
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 import time
 from pathlib import Path
+from typing import NoReturn
 
 failures: list[str] = []
 
@@ -31,7 +33,7 @@ def _libraries() -> None:
     check("HEIF support", bool(pi_heif.libheif_version()))
 
 
-def run() -> int:
+def run() -> NoReturn:
     from PySide6.QtCore import QSettings, QTimer
     from PySide6.QtGui import QPixmap
     from PySide6.QtWidgets import QApplication, QSystemTrayIcon
@@ -39,7 +41,8 @@ def run() -> int:
     from vaquero import app as ui
     from vaquero import macos, remote
 
-    ini = Path(tempfile.mkdtemp()) / "vaquero.ini"
+    scratch = tempfile.TemporaryDirectory()  # the throwaway settings; removed before the test exits
+    ini = Path(scratch.name) / "vaquero.ini"
     ui.QSettings = lambda *_: QSettings(str(ini), QSettings.Format.IniFormat)  # type: ignore[assignment]
     qa = QApplication(sys.argv[:1])
     qa.setQuitOnLastWindowClosed(False)
@@ -84,4 +87,6 @@ def run() -> int:
     QTimer.singleShot(20000, lambda: (failures.append("timed out"), qa.exit(1)))
     qa.exec()
     print("self-test", "failed: " + ", ".join(failures) if failures else "passed", flush=True)
-    return 1 if failures else 0
+    scratch.cleanup()
+    # end here: Qt would write the throwaway settings again while tearing down, recreating the folder just removed
+    os._exit(1 if failures else 0)

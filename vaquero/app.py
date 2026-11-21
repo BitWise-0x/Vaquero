@@ -924,7 +924,7 @@ class Window(QMainWindow):
             f"<h3 style='color:{theme.SIGNAL}'>Vaquero {__version__}</h3>"
             f"<p>{html.escape(SLOGAN)}</p>"
             "<p>Free, open source, no account, 100% private</p>"
-            "<p>It all runs locally. Nothing leaves your Mac.</p>"
+            "<p>Runs entirely offline. No photo or face ever leaves your Mac.</p>"
             "<p>MIT licensed.</p>"
             "<p>Detection: SCRFD · Recognition: ArcFace (InsightFace model packs)<br>"
             "Inference: ONNX Runtime with Core ML on Apple Silicon</p>"

@@ -11,7 +11,7 @@ description: Download Vaquero, open it, and allow the folders it reads.
 
 ## Install
 
-1. Download [Vaquero-arm64.dmg](https://github.com/BitWise-0x/Vaquero/releases/latest/download/Vaquero-arm64.dmg), the latest release. Every version is on [Releases](https://github.com/BitWise-0x/Vaquero/releases).
+1. Download `Vaquero-<version>-arm64.dmg` from the [latest release](https://github.com/BitWise-0x/Vaquero/releases/latest). Every version is on [Releases](https://github.com/BitWise-0x/Vaquero/releases).
 2. Open it and drag **Vaquero** onto **Applications**.
 3. Open Vaquero from Applications. The first launch downloads the face model (about 290 MB); scanning waits until it finishes.
 

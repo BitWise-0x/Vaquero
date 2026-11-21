@@ -1,5 +1,6 @@
 # Builds site/ (Astro + Starlight, serving the repo's docs/ under /docs/) and publishes it to GitHub Pages at
-# vaquero.bitwise0x.com on every push to main that changes the site, the docs or the brand assets.
+# vaquero.bitwise0x.com on every push to main that changes the site, the docs or the brand assets, and after the
+# release workflow attaches a new DMG, whose URL the download links carry.
 name: Site
 
 on:
@@ -33,6 +34,8 @@ jobs:
           cache-dependency-path: site/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:

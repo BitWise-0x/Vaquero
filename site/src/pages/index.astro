@@ -4,6 +4,7 @@ import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import { Card, CardGrid, LinkCard, Steps } from '@astrojs/starlight/components';
 import FeatureIcon from '../components/FeatureIcon.astro';
 import { ogImage } from '../og-image.mjs';
+import { download } from '../download.mjs';
 import scanIcon from '../../../assets/Vaquero-scan.webp';
 import scanAndCopy from '../../../docs/screenshots/scan-and-copy.webp';
 import firstLaunch from '../../../docs/screenshots/first-launch.webp';
@@ -16,7 +17,6 @@ import undo from '../../../docs/screenshots/undo.png';
 import logMenu from '../../../docs/screenshots/log-menu.png';
 
 const repo = 'https://github.com/BitWise-0x/Vaquero';
-const download = `${repo}/releases/latest/download/Vaquero-arm64.dmg`;
 const site = 'https://vaquero.bitwise0x.com/';
 const description =
 	'Find and Round up Photos and Videos by Face. Free, open source, no account, 100% private.';

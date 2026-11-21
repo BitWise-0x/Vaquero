@@ -6,9 +6,9 @@
 # Nothing is tagged by hand. If the tag push fails after the chore(release) commit lands, main carries that version
 # with no tag: revert the chore(release) commit and push it with a releasing commit, and the next run versions again
 # from the last tag. A release's DMG is built, signed with the Developer ID identity and notarized on a
-# macOS runner, then attached to that release, where the app's Check for Updates and the README's download link
-# find it. Signing reads the repo secrets DEVELOPER_ID_P12 (base64 .p12), DEVELOPER_ID_P12_PASSWORD,
-# ASC_API_KEY (base64 .p8), ASC_API_KEY_ID and ASC_ISSUER_ID.
+# macOS runner, then attached to that release as Vaquero-<version>-arm64.dmg, where the app's Check for Updates
+# finds it, and the site is rebuilt so its download link names it. Signing reads the repo secrets DEVELOPER_ID_P12
+# (base64 .p12), DEVELOPER_ID_P12_PASSWORD, ASC_API_KEY (base64 .p8), ASC_API_KEY_ID and ASC_ISSUER_ID.
 name: Release
 
 on:
@@ -91,6 +91,7 @@ jobs:
       TAG: ${{ inputs.dmg_tag || needs.release.outputs.tag }}
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -126,10 +127,12 @@ jobs:
           export VAQUERO_NOTARY_KEY="$RUNNER_TEMP/notary.p8"
           base64 -d <<<"$ASC_API_KEY" > "$VAQUERO_NOTARY_KEY"
           ./build.sh
-      # the versionless copy keeps releases/latest/download/Vaquero-arm64.dmg pointing at the newest build
       - name: Attach the DMG to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cp "dist/Vaquero-${TAG#v}-arm64.dmg" dist/Vaquero-arm64.dmg
-          gh release upload "$TAG" "dist/Vaquero-${TAG#v}-arm64.dmg" dist/Vaquero-arm64.dmg --clobber
+        run: gh release upload "$TAG" "dist/Vaquero-${TAG#v}-arm64.dmg" --clobber
+      # the site's download link names the newest DMG, read when the site builds
+      - name: Rebuild the site
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run site.yml --ref main

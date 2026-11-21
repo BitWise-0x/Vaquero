@@ -1,9 +1,10 @@
 ---
 import Default from '@astrojs/starlight/components/SocialIcons.astro';
 import { Icon } from '@astrojs/starlight/components';
+import { download } from '../download.mjs';
 ---
 
-<a class="download" href="https://github.com/BitWise-0x/Vaquero/releases/latest/download/Vaquero-arm64.dmg">
+<a class="download" href={download}>
 	<Icon name="download" />
 	<span>Download</span>
 </a>

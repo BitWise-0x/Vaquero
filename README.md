@@ -28,7 +28,7 @@
 <br>
 
 <p align="center">
-  <a href="https://github.com/BitWise-0x/Vaquero/releases/latest/download/Vaquero-arm64.dmg"><img src="assets/download-button.png" alt="Download for Apple Silicon Macs" width="160"/></a>
+  <a href="https://github.com/BitWise-0x/Vaquero/releases/latest"><img src="assets/download-button.png" alt="Download for Apple Silicon Macs" width="160"/></a>
   <br>
   <sub>macOS 14 or later · <a href="#install">install steps</a></sub>
   <br>
@@ -82,7 +82,7 @@ Vaquero runs on an open-source AI model, right on your machine. No photo, face o
 
 ## Install
 
-1. Download [Vaquero-arm64.dmg](https://github.com/BitWise-0x/Vaquero/releases/latest/download/Vaquero-arm64.dmg).
+1. Download `Vaquero-<version>-arm64.dmg` from the [latest release](https://github.com/BitWise-0x/Vaquero/releases/latest).
 2. Open it and drag **Vaquero** onto **Applications**.
 3. Open Vaquero and click **Allow** when macOS asks about a folder.
 

@@ -161,3 +161,48 @@ def test_a_different_photo_with_the_same_name_is_not_taken_for_a_copy(tmp_path: 
     assert transfer_matches([a], dest, tmp_path / "moves.csv", mode=Transfer.COPY) == (1, 0, 0)
 
     assert (dest / "a 2.jpg").read_bytes() == b"the person"
+
+
+class _StubMatcher:
+    """Scores every image 0.5, and raises a non-OSError (as onnxruntime does) on the one marked bad."""
+
+    def best_score(self, frames: object) -> tuple[float, int, int]:
+        frame = next(iter(frames))  # type: ignore[call-overload]
+        if frame[0, 0, 0] == 255:
+            raise RuntimeError("onnxruntime: Non-zero status code returned")
+        return 0.5, 1, 1
+
+
+def _image(path: Path, value: int) -> Path:
+    import cv2
+    import numpy as np
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    cv2.imwrite(str(path), np.full((8, 8, 3), value, np.uint8))
+    return path
+
+
+def test_one_file_failing_in_the_model_does_not_end_the_scan(tmp_path: Path) -> None:
+    from vaquero.engine import scan
+
+    files = [_image(tmp_path / "a.png", 10), _image(tmp_path / "bad.png", 255), _image(tmp_path / "c.png", 10)]
+
+    results = list(scan(_StubMatcher(), files))  # type: ignore[arg-type]
+
+    assert [r.path.name for r in results] == ["a.png", "c.png"]
+
+
+def test_a_vanished_scan_folder_stops_the_scan_with_the_results_so_far(tmp_path: Path) -> None:
+    from vaquero.engine import SourceGone, scan
+
+    folder = tmp_path / "share"
+    files = [_image(folder / f"{n}.png", 10) for n in "ab"] + [folder / "c.png", folder / "d.png"]
+    got = []
+
+    with pytest.raises(SourceGone, match="no longer available"):
+        for r in scan(_StubMatcher(), files, gone=lambda: not (folder / "a.png").exists()):  # type: ignore[arg-type]
+            got.append(r.path.name)
+            if len(got) == 2:
+                shutil.rmtree(folder)
+
+    assert got == ["a.png", "b.png"]

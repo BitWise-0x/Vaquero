@@ -223,10 +223,14 @@ class FaceMatcher:
         for p in sorted(ref_dir.iterdir()):
             if p.suffix.lower() not in IMAGE_EXTS:
                 continue
-            img = read_image(p)
-            if img is None:
+            try:
+                img = read_image(p)
+                found = sorted(self.embeddings(img), key=lambda fe: -fe[0].area) if img is not None else None
+            except Exception as e:  # an unreadable reference photo is skipped like one with no face
+                log.warning("reference photo could not be read: %s: %s", p.name, e, extra={"link": p, "link_text": p.name})
                 continue
-            found = sorted(self.embeddings(img), key=lambda fe: -fe[0].area)
+            if found is None:
+                continue
             if not found:
                 log.warning("reference has no face: %s", p.name, extra={"link": p, "link_text": p.name})
                 continue
@@ -374,14 +378,22 @@ def list_media(folder: Path, include_videos: bool, recursive: bool = False, excl
     return sorted(found)
 
 
+class SourceGone(RuntimeError):
+    """The folder being scanned disappeared mid-scan; the results so far stand."""
+
+
 def scan(
     matcher: FaceMatcher,
     paths: list[Path],
     cancelled: Callable[[], bool] = lambda: False,
     video_samples: int = DEFAULT_VIDEO_FRAMES,
+    gone: Callable[[], bool] = lambda: False,
 ) -> Iterator[ScanResult]:
     """Score each file, in order. Files decode on one thread pool and go through the model on another, both
-    working ahead of the file being reported, so reading, decoding and the model overlap."""
+    working ahead of the file being reported, so reading, decoding and the model overlap.
+
+    A file that fails is logged and skipped. When one fails and gone() says the folder itself has disappeared (a
+    drive or share disconnected), raises SourceGone instead of failing every remaining file."""
     queue = iter(paths)
     load = partial(_load_frames, video_samples=video_samples)
 
@@ -409,8 +421,12 @@ def scan(
             kind = "video" if path.suffix.lower() in VIDEO_EXTS else "image"
             try:
                 best, n, agree = fut.result()
-            except (cv2.error, ValueError, OSError) as e:
+            except Exception as e:  # one unreadable or undecodable file must not end the scan
                 log.error("failed on %s: %s", path.name, e, extra={"link": path, "link_text": path.name})
+                if gone():
+                    decode.shutdown(wait=False, cancel_futures=True)
+                    model.shutdown(wait=False, cancel_futures=True)
+                    raise SourceGone(f"{path.parent} is no longer available") from e
                 continue
             yield ScanResult(path=path, kind=kind, score=best, faces=n, agree=agree)
 
@@ -522,6 +538,7 @@ def transfer_matches(
     cancelled: Callable[[], bool] = lambda: False,
     conflict: Conflict = Conflict.KEEP_BOTH,
     mode: Transfer = Transfer.MOVE,
+    on_moved: Callable[[Path], None] = lambda src: None,
 ) -> TransferCounts:
     """Move or copy files into dest.
 
@@ -578,6 +595,8 @@ def transfer_matches(
             except OSError as e:
                 raise OSError(e.errno, f"{dst.name} was {verb} but the undo list {journal} could not be written: {e}") from e
             done += 1
+            if action.startswith("moved"):
+                on_moved(src)
             link = {"link": dst, "link_text": dst.name}
             if action.endswith("renamed"):
                 log.info("%s %s, name taken, kept both as %s", verb, src.name, dst.name, extra=link)

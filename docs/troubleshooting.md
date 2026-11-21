@@ -12,6 +12,10 @@ description: Fixes for the common problems.
 | Expected matches are missing | Open the scan report, sort by score, and lower the threshold to just below the missed files. See [Scores and the threshold](using.md#scores-and-the-threshold). |
 | A folder on a drive or share cannot be read | Vaquero shows a window with **Open Settings**. Allow Vaquero in **System Settings > Privacy & Security > Files and Folders**. |
 | A file cannot be read | It is logged and skipped; the scan continues. |
+| A drive or share disconnects during a scan | The scan stops, says which folder went away, and keeps every file it scanned before that. |
+| `the drive ... is not connected` | A saved folder is on a drive or share that is not mounted. Connect it, then scan or execute. |
+| `No permission to use ...` | The folder's own permissions deny access. Fix them in Finder > Get Info > Sharing & Permissions. |
+| `Something went wrong` | The details, with the full error, are in `vaquero.log`. See [Files](files.md). |
 | `Stopped: ... cannot take more files` | The destination is full or read-only. Free space or pick another destination, then click **Execute** again; files already done are not repeated. |
 | `Stopped: ... is no longer available` | The destination drive or share was disconnected. Reconnect it and click **Execute** again. |
 | "Still finishing the current file" on close | A long video is mid-read. Close again a moment later. |

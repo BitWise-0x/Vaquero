@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import http.client
 import json
 import logging
 import shutil
@@ -14,6 +15,7 @@ import urllib.request
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 log = logging.getLogger("vaquero")
@@ -75,7 +77,17 @@ def parse_version(text: str) -> tuple[int, ...]:
         raise RemoteError(f"not a version: {text}") from e
 
 
-def _get_json(url: str) -> dict[str, object]:
+def _rate_limit_message(e: urllib.error.HTTPError) -> str:
+    reset = e.headers.get("x-ratelimit-reset") if e.headers else None
+    if reset and reset.isdigit():
+        at = datetime.fromtimestamp(int(reset)).strftime("%H:%M")
+        return f"GitHub's hourly limit for anonymous requests is used up; try again after {at}"
+    return "GitHub's hourly limit for anonymous requests is used up; try again later"
+
+
+def _get_json(url: str) -> object:
+    """GET a GitHub API URL. Every failure, including a captive Wi-Fi login page answering instead of GitHub,
+    becomes a RemoteError with a readable message."""
     req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": USER_AGENT})
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
@@ -84,25 +96,52 @@ def _get_json(url: str) -> dict[str, object]:
         if e.code == 404:
             raise RemoteError(f"GitHub has no such release: {url}") from e
         if e.code in (403, 429):
-            raise RemoteError("GitHub's hourly limit for anonymous requests is used up; try again later") from e
+            raise RemoteError(_rate_limit_message(e)) from e
         raise RemoteError(f"GitHub answered HTTP {e.code} for {url}") from e
     except urllib.error.URLError as e:
         raise RemoteError(f"could not reach GitHub: {e.reason}") from e
+    except (http.client.HTTPException, ValueError) as e:  # cut off mid-answer, or not JSON (a login page)
+        raise RemoteError(
+            "GitHub's answer was cut off or unreadable; a Wi-Fi login page can cause this. Try again."
+        ) from e
+    except OSError as e:  # a reset or timeout while reading the body
+        raise RemoteError(f"could not reach GitHub: {e}") from e
+
+
+def _parse_release(data: object) -> Release:
+    unexpected = RemoteError("GitHub's release information was not in the expected form")
+    if not isinstance(data, dict) or not isinstance(data.get("assets"), list) or "tag_name" not in data:
+        raise unexpected
+    tag_name = str(data["tag_name"])
+    try:
+        assets = {
+            a["name"]: Asset(a["name"], int(a["size"]), a["browser_download_url"], a.get("digest") or "")
+            for a in data["assets"]
+        }
+    except (KeyError, TypeError, ValueError) as e:
+        raise unexpected from e
+    version = parse_version(tag_name) if tag_name.startswith("v") else ()
+    return Release(tag=tag_name, version=version, assets=assets)
 
 
 def release(tag: str | None = None) -> Release:
-    """The named release, or the latest app release when tag is None (the model release is never latest)."""
-    data = _get_json(f"{API}/tags/{tag}" if tag else f"{API}/latest")
-    tag_name = str(data["tag_name"])
-    raw_assets = data["assets"]
-    if not isinstance(raw_assets, list):
-        raise RemoteError(f"unexpected release data for {tag_name}")
-    assets = {
-        a["name"]: Asset(a["name"], int(a["size"]), a["browser_download_url"], a.get("digest") or "")
-        for a in raw_assets
-    }
-    version = parse_version(tag_name) if tag_name.startswith("v") else ()
-    return Release(tag=tag_name, version=version, assets=assets)
+    """The named release, or the newest app release (a vX.Y.Z tag, not a draft or prerelease) when tag is None.
+
+    The repo also holds model releases; GitHub's own "latest" could point at one, so it is not used."""
+    if tag:
+        return _parse_release(_get_json(f"{API}/tags/{tag}"))
+    listing = _get_json(f"{API}?per_page=30")
+    if not isinstance(listing, list):
+        raise RemoteError("GitHub's release list was not in the expected form")
+    for data in listing:
+        if (
+            isinstance(data, dict)
+            and str(data.get("tag_name", "")).startswith("v")
+            and not data.get("draft")
+            and not data.get("prerelease")
+        ):
+            return _parse_release(data)
+    raise RemoteError("GitHub lists no Vaquero release")
 
 
 def download(

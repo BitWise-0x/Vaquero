@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import csv
+import errno
 import html
 import logging
 import math
 import os
+import platform
 import subprocess
 import sys
 import tempfile
@@ -16,7 +18,19 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QRectF, QSettings, Qt, QThread, QTimer, QUrl, Signal
+from PySide6.QtCore import (
+    QMessageLogContext,
+    QObject,
+    QRectF,
+    QSettings,
+    Qt,
+    QtMsgType,
+    QThread,
+    QTimer,
+    QUrl,
+    Signal,
+    qInstallMessageHandler,
+)
 from PySide6.QtGui import (
     QAction,
     QImage,
@@ -60,13 +74,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from vaquero import __version__, remote, theme
+from vaquero import __version__, logs, remote, theme
+from vaquero.logs import FileFormatter
 from vaquero.remote import DEFAULT_PACK, JOURNAL, LOG_DIR, MODELS_DIR, RemoteError, parse_version
 from vaquero.engine import (
     DEFAULT_VIDEO_FRAMES,
     Conflict,
     FaceMatcher,
     ScanResult,
+    SourceGone,
     Transfer,
     TransferCounts,
     TransferStopped,
@@ -187,7 +203,8 @@ class QtLogHandler(logging.Handler, QObject):
         QObject.__init__(self)
 
     def emit(self, record: logging.LogRecord) -> None:
-        self.record_emitted.emit(colorize(record), getattr(record, "section", False))
+        if not getattr(record, "file_only", False):
+            self.record_emitted.emit(colorize(record), getattr(record, "section", False))
 
 
 SLOGAN = "Find and round up photos and videos by face"
@@ -228,13 +245,6 @@ DONE_COLOR = theme.SIGNAL
 def section(title: str) -> None:
     """Start a log section: an amber heading in the log view, a ruled line in the log file."""
     log.info("%s", title, extra={"section": True})
-
-
-class FileFormatter(logging.Formatter):
-    def format(self, record: logging.LogRecord) -> str:
-        if getattr(record, "section", False):
-            return f"\n== {record.getMessage()} =="
-        return super().format(record)
 
 
 def _linked(msg: str, record: logging.LogRecord) -> str:
@@ -286,8 +296,9 @@ def blocked_folders(folders: list[Path]) -> list[Path]:
         try:
             with os.scandir(folder) as entries:
                 next(entries, None)
-        except PermissionError:
-            blocked.append(folder)
+        except PermissionError as e:
+            if e.errno == errno.EPERM:  # privacy controls; EACCES is plain file permissions, which Settings cannot fix
+                blocked.append(folder)
         except OSError:
             continue
     return blocked
@@ -372,18 +383,9 @@ class ScanIcon(QLabel):
         p.fillRect(QRectF(lo, top, hi - lo, bottom - top), grad)
 
 
-def blocked_message(e: PermissionError) -> str:
-    """macOS privacy controls deny a folder with EPERM; say where to allow it instead of the bare errno."""
-    where = e.filename or "a folder"
-    return (
-        f"macOS blocked access to {where}. Allow Vaquero in System Settings > Privacy & Security > "
-        "Files and Folders (Removable Volumes, Network Volumes) or Full Disk Access, then scan again."
-    )
-
-
 class ScanWorker(QObject):
     progress = Signal(int, int, float)  # done, total, score of the file just scanned
-    finished = Signal(list, bool, int)  # list[ScanResult], cancelled, reference photos kept
+    finished = Signal(list, bool, int, str)  # list[ScanResult], cancelled, reference photos kept, why it stopped early
     failed = Signal(str)
 
     def __init__(
@@ -402,6 +404,7 @@ class ScanWorker(QObject):
         self.include_videos, self.recursive, self.frames, self.report = include_videos, recursive, frames, report
         self._cancel = False
         self.ref_count = 0
+        self.results: list[ScanResult] = []  # filled as the scan runs, so an early stop still hands back what it found
 
     def cancel(self) -> None:
         self._cancel = True
@@ -413,17 +416,19 @@ class ScanWorker(QObject):
             self.ref_count = matcher.ref_count
             if self._cancel:
                 log.warning("scan cancelled before scanning")
-                self.finished.emit([], True, self.ref_count)
+                self.finished.emit([], True, self.ref_count, "")
                 return
             paths = list_media(self.folder, self.include_videos, self.recursive, self.dest)
             total = len(paths)
             section("Scanning")
             log.info("%d files in %s", total, self.folder, extra={"link": self.folder, "link_text": str(self.folder)})
-            results: list[ScanResult] = []
+            results = self.results
             with self.report.open("w", newline="") as fh:
                 w = csv.writer(fh)
                 w.writerow(["file", "kind", "score", "faces", "ref_agree"])
-                results_iter = scan(matcher, paths, lambda: self._cancel, video_samples=self.frames)
+                results_iter = scan(
+                    matcher, paths, lambda: self._cancel, video_samples=self.frames, gone=lambda: not self.folder.is_dir()
+                )
                 for r in results_iter:
                     results.append(r)
                     w.writerow(
@@ -432,13 +437,15 @@ class ScanWorker(QObject):
                     self.progress.emit(len(results), total, r.score)
             if self._cancel:
                 log.warning("scan cancelled after %d of %d files", len(results), total)
-            self.finished.emit(results, self._cancel, self.ref_count)
-        except PermissionError as e:
-            log.error("%s", blocked_message(e))
-            self.failed.emit(blocked_message(e))
+            self.finished.emit(results, self._cancel, self.ref_count, "")
+        except SourceGone as e:
+            self.finished.emit(self.results, False, self.ref_count, str(e))
         except Exception as e:  # surfaced in the UI and log, the worker thread must not die silently
-            log.exception("scan failed")
-            self.failed.emit(str(e))
+            log.error("scan stopped: %s", logs.describe(e), exc_info=True)
+            if self.results:  # what was scanned so far stays usable
+                self.finished.emit(self.results, False, self.ref_count, logs.describe(e))
+            else:
+                self.failed.emit(logs.describe(e))
 
 
 class TransferWorker(QObject):
@@ -450,6 +457,7 @@ class TransferWorker(QObject):
         super().__init__()
         self.paths, self.dest, self.journal, self.conflict, self.mode = paths, dest, journal, conflict, mode
         self._cancel = False
+        self.moved: set[Path] = set()  # sources no longer where the scan found them
 
     def cancel(self) -> None:
         self._cancel = True
@@ -457,17 +465,15 @@ class TransferWorker(QObject):
     def run(self) -> None:
         try:
             counts = transfer_matches(
-                self.paths, self.dest, self.journal, self.progress.emit, lambda: self._cancel, self.conflict, self.mode
+                self.paths, self.dest, self.journal, self.progress.emit, lambda: self._cancel, self.conflict, self.mode,
+                self.moved.add,
             )
             self.finished.emit(counts, self._cancel, "")
         except TransferStopped as e:
             self.finished.emit(e.counts, False, str(e))
-        except PermissionError as e:
-            log.error("%s", blocked_message(e))
-            self.failed.emit(blocked_message(e))
         except Exception as e:  # surfaced in the UI and log, the worker thread must not die silently
-            log.exception("%s failed", self.mode.value)
-            self.failed.emit(str(e))
+            log.error("%s stopped: %s", self.mode.value, logs.describe(e), exc_info=True)
+            self.failed.emit(logs.describe(e))
 
 
 class TaskWorker(QObject):
@@ -488,10 +494,13 @@ class TaskWorker(QObject):
     def run(self) -> None:
         try:
             self.finished.emit(self.fn(self.progress.emit, lambda: self._cancel))
-        except (RemoteError, OSError, subprocess.CalledProcessError) as e:
+        except Exception as e:  # anything left uncaught would keep the thread running and the window busy for good
             # a stopped download raises too, and is not an error
-            (log.warning if self._cancel else log.error)("%s", e)
-            self.failed.emit(str(e))
+            if self._cancel:
+                log.warning("%s", e)
+            else:
+                log.error("%s", logs.describe(e), exc_info=not isinstance(e, RemoteError))
+            self.failed.emit(str(e) if self._cancel else logs.describe(e))
 
 
 def migrate_settings(settings: QSettings) -> None:
@@ -508,7 +517,7 @@ def migrate_settings(settings: QSettings) -> None:
 
 
 class Window(QMainWindow):
-    access_checked = Signal(list)  # folders macOS blocks, from the launch check's thread
+    access_checked = Signal(list, list)  # folders macOS blocks, (field, drive) pairs not connected; launch check
 
     def __init__(self) -> None:
         super().__init__()
@@ -724,6 +733,9 @@ class Window(QMainWindow):
         paths = {}
         for name, edit in named.items():
             p = Path(edit.text().strip()).expanduser()
+            if edit.text().strip() and (drive := logs.missing_volume(p)):
+                self.status.setText(f"{name}: the drive {drive} is not connected. Connect it and try again.")
+                return None
             if not edit.text().strip() or (name != "Destination" and not p.is_dir()):
                 self.status.setText(f"{name}: not a folder")
                 return None
@@ -922,7 +934,15 @@ class Window(QMainWindow):
         if bundle is None:
             return
         log.info("installing %s over %s and restarting", staged.name, bundle)
-        remote.install_and_relaunch(staged, bundle, os.getpid())
+        try:
+            remote.install_and_relaunch(staged, bundle, os.getpid())
+        except Exception as e:
+            log.error("update not installed: %s", logs.describe(e), exc_info=True)
+            self._set_busy(False)
+            self.status.setText(f"Update not installed: {logs.describe(e)}")
+            return
+        # the download job has finished; clear it so the quit does not stop to ask about it
+        self.task = None
         QApplication.quit()
 
     def show_about(self) -> None:
@@ -952,13 +972,28 @@ class Window(QMainWindow):
         """Touch the saved folders off the main thread: macOS asks now, and a refusal gets the access dialog.
 
         Off the main thread because an unreachable network share can stall a directory read."""
-        folders = [Path(e.text().strip()).expanduser() for e in (self.refs, self.source, self.dest) if e.text().strip()]
-        if not folders:
+        named = [
+            (name, Path(e.text().strip()).expanduser())
+            for name, e in (("Reference faces", self.refs), ("Folder to scan", self.source), ("Destination", self.dest))
+            if e.text().strip()
+        ]
+        if not named:
             return
-        self.access_checked.connect(self._on_access_checked, QUEUED)
-        threading.Thread(target=lambda: self.access_checked.emit(blocked_folders(folders)), daemon=True).start()
 
-    def _on_access_checked(self, blocked: list[Path]) -> None:
+        def check() -> None:
+            offline = [(name, drive) for name, p in named if (drive := logs.missing_volume(p))]
+            reachable = [p for name, p in named if name not in {n for n, _ in offline}]
+            self.access_checked.emit(blocked_folders(reachable), offline)
+
+        self.access_checked.connect(self._on_access_checked, QUEUED)
+        threading.Thread(target=check, daemon=True).start()
+
+    def _on_access_checked(self, blocked: list[Path], offline: list[tuple[str, str]]) -> None:
+        for name, drive in offline:
+            log.warning("%s is on %s, which is not connected; connect it before scanning", name, drive)
+        if offline:
+            drives = sorted({drive for _, drive in offline})
+            self.status.setText(f"Not connected: {', '.join(drives)}. Connect before scanning.")
         if blocked:
             self.ask_for_access(blocked)
 
@@ -1080,7 +1115,7 @@ class Window(QMainWindow):
             log.removeHandler(self.file_log)
             self.file_log.close()
         self.file_log = logging.FileHandler(path, encoding="utf-8")
-        self.file_log.setFormatter(FileFormatter("%(asctime)s %(levelname)s %(message)s"))
+        self.file_log.setFormatter(FileFormatter(logs.FORMAT))
         log.addHandler(self.file_log)
         self.log_view.clear()
         self.progress_line = None
@@ -1091,7 +1126,7 @@ class Window(QMainWindow):
     def _done(self, text: str, cancelled: bool = False) -> None:
         self.status.setText(f"<b>{'CANCELLED' if cancelled else 'DONE'}</b>: {status_value(text)}")
 
-    def _on_finished(self, results: list[ScanResult], cancelled: bool, refs: int) -> None:
+    def _on_finished(self, results: list[ScanResult], cancelled: bool, refs: int, stopped: str) -> None:
         self.results = results
         self._set_busy(False)
         self._update_match_count()
@@ -1106,19 +1141,25 @@ class Window(QMainWindow):
             )
         section("Result")
         log.info("scan done: %d matches of %d%s", len(matches), len(results), " (cancelled)" if cancelled else "")
+        if stopped:
+            log.error("scan stopped early: %s; the %d files scanned before that are listed", stopped, len(results))
         if review:
             log.warning(
                 "%d match%s below %.2f look like lookalike territory; check them, or raise the threshold to drop them",
                 review, "" if review == 1 else "es", REVIEW_BELOW,
             )
-        self._done(
-            f"scanned {len(results)}, {len(matches)} matches at threshold {self.threshold.value():.2f}"
-            + (f" ({review} to review)" if review else ""),
-            cancelled,
+        summary = f"scanned {len(results)}, {len(matches)} matches at threshold {self.threshold.value():.2f}" + (
+            f" ({review} to review)" if review else ""
         )
+        self._done(f"Stopped: {stopped}. {summary}" if stopped else summary, cancelled)
+
+    def _drop_moved(self) -> None:
+        """Forget results a move took away; without a file system call per result, which stalls on a dead share."""
+        if isinstance(self.job, TransferWorker) and self.job.moved:
+            self.results = [r for r in self.results if r.path not in self.job.moved]
 
     def _on_failed(self, msg: str) -> None:
-        self.results = [r for r in self.results if r.path.exists()]
+        self._drop_moved()
         self._set_busy(False)
         if self.stopping:  # a stopped download ends this way: it resumes next time
             self._done(msg, cancelled=True)
@@ -1159,7 +1200,7 @@ class Window(QMainWindow):
             "%s done: %d %s%s, %d failed%s",
             self.transfer_mode.value, counts.done, verb, there, counts.failed, " (cancelled)" if cancelled else "",
         )
-        self.results = [r for r in self.results if r.path.exists()]
+        self._drop_moved()
         self._set_busy(False)
         self._update_match_count()
         summary = f"{verb} {counts.done}{there}, {counts.failed} failed. Undo list in {self.journal.name}"
@@ -1255,9 +1296,24 @@ class Window(QMainWindow):
         super().closeEvent(event)
 
 
+def _qt_message(kind: QtMsgType, context: QMessageLogContext, message: str) -> None:
+    """Qt's own warnings, which otherwise go to stderr and are lost in an app bundle."""
+    quiet = {"file_only": True}  # for the log file; the window's log is for the user's own runs
+    if kind in (QtMsgType.QtCriticalMsg, QtMsgType.QtFatalMsg):
+        log.error("Qt: %s", message, extra=quiet)
+    elif kind == QtMsgType.QtWarningMsg:
+        log.warning("Qt: %s", message, extra=quiet)
+
+
 def main() -> None:
     log.setLevel(logging.INFO)
     remote.migrate_legacy()
+    logs.install_crash_hooks()
+    logs.start_app_log()
+    qInstallMessageHandler(_qt_message)
+    log.info("Vaquero %s starting on macOS %s (%s)", __version__, platform.mac_ver()[0], platform.machine())
+    if removed := logs.prune_scan_logs():
+        log.info("removed %d old scan logs and reports", removed)
     app = QApplication(sys.argv)
     theme.apply(app, asset("check.svg").as_posix())
     w = Window()

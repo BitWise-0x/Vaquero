@@ -1,3 +1,5 @@
+import errno
+import os
 from pathlib import Path
 
 import pytest
@@ -38,19 +40,23 @@ def test_a_store_already_in_use_is_left_alone(tmp_path: Path, monkeypatch: pytes
     assert new.value("refs") == "current"
 
 
-def test_permission_error_says_where_to_allow_access() -> None:
-    msg = ui.blocked_message(PermissionError(1, "Operation not permitted", "/Volumes/Drive/faces"))
-    assert "/Volumes/Drive/faces" in msg
-    assert "Privacy & Security" in msg
-
-
-def test_blocked_folders_lists_only_unreadable_ones(tmp_path: Path) -> None:
-    open_dir, locked = tmp_path / "open", tmp_path / "locked"
-    open_dir.mkdir()
-    locked.mkdir()
+def test_only_privacy_blocks_count_as_blocked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """EPERM is macOS privacy control, fixed in System Settings; EACCES is file permissions, which Settings cannot
+    fix, so it must not open the access walkthrough."""
+    open_dir, locked, private = tmp_path / "open", tmp_path / "locked", tmp_path / "private"
+    for d in (open_dir, locked, private):
+        d.mkdir()
     locked.chmod(0)
+    real_scandir = os.scandir
+
+    def scandir(path: object) -> object:
+        if Path(str(path)) == private:
+            raise PermissionError(errno.EPERM, "Operation not permitted", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(ui.os, "scandir", scandir)
     try:
-        assert ui.blocked_folders([open_dir, locked, tmp_path / "missing"]) == [locked]
+        assert ui.blocked_folders([open_dir, locked, private, tmp_path / "missing"]) == [private]
     finally:
         locked.chmod(0o755)
 

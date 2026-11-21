@@ -89,3 +89,29 @@ def test_a_second_job_does_not_start_while_one_runs(tmp_path: Path, monkeypatch:
     assert not w.execute_btn.isEnabled()
     assert w.job is running and w.task == "a move"
     w.job = w.task = None
+
+
+def test_a_task_that_raises_anything_ends_and_frees_the_window(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A KeyError once escaped TaskWorker: the thread never finished and quit hung for 30 s, then refused."""
+    ini = str(tmp_path / "vaquero.ini")
+    monkeypatch.setattr(ui, "QSettings", lambda *_: QSettings(ini, QSettings.Format.IniFormat))
+    qa = QApplication.instance() or QApplication([])
+    w = ui.Window()
+
+    def boom(progress: object, cancelled: object) -> None:
+        raise KeyError("tag_name")
+
+    w._run(ui.TaskWorker(boom), "the update check")
+    deadline = QTimer()
+    deadline.setSingleShot(True)
+    deadline.timeout.connect(qa.quit)
+    deadline.start(5000)
+    poll = QTimer()
+    poll.timeout.connect(lambda: w.job is None and qa.quit())
+    poll.start(10)
+    qa.exec()
+    poll.stop()
+
+    assert w.job is None
+    assert w.status.text().startswith("Failed: Something went wrong")
+    assert w.scan_btn.isEnabled() == bool(w.packs)

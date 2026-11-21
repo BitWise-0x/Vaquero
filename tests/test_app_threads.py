@@ -211,11 +211,15 @@ def test_a_job_keeps_the_mac_awake_only_while_it_runs(tmp_path: Path, monkeypatc
 
 
 def test_the_launch_update_check_waits_for_the_model_download(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import threading as th
+
     w = _window(tmp_path, monkeypatch)
     checks: list[bool] = []
-    w._run(ui.TaskWorker(lambda progress, cancelled: None), "the face model download")
+    downloading = th.Event()  # the download runs until the check has been asked for, as the real one does
+    w._run(ui.TaskWorker(lambda progress, cancelled: downloading.wait(5)), "the face model download")
     w.check_updates(quiet=True)  # busy: deferred
     monkeypatch.setattr(w, "check_updates", lambda quiet=False: checks.append(quiet))
+    downloading.set()
     _wait_idle(w)
 
     assert checks == [True]

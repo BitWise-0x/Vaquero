@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.27.0 (2026-11-21)
+
+### Features
+
+- **app**: Menu bar and Dock modes, undo, full menus, Settings window, safer first launch
+  ([`41d506d`](https://github.com/BitWise-0x/Vaquero/commit/41d506d3ae113f6d18d7456afb135ec9cd591f4e))
+
+
 ## v0.26.14 (2026-11-21)
 
 ### Bug Fixes

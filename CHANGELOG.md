@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.26.9 (2026-11-21)
+
+### Bug Fixes
+
+- **README**: Reorder badges for better visibility and organization
+  ([`6ec04ec`](https://github.com/BitWise-0x/Vaquero/commit/6ec04ecd5a140c51a300a727e5d32ff277382bd4))
+
+### Documentation
+
+- Screenshots at 0.26.8
+  ([`ca371ea`](https://github.com/BitWise-0x/Vaquero/commit/ca371ead92cecee67feef6224df5bd1ffb3493d0))
+
+
 ## v0.26.8 (2026-11-20)
 
 ### Bug Fixes

@@ -37,6 +37,10 @@ Vaquero checks access to the chosen folders at launch and before each scan. If a
 
 **Vaquero > Check for Updates…** downloads the latest release and restarts the app. Vaquero also checks when it opens and asks only when an update exists; turn that off in **Vaquero > Settings…**.
 
+Before it replaces itself, Vaquero checks the downloaded app: it must carry Vaquero's own Developer ID signature, pass Gatekeeper, and be the version announced. Anything else is discarded. The old app is put back if the new one cannot be moved into place, and the next launch says why; the details are in `~/Library/Logs/Vaquero/vaquero-update.log`.
+
+Vaquero updates itself only from a folder it can write to. Run from the disk image, from a temporary copy macOS makes for an app opened straight from Downloads, or from an Applications folder the account cannot change, it says so and links to the download page instead. Drag Vaquero into the Applications folder and open it from there.
+
 ## Uninstall
 
 Drag **Vaquero** from Applications to the Trash. Its data, safe to delete:

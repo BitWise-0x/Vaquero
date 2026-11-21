@@ -18,4 +18,4 @@ Qt, PySide6, FFmpeg, libheif and libde265 are linked dynamically and ship as sep
 
 ## Face model
 
-The face model (`buffalo_l`: SCRFD detection and ArcFace recognition) is not part of Vaquero and is not covered by its license. The app downloads it on first launch from the [InsightFace](https://github.com/deepinsight/insightface) project's own release. InsightFace's code is MIT licensed; its pretrained models are licensed for non-commercial research use only.
+The face model (`buffalo_l`: SCRFD detection and ArcFace recognition) is not part of Vaquero and is not covered by its license. The app downloads it on first launch from Vaquero's model release, an unmodified copy of the [InsightFace](https://github.com/deepinsight/insightface) project's release, or from InsightFace's release directly. InsightFace's code is MIT licensed; its pretrained models are licensed for non-commercial research use only.

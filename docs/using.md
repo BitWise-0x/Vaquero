@@ -53,6 +53,9 @@ Changing the threshold after a scan updates the matches without scanning again. 
 ## Progress and cancelling
 
 - The log draws a progress bar for the model download, the scan and the copy or move. The status line above the log shows the counts in amber while running, then **DONE** or **CANCELLED** with a summary.
+- Before a scan or a copy or move, the folders are checked: a disconnected drive, a missing folder, missing permissions or a share that does not answer is reported in the status line, and nothing starts.
+- While a large folder is listed, the status line counts the files found.
+- While a scan, copy, move or download runs, the Mac does not go to sleep on its own.
 - **Cancel** stops a scan, copy or move after the current file. A cancelled scan keeps the results it reached, and its matches can still be copied or moved. A cancelled copy or move leaves every file either fully done and journaled or untouched.
 - A copy, or a move to another drive, writes each file under a hidden name, flushes it to disk and checks its size before it takes the real name. A full or unplugged drive never leaves a partial file or damages the file it would replace, and a move removes the original only after its copy is complete.
 - When the destination fills up, turns read-only or disappears, the copy or move stops and says why. Files already done stay done and journaled. A file already in the destination with the same name, size and modification time is skipped, so running the copy or move again picks up where it stopped.

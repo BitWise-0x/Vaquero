@@ -9,6 +9,7 @@ import logging
 import math
 import os
 import platform
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -75,7 +76,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from vaquero import __version__, logs, remote, theme
+from vaquero import __version__, logs, macos, remote, theme
 from vaquero.logs import FileFormatter
 from vaquero.remote import DEFAULT_PACK, JOURNAL, LOG_DIR, MODELS_DIR, RemoteError, parse_version
 from vaquero.engine import (
@@ -208,7 +209,8 @@ class QtLogHandler(logging.Handler, QObject):
             self.record_emitted.emit(colorize(record), getattr(record, "section", False))
 
 
-SLOGAN = "Find and round up photos and videos by face"
+SLOGAN = "Find and round up Photos and Videos by Face"
+SITE_URL = "https://vaquero.bitwise0x.com"
 READY = "Ready"
 AUTO_UPDATE_KEY = "check_updates_on_launch"
 
@@ -303,6 +305,34 @@ def blocked_folders(folders: list[Path]) -> list[Path]:
         except OSError:
             continue
     return blocked
+
+
+FIELDS = ("Reference faces", "Folder to scan", "Destination")
+PREFLIGHT_TIMEOUT_MS = 20_000
+
+
+def folder_problem(named: dict[str, Path], current: list[str]) -> tuple[str, list[Path]]:
+    """What stops a scan or a move with these folders ("" when nothing does), and the ones macOS blocks.
+
+    Runs on a thread: a dead network share can stall a stat for a minute. current[0] names the folder being looked
+    at, for the message when the check does not come back."""
+    for name, p in named.items():
+        current[0] = name
+        if drive := logs.missing_volume(p):
+            return f"{name}: the drive {drive} is not connected. Connect it and try again.", []
+        if name == "Destination":
+            if p.exists() and not p.is_dir():
+                return f"{name}: not a folder", []
+            if p.is_dir() and not os.access(p, os.W_OK | os.X_OK):
+                return f"{name}: no permission to add files. Check its Sharing & Permissions in Finder > Get Info.", []
+        elif not p.is_dir():
+            return f"{name}: not a folder", []
+        elif not os.access(p, os.R_OK | os.X_OK):
+            return f"{name}: no permission to read it. Check its Sharing & Permissions in Finder > Get Info.", []
+    if os.path.realpath(named["Destination"]) == os.path.realpath(named["Folder to scan"]):
+        return "Destination must differ from the folder being scanned", []
+    current[0] = ""
+    return "", blocked_folders([p for p in named.values() if p.is_dir()])
 
 
 def switch_guide() -> QPixmap:
@@ -400,6 +430,7 @@ class Job(QObject):
 class ScanWorker(Job):
     progress = Signal(int, int, float)  # done, total, score of the file just scanned
     finished = Signal(list, bool, int, str)  # list[ScanResult], cancelled, reference photos kept, why it stopped early
+    listing = Signal(int)  # media files found so far, while the folder is listed
     failed = Signal(str)
 
     def __init__(
@@ -432,7 +463,13 @@ class ScanWorker(Job):
                 log.warning("scan cancelled before scanning")
                 self._emit_end(self.finished, [], True, self.ref_count, "")
                 return
-            paths = list_media(self.folder, self.include_videos, self.recursive, self.dest)
+            paths = list_media(
+                self.folder, self.include_videos, self.recursive, self.dest, lambda: self._cancel, self.listing.emit
+            )
+            if self._cancel:
+                log.warning("scan cancelled while listing files")
+                self._emit_end(self.finished, [], True, self.ref_count, "")
+                return
             total = len(paths)
             section("Scanning")
             log.info("%d files in %s", total, self.folder, extra={"link": self.folder, "link_text": str(self.folder)})
@@ -531,6 +568,7 @@ def migrate_settings(settings: QSettings) -> None:
 
 
 class Window(QMainWindow):
+    preflight_done = Signal(object, object)  # token, ((problem, blocked folders), folders): the scan/move check
     access_checked = Signal(list, list)  # folders macOS blocks, (field, drive) pairs not connected; launch check
 
     def __init__(self) -> None:
@@ -560,6 +598,12 @@ class Window(QMainWindow):
         self.task: str | None = None  # the running job as a confirmation names it; None needs no confirmation
         self.stopping = False  # a cancel or quit asked the running job to stop
         self.journal = JOURNAL
+        self.pending_check: object | None = None  # the folder check in flight before a scan or move
+        self.preflight_then: Callable[[Path, Path, Path], None] = lambda *folders: None
+        self.preflight_current: list[str] = [""]
+        self.retry: Callable[[], None] | None = None  # what Try again reruns after a failure
+        self.after_job: Callable[[], None] | None = None  # runs once the current job's thread is released
+        self.activity: macos.Activity | None = None  # keeps the Mac awake while a user-started job runs
         self.file_log: logging.FileHandler | None = None
         self.bytes_text = ""
         self.transfer_mode = Transfer.MOVE
@@ -685,6 +729,10 @@ class Window(QMainWindow):
 
         self.status = QLabel(READY)
         self.status.setWordWrap(True)  # a long error must not widen the window
+        self.status.setTextFormat(Qt.TextFormat.RichText)
+        self.status.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)
+        self.status.linkActivated.connect(self._on_status_link)
+        self.preflight_done.connect(self._on_preflight_done, QUEUED)
         self.found = QLabel()
         self.found.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         status_row = QHBoxLayout()
@@ -738,26 +786,45 @@ class Window(QMainWindow):
         grid.addWidget(btn, row, 2)
         return edit
 
-    def _dirs(self) -> tuple[Path, Path, Path] | None:
-        named = {
-            "Reference faces": self.refs,
-            "Folder to scan": self.source,
-            "Destination": self.dest,
-        }
-        paths = {}
-        for name, edit in named.items():
-            p = Path(edit.text().strip()).expanduser()
-            if edit.text().strip() and (drive := logs.missing_volume(p)):
-                self.status.setText(f"{name}: the drive {drive} is not connected. Connect it and try again.")
-                return None
-            if not edit.text().strip() or (name != "Destination" and not p.is_dir()):
-                self.status.setText(f"{name}: not a folder")
-                return None
-            paths[name] = p
-        if paths["Destination"].resolve() == paths["Folder to scan"].resolve():
-            self.status.setText("Destination must differ from the folder being scanned")
-            return None
-        return paths["Reference faces"], paths["Folder to scan"], paths["Destination"]
+    def _preflight(self, then: Callable[[Path, Path, Path], None]) -> None:
+        """Check the folders on a thread, then call then(refs, source, dest) on the main thread. The window stays
+        responsive while a share is slow, and a check that does not come back is reported instead of waited on."""
+        named = {name: edit.text().strip() for name, edit in zip(FIELDS, (self.refs, self.source, self.dest), strict=True)}
+        if empty := next((name for name, text in named.items() if not text), None):
+            self.status.setText(f"{empty}: pick a folder")
+            return
+        folders = {name: Path(text).expanduser() for name, text in named.items()}
+        token, current = object(), [""]
+        self.pending_check, self.preflight_then, self.preflight_current = token, then, current
+        self.scan_btn.setEnabled(False)
+        self.execute_btn.setEnabled(False)
+        self.status.setText("Checking folders")
+        threading.Thread(
+            target=lambda: self.preflight_done.emit(token, (folder_problem(folders, current), folders)), daemon=True
+        ).start()
+        QTimer.singleShot(PREFLIGHT_TIMEOUT_MS, lambda: self._on_preflight_timeout(token))
+
+    def _on_preflight_done(self, token: object, result: tuple[tuple[str, list[Path]], dict[str, Path]]) -> None:
+        if token is not self.pending_check:  # timed out already, or superseded
+            return
+        self.pending_check = None
+        (problem, blocked), folders = result
+        self._set_busy(False)
+        if problem:
+            self.status.setText(html.escape(problem))
+            return
+        if blocked and not self.ask_for_access(blocked):
+            return
+        self.preflight_then(*(folders[name] for name in FIELDS))
+
+    def _on_preflight_timeout(self, token: object) -> None:
+        if token is not self.pending_check:
+            return
+        self.pending_check = None
+        self._set_busy(False)
+        where = self.preflight_current[0] or "A folder"
+        log.warning("%s did not respond within %d s", where, PREFLIGHT_TIMEOUT_MS // 1000)
+        self.status.setText(f"{html.escape(where)} is not responding. Check the drive or network share, then try again.")
 
     def _matches(self) -> list[ScanResult]:
         t = self.threshold.value()
@@ -781,7 +848,7 @@ class Window(QMainWindow):
         self.cancel_btn.setEnabled(busy)
         self.execute_btn.setEnabled(not busy and bool(self._matches()))
 
-    def _run(self, job: Job, task: str | None = None) -> None:
+    def _run(self, job: Job, task: str | None = None, retry: Callable[[], None] | None = None) -> None:
         """Run job on a fresh thread; both are released on the main thread once it ends. task names it for the
         confirmation before a quit or cancel stops it; jobs without one stop without asking. One job at a time:
         a second would orphan the first's thread, which Cancel and quit could then no longer reach."""
@@ -799,7 +866,11 @@ class Window(QMainWindow):
         # PySide's disconnect hook then reads a freed wrapper (segfault). The QThread lives on the main thread,
         # so this queued lambda runs there and drops the last references after the thread has stopped.
         thread.finished.connect(lambda: self._on_thread_finished(thread, job), QUEUED)
-        self.thread, self.job, self.task = thread, job, task
+        self.thread, self.job, self.task, self.retry = thread, job, task, retry
+        if self.activity:
+            self.activity.end()
+        # a job the user started keeps the Mac from idle sleep and App Nap; a background check does not need to
+        self.activity = macos.Activity(f"Vaquero: {task}") if task else None
         self.stopping = False
         self.progress_line = None  # each job draws its own progress line in the log
         self._set_busy(True)
@@ -864,14 +935,15 @@ class Window(QMainWindow):
         dialog.exec()
 
     def ensure_models(self) -> None:
-        """First launch: fetch the face model pack from the repo before anything can be scanned."""
-        if self.packs:
+        """First launch, or a damaged pack: fetch the face model pack before anything can be scanned."""
+        installed = MODELS_DIR / DEFAULT_PACK
+        if self.packs and not (installed.is_dir() and not remote.pack_intact(installed)):
             return
         job = TaskWorker(remote.ensure_models)
         self.bytes_text = "Downloading face detection model, please wait..."
         job.progress.connect(self._on_bytes, QUEUED)
         job.finished.connect(self._on_models_ready, QUEUED)
-        self._run(job, "the face model download")
+        self._run(job, "the face model download", retry=self.ensure_models)
         self.status.setText("Downloading face detection model, please wait...")
         section("Face model")
         log.info("Downloading face detection model (%s), please wait...", DEFAULT_PACK)
@@ -891,7 +963,9 @@ class Window(QMainWindow):
     def check_updates(self, quiet: bool = False) -> None:
         """Look for a newer release. quiet (the launch check) only speaks up when an update exists."""
         if self.busy:
-            if not quiet:
+            if quiet:  # the launch check waits for the model download
+                self.after_job = lambda: self.check_updates(quiet=True)
+            else:
                 QMessageBox.information(self, "Check for updates", "Wait for the current task to finish.")
             return
         if remote.running_bundle() is None:
@@ -911,7 +985,7 @@ class Window(QMainWindow):
         self.quiet_update_check = quiet
         job = TaskWorker(latest)
         job.finished.connect(self._on_release_info, QUEUED)
-        self._run(job)
+        self._run(job, retry=None if quiet else self.check_updates)
         self.status.setText("Checking for updates")
 
     def _on_release_info(self, rel: remote.Release | None) -> None:
@@ -926,6 +1000,20 @@ class Window(QMainWindow):
             QMessageBox.information(self, "Check for updates", f"Vaquero {__version__} is the latest version.")
             return
         size = rel.assets[dmgs[0]].size
+        bundle = remote.running_bundle()
+        if bundle is not None and (problem := remote.install_location_problem(bundle)):
+            log.warning("update %s found but cannot be installed here: %s", rel.tag, problem)
+            box = QMessageBox(self)
+            box.setWindowTitle("Update available")
+            box.setText(f"Vaquero {rel.tag.lstrip('v')} is available (you have {__version__}).")
+            box.setInformativeText(problem)
+            page = box.addButton("Open Download Page", QMessageBox.ButtonRole.AcceptRole)
+            box.addButton(QMessageBox.StandardButton.Close)
+            box.exec()
+            if box.clickedButton() is page:
+                QDesktopServices.openUrl(QUrl(SITE_URL))
+            self.status.setText(f"Update {html.escape(rel.tag)} available; see the download page")
+            return
         answer = QMessageBox.question(
             self,
             "Update available",
@@ -938,15 +1026,26 @@ class Window(QMainWindow):
 
         def fetch(progress: Callable[[int, int], None], cancelled: Callable[[], bool]) -> Path:
             dmg = remote.download(rel.assets[dmgs[0]], progress, cancelled)
-            staged = remote.stage_update(dmg, Path(tempfile.mkdtemp(prefix="vaquero-update-")))
-            dmg.unlink()
+            running = remote.running_bundle()
+            if running is None:
+                raise RemoteError("not running from an app bundle")
+            # staged beside the installed app: the swap is then a rename on one volume
+            workdir = Path(tempfile.mkdtemp(prefix=".vaquero-update-", dir=running.parent))
+            try:
+                staged = remote.stage_update(dmg, workdir)
+                remote.verify_update(staged, running, rel.version)
+            except BaseException:
+                shutil.rmtree(workdir, ignore_errors=True)
+                raise
+            finally:
+                dmg.unlink(missing_ok=True)
             return staged
 
         job = TaskWorker(fetch)
         self.bytes_text = f"Downloading Vaquero {rel.tag}..."
         job.progress.connect(self._on_bytes, QUEUED)
         job.finished.connect(self._on_update_staged, QUEUED)
-        self._run(job, "the update download")
+        self._run(job, "the update download", retry=self.check_updates)
 
     def _on_update_staged(self, staged: Path) -> None:
         bundle = remote.running_bundle()
@@ -958,7 +1057,7 @@ class Window(QMainWindow):
         except Exception as e:
             log.error("update not installed: %s", logs.describe(e), exc_info=True)
             self._set_busy(False)
-            self.status.setText(f"Update not installed: {logs.describe(e)}")
+            self.status.setText(f"Update not installed: {html.escape(logs.describe(e))}")
             return
         # the download job has finished; clear it so the quit does not stop to ask about it
         self.task = None
@@ -986,6 +1085,12 @@ class Window(QMainWindow):
         # a job started from the old one's finished handler may already own self.thread
         if self.thread is thread:
             self.thread = self.job = self.task = None
+            if self.activity:
+                self.activity.end()
+                self.activity = None
+            if then := self.after_job:
+                self.after_job = None
+                then()
 
     def check_access_at_launch(self) -> None:
         """Touch the saved folders off the main thread: macOS asks now, and a refusal gets the access dialog.
@@ -1012,7 +1117,7 @@ class Window(QMainWindow):
             log.warning("%s is on %s, which is not connected; connect it before scanning", name, drive)
         if offline:
             drives = sorted({drive for _, drive in offline})
-            self.status.setText(f"Not connected: {', '.join(drives)}. Connect before scanning.")
+            self.status.setText(f"Not connected: {html.escape(', '.join(drives))}. Connect before scanning.")
         if blocked:
             self.ask_for_access(blocked)
 
@@ -1045,22 +1150,21 @@ class Window(QMainWindow):
                 if (bundle := remote.running_bundle()) is not None:
                     subprocess.run(["open", "-R", str(bundle)], check=False)
             elif clicked is not retry:
-                self.status.setText("Waiting for access to " + ", ".join(b.name or str(b) for b in blocked))
+                self.status.setText("Waiting for access to " + html.escape(", ".join(b.name or str(b) for b in blocked)))
                 return False
             blocked = blocked_folders(blocked)
         self.status.setText(READY)
         return True
 
     def start_scan(self) -> None:
-        dirs = self._dirs()
-        if dirs is None:
+        if self.packs.get(self.model.currentText()) is None:
+            self.status.setText('No face model yet. <a href="models">Download it</a>')
             return
-        refs, source, dest = dirs
-        if not self.ask_for_access(blocked_folders([refs, source, dest])):
-            return
+        self._preflight(self._start_scan)
+
+    def _start_scan(self, refs: Path, source: Path, dest: Path) -> None:
         pack = self.packs.get(self.model.currentText())
         if pack is None:
-            self.status.setText("No face model yet; it downloads on launch. Reopen Vaquero to retry.")
             return
         self.settings.setValue("videos", self.videos.isChecked())
         self.settings.setValue("subfolders", self.subfolders.isChecked())
@@ -1090,6 +1194,7 @@ class Window(QMainWindow):
             report,
         )
         job.progress.connect(self._on_progress, QUEUED)
+        job.listing.connect(self._on_listing, QUEUED)
         job.finished.connect(self._on_finished, QUEUED)
         self.live_found = 0
         self._show_found(0)
@@ -1182,15 +1287,31 @@ class Window(QMainWindow):
         self._set_busy(False)
         if self.stopping:  # a stopped download ends this way: it resumes next time
             self._done(msg, cancelled=True)
+        elif self.retry:
+            self.status.setText(f'Failed: {html.escape(msg)} &nbsp;<a href="retry" style="color:{theme.SIGNAL}">Try again</a>')
         else:
-            self.status.setText(f"Failed: {msg}")
+            self.status.setText(f"Failed: {html.escape(msg)}")
+
+    def _on_status_link(self, link: str) -> None:
+        if link.startswith("https://"):
+            QDesktopServices.openUrl(QUrl(link))
+            return
+        if self.busy:
+            return
+        if link == "retry" and (again := self.retry):
+            self.retry = None
+            again()
+        elif link == "models":
+            self.ensure_models()
 
     def execute(self) -> None:
-        dirs = self._dirs()
+        if self._matches():
+            self._preflight(self._execute)
+
+    def _execute(self, refs: Path, source: Path, dest: Path) -> None:
         matches = self._matches()
-        if dirs is None or not matches:
+        if not matches:
             return
-        dest = dirs[2]
         mode = Transfer.COPY if self.transfer_copy.isChecked() else Transfer.MOVE
         conflict = Conflict(self.conflict.currentData())
         self.journal.parent.mkdir(parents=True, exist_ok=True)
@@ -1207,6 +1328,9 @@ class Window(QMainWindow):
         job.progress.connect(self._on_transfer_progress, QUEUED)
         job.finished.connect(self._on_transfer_finished, QUEUED)
         self._run(job, f"a {mode.value}")
+
+    def _on_listing(self, found: int) -> None:
+        self.status.setText(f"Listing files {status_value(f'{found:,} found')}")
 
     def _on_transfer_progress(self, done: int, total: int) -> None:
         self.status.setText(f"{self._transfer_verb().capitalize()} {status_value(f'{done} of {total}')}")
@@ -1293,7 +1417,7 @@ class Window(QMainWindow):
     def _open_link(self, url: QUrl) -> None:
         path = Path(url.toLocalFile())
         if not path.exists():
-            self.status.setText(f"No longer there: {path}")
+            self.status.setText(f"No longer there: {html.escape(str(path))}")
             return
         QDesktopServices.openUrl(url)
 
@@ -1337,6 +1461,12 @@ def main() -> None:
     theme.apply(app, asset("check.svg").as_posix())
     w = Window()
     w.show()
+    if failed := remote.take_update_failure():
+        log.error("the last update was not installed: %s; see %s", failed, remote.UPDATE_LOG)
+        w.status.setText(
+            f"The last update was not installed: {html.escape(failed)}. Download it from "
+            f'<a href="{SITE_URL}" style="color:{theme.SIGNAL}">the website</a>.'
+        )
     w.ensure_models()
     w.check_access_at_launch()
     if w.settings.value(AUTO_UPDATE_KEY, True, type=bool):

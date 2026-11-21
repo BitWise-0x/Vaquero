@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from vaquero import engine
 from vaquero.engine import Conflict, Transfer, TransferCounts, TransferStopped, transfer_matches
 
 DISK_MB = 4
@@ -69,10 +70,12 @@ def test_cross_volume_move(tmp_path: Path, volume: Path) -> None:
 @pytest.mark.parametrize("conflict", [Conflict.OVERWRITE, Conflict.KEEP_BOTH])
 @pytest.mark.parametrize("mode", [Transfer.MOVE, Transfer.COPY])
 def test_full_destination_keeps_the_old_file_and_the_source(
-    tmp_path: Path, volume: Path, conflict: Conflict, mode: Transfer
+    tmp_path: Path, volume: Path, conflict: Conflict, mode: Transfer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The copy runs out of space halfway: the file it would replace, and the source, are both untouched, no
-    partial file is left under any name, and the batch stops instead of failing every later file."""
+    """The copy runs out of space halfway (the disk filled up from elsewhere after the space check): the file it
+    would replace, and the source, are both untouched, no partial file is left under any name, and the batch stops
+    instead of failing every later file."""
+    monkeypatch.setattr(engine, "_check_space", lambda *args: None)
     dest = volume / "out"
     touch(dest / "a.jpg", b"old")
     big = touch(tmp_path / "src" / "a.jpg", b"\xff" * (DISK_MB * 2 << 20))
@@ -206,3 +209,26 @@ def test_a_vanished_scan_folder_stops_the_scan_with_the_results_so_far(tmp_path:
                 shutil.rmtree(folder)
 
     assert got == ["a.png", "b.png"]
+
+
+def test_a_destination_too_small_stops_before_the_first_file(tmp_path: Path, volume: Path) -> None:
+    files = [touch(tmp_path / "src" / f"{n}.jpg", b"\xff" * (2 << 20)) for n in "abc"]
+    journal = tmp_path / "moves.csv"
+
+    with pytest.raises(TransferStopped, match="nothing was moved or copied") as stopped:
+        transfer_matches(files, volume / "out", journal)
+
+    assert stopped.value.counts == (0, 0, 0)
+    assert all(f.exists() for f in files) and not list((volume / "out").iterdir())
+
+
+def test_listing_can_be_cancelled_and_reports_its_count(tmp_path: Path) -> None:
+    from vaquero.engine import list_media
+
+    for d in range(5):
+        touch(tmp_path / f"d{d}" / "a.jpg")
+    counts: list[int] = []
+
+    found = list_media(tmp_path, False, recursive=True, cancelled=lambda: len(counts) >= 2, found_so_far=counts.append)
+
+    assert counts[:2] == [0, 1] and len(found) == 1

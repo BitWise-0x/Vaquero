@@ -347,16 +347,26 @@ def video_frames(path: Path, samples: int = DEFAULT_VIDEO_FRAMES) -> Iterator[np
         cap.release()
 
 
-def list_media(folder: Path, include_videos: bool, recursive: bool = False, exclude: Path | None = None) -> list[Path]:
+def list_media(
+    folder: Path,
+    include_videos: bool,
+    recursive: bool = False,
+    exclude: Path | None = None,
+    cancelled: Callable[[], bool] = lambda: False,
+    found_so_far: Callable[[int], None] = lambda n: None,
+) -> list[Path]:
     """Media files in folder, sorted; recursive skips hidden folders and exclude (the move destination).
 
     One directory read per folder, with no per-file lookups, keeps network shares fast. An unreadable subfolder is
-    logged and skipped; an unreadable folder itself raises."""
+    logged and skipped; an unreadable folder itself raises. Cancelling returns what was found so far; found_so_far
+    hears the running count after each folder, as a large share can take a while to list."""
     exts = IMAGE_EXTS | VIDEO_EXTS if include_videos else IMAGE_EXTS
     skip = os.path.realpath(exclude) if exclude else None
     found: list[Path] = []
     stack = [os.fspath(folder)]
     while stack:
+        if cancelled():
+            break
         current = stack.pop()
         try:
             entries = list(os.scandir(current))
@@ -375,6 +385,7 @@ def list_media(folder: Path, include_videos: bool, recursive: bool = False, excl
                     stack.append(entry.path)
             elif os.path.splitext(entry.name)[1].lower() in exts and entry.is_file():
                 found.append(Path(entry.path))
+        found_so_far(len(found))
     return sorted(found)
 
 
@@ -530,6 +541,30 @@ def _place(src: Path, dst: Path, mode: Transfer) -> bool:
     return False
 
 
+def _check_space(paths: list[Path], dest: Path, mode: Transfer) -> None:
+    """Stop before the first file when the destination cannot hold the files that will be copied onto it (a move
+    within one volume needs no space). Files that cannot be read are left for the transfer to report."""
+    dest_dev = dest.stat().st_dev
+    need = 0
+    for src in paths:
+        try:
+            st = src.stat()
+        except OSError:
+            continue
+        if mode is Transfer.COPY or st.st_dev != dest_dev:
+            need += st.st_size
+    free = shutil.disk_usage(dest).free
+    if need > free:
+        raise TransferStopped(
+            f"{dest} has {_size(free)} free and the files need {_size(need)}; nothing was moved or copied",
+            TransferCounts(0, 0, 0),
+        )
+
+
+def _size(n: int) -> str:
+    return f"{n / 1e9:.1f} GB" if n >= 1e9 else f"{n / 1e6:.0f} MB"
+
+
 def transfer_matches(
     paths: list[Path],
     dest: Path,
@@ -549,6 +584,7 @@ def transfer_matches(
     half moved or copied. A file already in the destination (see _already_there) is skipped, so running a stopped
     batch again does not duplicate what it did. Raises TransferStopped when the destination stops taking files."""
     dest.mkdir(parents=True, exist_ok=True)
+    _check_space(paths, dest, mode)
     for stale in dest.glob(".*.vaquero-part"):  # left by a copy the app was quit or killed in the middle of
         stale.unlink(missing_ok=True)
     verb = "moved" if mode is Transfer.MOVE else "copied"

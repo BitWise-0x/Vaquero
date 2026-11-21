@@ -183,3 +183,88 @@ def test_a_finished_handler_can_start_the_next_job(tmp_path: Path, monkeypatch: 
     _wait_idle(w)
 
     assert ran == ["check", "download"]
+
+
+def test_a_failed_model_download_offers_try_again(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    w = _window(tmp_path, monkeypatch)
+    calls: list[str] = []
+
+    def fail(progress: object, cancelled: object) -> None:
+        raise ui.RemoteError("could not reach GitHub: offline")
+
+    w._run(ui.TaskWorker(fail), "the face model download", retry=lambda: calls.append("again"))
+    _wait_idle(w)
+
+    assert 'href="retry"' in w.status.text() and "could not reach GitHub" in w.status.text()
+    w._on_status_link("retry")
+    assert calls == ["again"]
+    w._on_status_link("retry")  # used up: a second click does nothing
+    assert calls == ["again"]
+
+
+def test_a_job_keeps_the_mac_awake_only_while_it_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    w = _window(tmp_path, monkeypatch)
+    w._run(ui.TaskWorker(lambda progress, cancelled: None), "a scan")
+    assert w.activity is not None and w.activity.active
+    _wait_idle(w)
+    assert w.activity is None
+
+
+def test_the_launch_update_check_waits_for_the_model_download(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    w = _window(tmp_path, monkeypatch)
+    checks: list[bool] = []
+    w._run(ui.TaskWorker(lambda progress, cancelled: None), "the face model download")
+    w.check_updates(quiet=True)  # busy: deferred
+    monkeypatch.setattr(w, "check_updates", lambda quiet=False: checks.append(quiet))
+    _wait_idle(w)
+
+    assert checks == [True]
+
+
+def test_a_folder_check_that_hangs_is_reported_not_waited_on(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import threading as th
+
+    w = _window(tmp_path, monkeypatch)
+    for edit in (w.refs, w.source, w.dest):
+        edit.setText(str(tmp_path))
+    release = th.Event()
+
+    def stalled(named: object, current: list[str]) -> tuple[str, list[Path]]:
+        current[0] = "Folder to scan"
+        release.wait(5)
+        return "", []
+
+    monkeypatch.setattr(ui, "folder_problem", stalled)
+    monkeypatch.setattr(ui, "PREFLIGHT_TIMEOUT_MS", 200)
+    started: list[object] = []
+    w._preflight(lambda *folders: started.append(folders))
+    assert not w.scan_btn.isEnabled()
+    qa = QApplication.instance()
+    QTimer.singleShot(600, qa.quit)
+    qa.exec()
+    release.set()
+    QTimer.singleShot(200, qa.quit)
+    qa.exec()
+
+    assert "Folder to scan is not responding" in w.status.text()
+    assert not started  # the late answer is ignored
+    assert w.scan_btn.isEnabled() == bool(w.packs)
+
+
+def test_folder_problems_are_found_before_a_scan(tmp_path: Path) -> None:
+    ok = tmp_path / "ok"
+    ok.mkdir()
+    named = {"Reference faces": ok, "Folder to scan": ok, "Destination": tmp_path / "new"}
+    assert ui.folder_problem(named, [""]) == ("", [])
+    assert ui.folder_problem({**named, "Folder to scan": tmp_path / "nope"}, [""])[0] == "Folder to scan: not a folder"
+    gone = {**named, "Destination": Path("/Volumes/NoSuchDriveXYZ/out")}
+    assert "NoSuchDriveXYZ is not connected" in ui.folder_problem(gone, [""])[0]
+    same = {**named, "Destination": ok}
+    assert ui.folder_problem(same, [""])[0] == "Destination must differ from the folder being scanned"
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    locked.chmod(0o500)
+    try:
+        assert "no permission to add files" in ui.folder_problem({**named, "Destination": locked}, [""])[0]
+    finally:
+        locked.chmod(0o755)

@@ -42,11 +42,17 @@ jobs:
         with:
           ref: ${{ github.sha }}
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      # the face model, fetched by the app's own downloader from the pinned model release; kept while the pin holds
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/vaquero-model
+          key: vaquero-model-${{ hashFiles('vaquero/remote.py') }}
       - name: Tests
         env:
           QT_QPA_PLATFORM: offscreen
+          VAQUERO_MODEL_CACHE: ${{ runner.temp }}/vaquero-model
         run: uv run pytest -q
-      - name: Menu bar and Dock on the real window system
+      - name: Self-test on the real window system
         timeout-minutes: 3
         env:
           QT_QPA_PLATFORM: cocoa

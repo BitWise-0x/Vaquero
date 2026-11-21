@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds dist/Vaquero.app and dist/Vaquero-<version>-arm64.dmg (Apple Silicon only: onnxruntime
 # ships no Intel macOS wheels). Models are not bundled: the app downloads its pack on first launch.
-# Both are signed with the Developer ID identity, notarized and stapled.
+# Both are signed with the Developer ID identity, notarized and stapled; the app runs its self-test first.
 #   VAQUERO_SIGN_IDENTITY   codesign identity, name or SHA-1 (default: the team's Vaquero certificate)
 #   VAQUERO_NOTARY_KEY      App Store Connect API key (.p8) path, with VAQUERO_NOTARY_KEY_ID and
 #                           VAQUERO_NOTARY_ISSUER; without it, the notarytool keychain profile
@@ -70,6 +70,9 @@ done < <(
 )
 sign "$app"
 codesign --verify --deep --strict "$app"
+# the signed app checks itself before it ships: assets, ONNX Runtime with Core ML, OpenCV, HEIF, the menu bar and
+# the Dock (vaquero/selftest.py), with throwaway settings
+"$app/Contents/MacOS/Vaquero" --self-test
 ditto -c -k --keepParent "$app" dist/Vaquero-notarize.zip
 notarize dist/Vaquero-notarize.zip
 rm dist/Vaquero-notarize.zip

@@ -83,6 +83,9 @@ Vaquero shows in the Dock, in the menu bar, or both; choose in **Settings**. One
 
 - With the menu bar icon, closing the window keeps Vaquero running there, with any scan, copy or move still going. Click the Dock icon or **Open Vaquero** in the menu bar menu to bring the window back.
 - The icon holds still while Vaquero is idle, and its scan line sweeps while a scan, copy, move or download runs.
+
+  ![The menu bar icon during a scan](screenshots/menubar-icon.webp)
+
 - Its menu shows what is running and how far along, with **Cancel**, **Open Vaquero**, **Scan**, **Undo**, **Show in Dock**, **Settings…**, **Check for Updates…**, **Open Log**, **Vaquero Help** and **Quit Vaquero**.
 - Menu bar only: Vaquero has no Dock icon and no menu bar of its own; everything is in the menu bar menu.
 

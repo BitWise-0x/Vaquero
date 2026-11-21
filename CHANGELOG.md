@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.26.10 (2026-11-21)
+
+### Bug Fixes
+
+- **README**: Add line break for better badge organization
+  ([`479088b`](https://github.com/BitWise-0x/Vaquero/commit/479088b76d2791522f256db3fabfe4f5f2265ebe))
+
+
 ## v0.26.9 (2026-11-21)
 
 ### Bug Fixes

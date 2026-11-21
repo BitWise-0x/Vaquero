@@ -29,6 +29,7 @@ from PySide6.QtCore import (
     QTimer,
     QUrl,
     Signal,
+    SignalInstance,
     qInstallMessageHandler,
 )
 from PySide6.QtGui import (
@@ -383,7 +384,20 @@ class ScanIcon(QLabel):
         p.fillRect(QRectF(lo, top, hi - lo, bottom - top), grad)
 
 
-class ScanWorker(QObject):
+class Job(QObject):
+    """A worker that Window._run moves onto its own thread."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.ended = False
+
+    def _emit_end(self, signal: SignalInstance, *args: object) -> None:
+        # set before the emit: the window's handler for it may start the next job, and must see this one as over
+        self.ended = True
+        signal.emit(*args)
+
+
+class ScanWorker(Job):
     progress = Signal(int, int, float)  # done, total, score of the file just scanned
     finished = Signal(list, bool, int, str)  # list[ScanResult], cancelled, reference photos kept, why it stopped early
     failed = Signal(str)
@@ -416,7 +430,7 @@ class ScanWorker(QObject):
             self.ref_count = matcher.ref_count
             if self._cancel:
                 log.warning("scan cancelled before scanning")
-                self.finished.emit([], True, self.ref_count, "")
+                self._emit_end(self.finished, [], True, self.ref_count, "")
                 return
             paths = list_media(self.folder, self.include_videos, self.recursive, self.dest)
             total = len(paths)
@@ -437,18 +451,18 @@ class ScanWorker(QObject):
                     self.progress.emit(len(results), total, r.score)
             if self._cancel:
                 log.warning("scan cancelled after %d of %d files", len(results), total)
-            self.finished.emit(results, self._cancel, self.ref_count, "")
+            self._emit_end(self.finished, results, self._cancel, self.ref_count, "")
         except SourceGone as e:
-            self.finished.emit(self.results, False, self.ref_count, str(e))
+            self._emit_end(self.finished, self.results, False, self.ref_count, str(e))
         except Exception as e:  # surfaced in the UI and log, the worker thread must not die silently
             log.error("scan stopped: %s", logs.describe(e), exc_info=True)
             if self.results:  # what was scanned so far stays usable
-                self.finished.emit(self.results, False, self.ref_count, logs.describe(e))
+                self._emit_end(self.finished, self.results, False, self.ref_count, logs.describe(e))
             else:
-                self.failed.emit(logs.describe(e))
+                self._emit_end(self.failed, logs.describe(e))
 
 
-class TransferWorker(QObject):
+class TransferWorker(Job):
     progress = Signal(int, int)
     finished = Signal(object, bool, str)  # TransferCounts, cancelled, why it stopped early ("" when it did not)
     failed = Signal(str)
@@ -468,15 +482,15 @@ class TransferWorker(QObject):
                 self.paths, self.dest, self.journal, self.progress.emit, lambda: self._cancel, self.conflict, self.mode,
                 self.moved.add,
             )
-            self.finished.emit(counts, self._cancel, "")
+            self._emit_end(self.finished, counts, self._cancel, "")
         except TransferStopped as e:
-            self.finished.emit(e.counts, False, str(e))
+            self._emit_end(self.finished, e.counts, False, str(e))
         except Exception as e:  # surfaced in the UI and log, the worker thread must not die silently
             log.error("%s stopped: %s", self.mode.value, logs.describe(e), exc_info=True)
-            self.failed.emit(logs.describe(e))
+            self._emit_end(self.failed, logs.describe(e))
 
 
-class TaskWorker(QObject):
+class TaskWorker(Job):
     """Runs fn(progress, cancelled) on a worker thread: model download, update check, update download."""
 
     progress = Signal(int, int)
@@ -493,14 +507,14 @@ class TaskWorker(QObject):
 
     def run(self) -> None:
         try:
-            self.finished.emit(self.fn(self.progress.emit, lambda: self._cancel))
+            self._emit_end(self.finished, self.fn(self.progress.emit, lambda: self._cancel))
         except Exception as e:  # anything left uncaught would keep the thread running and the window busy for good
             # a stopped download raises too, and is not an error
             if self._cancel:
                 log.warning("%s", e)
             else:
                 log.error("%s", logs.describe(e), exc_info=not isinstance(e, RemoteError))
-            self.failed.emit(str(e) if self._cancel else logs.describe(e))
+            self._emit_end(self.failed, str(e) if self._cancel else logs.describe(e))
 
 
 def migrate_settings(settings: QSettings) -> None:
@@ -542,7 +556,7 @@ class Window(QMainWindow):
         self.quiet_update_check = False
         self.results: list[ScanResult] = []
         self.thread: QThread | None = None
-        self.job: ScanWorker | TransferWorker | TaskWorker | None = None
+        self.job: Job | None = None
         self.task: str | None = None  # the running job as a confirmation names it; None needs no confirmation
         self.stopping = False  # a cancel or quit asked the running job to stop
         self.journal = JOURNAL
@@ -755,18 +769,23 @@ class Window(QMainWindow):
             m = self._matches()
             self._show_found(len(m))
             self.status.setText(f"{len(m)} matches of {len(self.results)} scanned at threshold {self.threshold.value():.2f}")
-            self.execute_btn.setEnabled(bool(m) and self.job is None)
+            self.execute_btn.setEnabled(bool(m) and not self.busy)
+
+    @property
+    def busy(self) -> bool:
+        """A job is running and has not yet reported its end (its thread may still be winding down)."""
+        return self.job is not None and not self.job.ended
 
     def _set_busy(self, busy: bool) -> None:
         self.scan_btn.setEnabled(not busy and bool(self.packs))  # no model yet: the download failed or was cancelled
         self.cancel_btn.setEnabled(busy)
         self.execute_btn.setEnabled(not busy and bool(self._matches()))
 
-    def _run(self, job: ScanWorker | TransferWorker | TaskWorker, task: str | None = None) -> None:
+    def _run(self, job: Job, task: str | None = None) -> None:
         """Run job on a fresh thread; both are released on the main thread once it ends. task names it for the
         confirmation before a quit or cancel stops it; jobs without one stop without asking. One job at a time:
         a second would orphan the first's thread, which Cancel and quit could then no longer reach."""
-        if self.job is not None:
+        if self.busy:
             log.warning("%s not started: %s is still running", task or "job", self.task or "another job")
             return
         thread = QThread()
@@ -871,7 +890,7 @@ class Window(QMainWindow):
 
     def check_updates(self, quiet: bool = False) -> None:
         """Look for a newer release. quiet (the launch check) only speaks up when an update exists."""
-        if self.job:
+        if self.busy:
             if not quiet:
                 QMessageBox.information(self, "Check for updates", "Wait for the current task to finish.")
             return
@@ -1093,7 +1112,7 @@ class Window(QMainWindow):
 
     def cancel_job(self) -> None:
         # the job may end while the question is open
-        if self.job and self._confirm_stop("Cancel", "Stop") and self.job:
+        if self.busy and self._confirm_stop("Cancel", "Stop") and self.job:
             self.task, self.stopping = None, True
             self.job.cancel()
             self.cancel_btn.setEnabled(False)
@@ -1279,7 +1298,7 @@ class Window(QMainWindow):
         QDesktopServices.openUrl(url)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (Qt override)
-        if self.job and not self._confirm_stop("Quit Vaquero", "Quit"):
+        if self.busy and not self._confirm_stop("Quit Vaquero", "Quit"):
             event.ignore()
             return
         if self.job and self.thread:

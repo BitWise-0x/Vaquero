@@ -6,7 +6,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QSettings, QTimer
+from PySide6.QtCore import QObject, QSettings, QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QApplication
 
@@ -115,3 +115,71 @@ def test_a_task_that_raises_anything_ends_and_frees_the_window(tmp_path: Path, m
     assert w.job is None
     assert w.status.text().startswith("Failed: Something went wrong")
     assert w.scan_btn.isEnabled() == bool(w.packs)
+
+
+def _window(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> "ui.Window":
+    ini = str(tmp_path / "vaquero.ini")
+    monkeypatch.setattr(ui, "QSettings", lambda *_: QSettings(ini, QSettings.Format.IniFormat))
+    QApplication.instance() or QApplication([])
+    return ui.Window()
+
+
+class _OnMain(QObject):
+    """A receiver living on the main thread: a queued call to a bare lambda would run on the worker's thread, which
+    is already winding down, whereas the window's own handlers run on the main thread."""
+
+    def __init__(self, fn: object) -> None:
+        super().__init__()
+        self.fn = fn
+
+    def call(self, *args: object) -> None:
+        self.fn(*args)  # type: ignore[operator]
+
+
+def _wait_idle(w: "ui.Window", ms: int = 5000) -> None:
+    qa = QApplication.instance()
+    deadline = QTimer()
+    deadline.setSingleShot(True)
+    deadline.timeout.connect(qa.quit)
+    deadline.start(ms)
+    poll = QTimer()
+    poll.timeout.connect(lambda: w.job is None and qa.quit())
+    poll.start(10)
+    qa.exec()
+    poll.stop()
+    deadline.stop()
+
+
+def test_execute_is_enabled_after_a_scan_finishes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The finished handler runs while the job is still recorded; it must count as over."""
+    w = _window(tmp_path, monkeypatch)
+    w.scan_root = tmp_path
+    hit = ui.ScanResult(tmp_path / "a.jpg", "image", 0.99, 1, 1)
+
+    class Scan(ui.TaskWorker):
+        def run(self) -> None:
+            self._emit_end(self.finished, None)
+
+    job = Scan(lambda progress, cancelled: None)
+    handler = _OnMain(lambda _: w._on_finished([hit], False, 1, ""))
+    job.finished.connect(handler.call, ui.QUEUED)
+    w._run(job, "a scan")
+    _wait_idle(w)
+
+    assert w.execute_btn.isEnabled()
+    assert w.scan_btn.isEnabled() == bool(w.packs)
+
+
+def test_a_finished_handler_can_start_the_next_job(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The update check's handler starts the update download; that second job must not be refused."""
+    w = _window(tmp_path, monkeypatch)
+    ran: list[str] = []
+    second = ui.TaskWorker(lambda progress, cancelled: ran.append("download"))
+    first = ui.TaskWorker(lambda progress, cancelled: ran.append("check"))
+    handler = _OnMain(lambda _: w._run(second, "the update download"))
+    first.finished.connect(handler.call, ui.QUEUED)
+    w._run(first)
+    _wait_idle(w)
+    _wait_idle(w)
+
+    assert ran == ["check", "download"]

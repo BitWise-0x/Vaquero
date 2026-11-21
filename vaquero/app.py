@@ -68,6 +68,8 @@ from vaquero.engine import (
     FaceMatcher,
     ScanResult,
     Transfer,
+    TransferCounts,
+    TransferStopped,
     list_media,
     pack_models,
     scan,
@@ -441,7 +443,7 @@ class ScanWorker(QObject):
 
 class TransferWorker(QObject):
     progress = Signal(int, int)
-    finished = Signal(int, int, bool)  # done, failed, cancelled
+    finished = Signal(object, bool, str)  # TransferCounts, cancelled, why it stopped early ("" when it did not)
     failed = Signal(str)
 
     def __init__(self, paths: list[Path], dest: Path, journal: Path, conflict: Conflict, mode: Transfer) -> None:
@@ -454,10 +456,12 @@ class TransferWorker(QObject):
 
     def run(self) -> None:
         try:
-            done, failed = transfer_matches(
+            counts = transfer_matches(
                 self.paths, self.dest, self.journal, self.progress.emit, lambda: self._cancel, self.conflict, self.mode
             )
-            self.finished.emit(done, failed, self._cancel)
+            self.finished.emit(counts, self._cancel, "")
+        except TransferStopped as e:
+            self.finished.emit(e.counts, False, str(e))
         except PermissionError as e:
             log.error("%s", blocked_message(e))
             self.failed.emit(blocked_message(e))
@@ -739,7 +743,7 @@ class Window(QMainWindow):
             m = self._matches()
             self._show_found(len(m))
             self.status.setText(f"{len(m)} matches of {len(self.results)} scanned at threshold {self.threshold.value():.2f}")
-            self.execute_btn.setEnabled(bool(m))
+            self.execute_btn.setEnabled(bool(m) and self.job is None)
 
     def _set_busy(self, busy: bool) -> None:
         self.scan_btn.setEnabled(not busy and bool(self.packs))  # no model yet: the download failed or was cancelled
@@ -748,7 +752,11 @@ class Window(QMainWindow):
 
     def _run(self, job: ScanWorker | TransferWorker | TaskWorker, task: str | None = None) -> None:
         """Run job on a fresh thread; both are released on the main thread once it ends. task names it for the
-        confirmation before a quit or cancel stops it; jobs without one stop without asking."""
+        confirmation before a quit or cancel stops it; jobs without one stop without asking. One job at a time:
+        a second would orphan the first's thread, which Cancel and quit could then no longer reach."""
+        if self.job is not None:
+            log.warning("%s not started: %s is still running", task or "job", self.task or "another job")
+            return
         thread = QThread()
         job.moveToThread(thread)
         thread.started.connect(job.run)
@@ -1144,13 +1152,18 @@ class Window(QMainWindow):
         self.status.setText(f"{self._transfer_verb().capitalize()} {status_value(f'{done} of {total}')}")
         self._log_progress(self.transfer_mode.value, done, total, f"{done} of {total} files")
 
-    def _on_transfer_finished(self, done: int, failed: int, cancelled: bool) -> None:
+    def _on_transfer_finished(self, counts: TransferCounts, cancelled: bool, stopped: str) -> None:
         verb = self._transfer_verb()
-        log.info("%s done: %d %s, %d failed%s", self.transfer_mode.value, done, verb, failed, " (cancelled)" if cancelled else "")
+        there = f", {counts.skipped} already there" if counts.skipped else ""
+        log.info(
+            "%s done: %d %s%s, %d failed%s",
+            self.transfer_mode.value, counts.done, verb, there, counts.failed, " (cancelled)" if cancelled else "",
+        )
         self.results = [r for r in self.results if r.path.exists()]
         self._set_busy(False)
         self._update_match_count()
-        self._done(f"{verb} {done}, {failed} failed. Undo list in {self.journal.name}", cancelled)
+        summary = f"{verb} {counts.done}{there}, {counts.failed} failed. Undo list in {self.journal.name}"
+        self._done(f"Stopped: {stopped}. {summary}" if stopped else summary, cancelled)
 
     def _new_block(self, top: int = 0, bottom: int = 0) -> QTextCursor:
         """A cursor in a fresh block at the end of the log, with the given spacing."""

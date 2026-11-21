@@ -71,3 +71,21 @@ def test_scan_stays_off_without_a_face_model(tmp_path: Path, monkeypatch: pytest
     w.packs = {}
     w._set_busy(False)  # a failed or cancelled model download ends here
     assert not w.scan_btn.isEnabled()
+
+
+def test_a_second_job_does_not_start_while_one_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Changing the threshold during a move once re-enabled Execute, and a second transfer orphaned the first."""
+    ini = str(tmp_path / "vaquero.ini")
+    monkeypatch.setattr(ui, "QSettings", lambda *_: QSettings(ini, QSettings.Format.IniFormat))
+    QApplication.instance() or QApplication([])
+    w = ui.Window()
+    running = ui.TaskWorker(lambda progress, cancelled: None)
+    w.job, w.task = running, "a move"
+    w.results = [ui.ScanResult(tmp_path / "a.jpg", "image", 0.99, 1, 1)]
+
+    w.threshold.setValue(w.threshold.value() - 0.01)
+    w._run(ui.TaskWorker(lambda progress, cancelled: None), "another move")
+
+    assert not w.execute_btn.isEnabled()
+    assert w.job is running and w.task == "a move"
+    w.job = w.task = None

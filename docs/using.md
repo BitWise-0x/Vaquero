@@ -22,7 +22,7 @@ description: Pick the folders, scan, check the matches, then copy or move them.
 | Folder to scan | | Folder searched for that person |
 | Destination | | Where matches go; created if missing |
 | Move / Copy | Move | What **Execute** does with the matches |
-| Name exists | Keep both | A name already in the destination: keep both, the new file numbered (`IMG_1 2.png`), or overwrite |
+| Name exists | Keep both | A name already in the destination: keep both, the new file numbered (`IMG_1 2.png`), or overwrite. Overwrite replaces only files that were there before the run; two matches with the same name are both kept |
 | Model | `buffalo_l` | Installed model pack |
 | Scan subfolders | off | Also scan subfolders; hidden folders and the destination are skipped, and matches land flat in the destination |
 | Include videos | on | Also scan videos |
@@ -54,6 +54,8 @@ Changing the threshold after a scan updates the matches without scanning again. 
 
 - The log draws a progress bar for the model download, the scan and the copy or move. The status line above the log shows the counts in amber while running, then **DONE** or **CANCELLED** with a summary.
 - **Cancel** stops a scan, copy or move after the current file. A cancelled scan keeps the results it reached, and its matches can still be copied or moved. A cancelled copy or move leaves every file either fully done and journaled or untouched.
+- A copy, or a move to another drive, writes each file under a hidden name, flushes it to disk and checks its size before it takes the real name. A full or unplugged drive never leaves a partial file or damages the file it would replace, and a move removes the original only after its copy is complete.
+- When the destination fills up, turns read-only or disappears, the copy or move stops and says why. Files already done stay done and journaled. A file already in the destination with the same name, size and modification time is skipped, so running the copy or move again picks up where it stopped.
 - **Cancel**, **Quit** and closing the window ask before stopping a scan, copy, move or download.
 - Closing the window during a run cancels it and waits up to 30 seconds for the current file.
 

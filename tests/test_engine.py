@@ -55,20 +55,20 @@ def test_pack_models_needs_detector_and_recognizer(tmp_path: Path) -> None:
 
 def test_move_keep_both_renames_and_journals(tmp_path: Path) -> None:
     src, dest = tmp_path / "src", tmp_path / "dest"
-    a = touch(src / "a.jpg", b"new")
+    a = touch(src / "a.jpg", b"newer")
     b = touch(src / "b.jpg")
     touch(dest / "a.jpg", b"old")
     touch(dest / "a 2.jpg", b"older")
     journal = tmp_path / "moves.csv"
 
     ticks: list[tuple[int, int]] = []
-    moved, failed = transfer_matches([a, b], dest, journal, lambda d, t: ticks.append((d, t)))
+    moved, failed, _ = transfer_matches([a, b], dest, journal, lambda d, t: ticks.append((d, t)))
 
-    assert (moved, failed) == (2, 0)
+    assert (moved, failed, _) == (2, 0, 0)
     assert ticks[-1] == (2, 2)
     assert (dest / "a.jpg").read_bytes() == b"old"
     assert (dest / "a 2.jpg").read_bytes() == b"older"
-    assert (dest / "a 3.jpg").read_bytes() == b"new"
+    assert (dest / "a 3.jpg").read_bytes() == b"newer"
     assert not a.exists() and not b.exists()
     assert list(csv.reader(journal.open())) == [
         [str(a), str(dest / "a 3.jpg"), "moved, renamed"],
@@ -78,12 +78,12 @@ def test_move_keep_both_renames_and_journals(tmp_path: Path) -> None:
 
 def test_move_overwrite_replaces(tmp_path: Path) -> None:
     src, dest = tmp_path / "src", tmp_path / "dest"
-    a = touch(src / "a.jpg", b"new")
+    a = touch(src / "a.jpg", b"newer")
     touch(dest / "a.jpg", b"old")
     journal = tmp_path / "moves.csv"
 
-    assert transfer_matches([a], dest, journal, conflict=Conflict.OVERWRITE) == (1, 0)
-    assert (dest / "a.jpg").read_bytes() == b"new"
+    assert transfer_matches([a], dest, journal, conflict=Conflict.OVERWRITE) == (1, 0, 0)
+    assert (dest / "a.jpg").read_bytes() == b"newer"
     assert sorted(p.name for p in dest.iterdir()) == ["a.jpg"]
     assert list(csv.reader(journal.open())) == [[str(a), str(dest / "a.jpg"), "moved, overwrote"]]
 
@@ -91,14 +91,14 @@ def test_move_overwrite_replaces(tmp_path: Path) -> None:
 
 def test_copy_keeps_the_source(tmp_path: Path) -> None:
     src, dest = tmp_path / "src", tmp_path / "dest"
-    a = touch(src / "a.jpg", b"new")
+    a = touch(src / "a.jpg", b"newer")
     touch(dest / "a.jpg", b"old")
     journal = tmp_path / "moves.csv"
 
-    assert transfer_matches([a], dest, journal, mode=Transfer.COPY) == (1, 0)
-    assert a.read_bytes() == b"new"
+    assert transfer_matches([a], dest, journal, mode=Transfer.COPY) == (1, 0, 0)
+    assert a.read_bytes() == b"newer"
     assert (dest / "a.jpg").read_bytes() == b"old"
-    assert (dest / "a 2.jpg").read_bytes() == b"new"
+    assert (dest / "a 2.jpg").read_bytes() == b"newer"
     assert list(csv.reader(journal.open())) == [[str(a), str(dest / "a 2.jpg"), "copied, renamed"]]
 
 

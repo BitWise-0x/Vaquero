@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import csv
+import errno
+import fcntl
 import logging
 import os
 import shutil
@@ -14,6 +16,7 @@ from enum import StrEnum
 from functools import partial
 from itertools import islice
 from pathlib import Path
+from typing import NamedTuple
 
 import cv2
 import numpy as np
@@ -439,6 +442,78 @@ class Transfer(StrEnum):
     COPY = "copy"
 
 
+# errors that every later file in the batch would hit too: stop instead of failing them one by one
+FATAL_ERRNOS = frozenset({errno.ENOSPC, errno.EDQUOT, errno.EROFS, errno.ENXIO, errno.ENODEV})
+
+
+class TransferCounts(NamedTuple):
+    done: int
+    failed: int
+    skipped: int = 0  # already in the destination, as from a run that stopped part way
+
+
+class TransferStopped(RuntimeError):
+    """The destination stopped taking files (disk full, read-only, unmounted); the batch ended early."""
+
+    def __init__(self, reason: str, counts: TransferCounts) -> None:
+        super().__init__(reason)
+        self.counts = counts
+
+
+# FAT and exFAT keep modification times to 2 seconds
+MTIME_SLACK_S = 2
+
+
+def _already_there(src: Path, dst: Path) -> bool:
+    """rsync's quick check: same size and modification time. A copy keeps the original's time, so a file copied
+    by an earlier run matches, and a different photo that happens to share the name does not."""
+    try:
+        a, b = src.stat(), dst.stat()
+    except OSError:
+        return False
+    return a.st_size == b.st_size and abs(a.st_mtime - b.st_mtime) <= MTIME_SLACK_S
+
+
+def _sync(fh: object) -> None:
+    """Flush a file to the disk itself: on macOS fsync only reaches the drive's cache, F_FULLFSYNC goes further.
+    Network and some external file systems refuse F_FULLFSYNC, so fall back to fsync there."""
+    fd = fh.fileno()  # type: ignore[attr-defined]
+    try:
+        fcntl.fcntl(fd, fcntl.F_FULLFSYNC)
+    except (AttributeError, OSError):
+        os.fsync(fd)
+
+
+def _place(src: Path, dst: Path, mode: Transfer) -> bool:
+    """Put src at dst, replacing what is there; True when a Move kept its source.
+
+    A Move within one volume is a single atomic rename. Anything else is copied to a hidden name beside dst, flushed
+    to disk and size-checked, then renamed over dst, so a failed copy never leaves a partial file under the real name
+    or touches the file it would replace. A Move removes its source only after that."""
+    if mode is Transfer.MOVE and src.stat().st_dev == dst.parent.stat().st_dev:
+        os.replace(src, dst)
+        return False
+    tmp = dst.with_name(f".{dst.name}.vaquero-part")
+    try:
+        shutil.copy2(src, tmp)
+        with tmp.open("rb+") as fh:
+            _sync(fh)
+        if (got := tmp.stat().st_size) != (want := src.stat().st_size):
+            raise OSError(errno.EIO, f"copy is {got} bytes, the original {want}", str(dst))
+        os.replace(tmp, dst)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+    if mode is Transfer.COPY:
+        return False
+    try:
+        src.unlink()
+    except OSError as e:
+        log.error("copied %s but could not remove the original: %s", src, e, extra={"link": src, "link_text": str(src)})
+        return True
+    return False
+
+
 def transfer_matches(
     paths: list[Path],
     dest: Path,
@@ -447,39 +522,61 @@ def transfer_matches(
     cancelled: Callable[[], bool] = lambda: False,
     conflict: Conflict = Conflict.KEEP_BOTH,
     mode: Transfer = Transfer.MOVE,
-) -> tuple[int, int]:
-    """Move or copy files into dest; returns (done, failed).
+) -> TransferCounts:
+    """Move or copy files into dest.
 
     The journal records src,dst,action per file for undo: action is moved or copied, plus ", renamed" when the
-    name was taken and both were kept, or ", overwrote" when the existing file was replaced.
-    Cancelling stops between files, so no file is ever left half moved or copied."""
+    name was taken and both were kept, or ", overwrote" when the existing file was replaced. Each row is on disk
+    before the next file starts. Overwrite replaces only files that were there before this batch: two matches with
+    the same name from different subfolders are both kept. Cancelling stops between files, so no file is ever left
+    half moved or copied. A file already in the destination (see _already_there) is skipped, so running a stopped
+    batch again does not duplicate what it did. Raises TransferStopped when the destination stops taking files."""
     dest.mkdir(parents=True, exist_ok=True)
+    for stale in dest.glob(".*.vaquero-part"):  # left by a copy the app was quit or killed in the middle of
+        stale.unlink(missing_ok=True)
     verb = "moved" if mode is Transfer.MOVE else "copied"
-    done = failed = 0
+    done = failed = skipped = 0
+    placed: set[str] = set()  # names written by this batch, casefolded as APFS and HFS+ compare them
     with journal.open("a", newline="") as fh:
         w = csv.writer(fh)
         for i, src in enumerate(paths, 1):
             if cancelled():
                 log.warning("%s cancelled after %d of %d files", mode.value, i - 1, len(paths))
-                return done, failed
+                return TransferCounts(done, failed, skipped)
             progress(i - 1, len(paths))
             dst, action = dest / src.name, verb
+            if dst.name.casefold() not in placed and _already_there(src, dst):
+                log.info("%s is already in the destination, skipped", src.name, extra={"link": dst, "link_text": dst.name})
+                skipped += 1
+                continue
             if dst.exists():
-                if conflict is Conflict.OVERWRITE:
+                if conflict is Conflict.OVERWRITE and dst.name.casefold() not in placed:
                     action = f"{verb}, overwrote"
                     log.warning("overwriting existing %s", dst, extra={"link": dst, "link_text": str(dst)})
                 else:
                     dst, action = _free_name(dst), f"{verb}, renamed"
             try:
-                if mode is Transfer.MOVE:
-                    shutil.move(str(src), str(dst))
-                else:
-                    shutil.copy2(src, dst)
+                if _place(src, dst, mode):
+                    action = action.replace("moved", "copied", 1)
             except OSError as e:
                 log.error("%s failed %s -> %s: %s", mode.value, src, dst, e, extra={"link": src, "link_text": str(src)})
                 failed += 1
+                if e.errno in FATAL_ERRNOS or not dest.is_dir():
+                    reason = (
+                        f"{dest} is no longer available"
+                        if not dest.is_dir()
+                        else f"{dest} cannot take more files: {os.strerror(e.errno or 0)}"
+                    )
+                    log.error("%s stopped after %d of %d files: %s", mode.value, i, len(paths), reason)
+                    raise TransferStopped(reason, TransferCounts(done, failed, skipped)) from e
                 continue
-            w.writerow([str(src), str(dst), action])
+            placed.add(dst.name.casefold())
+            try:
+                w.writerow([str(src), str(dst), action])
+                fh.flush()
+                _sync(fh)
+            except OSError as e:
+                raise OSError(e.errno, f"{dst.name} was {verb} but the undo list {journal} could not be written: {e}") from e
             done += 1
             link = {"link": dst, "link_text": dst.name}
             if action.endswith("renamed"):
@@ -487,4 +584,4 @@ def transfer_matches(
             else:
                 log.info("%s %s", verb, dst.name, extra=link)
     progress(len(paths), len(paths))
-    return done, failed
+    return TransferCounts(done, failed, skipped)

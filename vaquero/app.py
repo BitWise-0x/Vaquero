@@ -177,7 +177,8 @@ that many frames spread evenly through it. More frames catch a person who appear
 them out of the scanned folder; Copy leaves the originals where they are.</li>
 <li><span class="term">Name exists</span>: what happens when the destination already has a file with the same name.
 <i>Keep both</i> adds the new file with a number (<code>IMG_1 2.png</code>).
-<i>Overwrite</i> replaces the existing file and sends it to the Trash.</li>
+<i>Overwrite</i> replaces the existing file and sends it to the Trash; on a network share without a Trash it is
+replaced outright.</li>
 </ul>
 
 <h3>Buttons</h3>
@@ -273,7 +274,7 @@ class QtLogHandler(logging.Handler, QObject):
             self.record_emitted.emit(colorize(record), getattr(record, "section", False))
 
 
-SLOGAN = "Find and round up Photos and Videos by Face"
+SLOGAN = "Find and Round up Photos and Videos by Face"
 ISSUES_URL = "https://github.com/BitWise-0x/Vaquero/issues/new"
 SITE_URL = "https://vaquero.bitwise0x.com"
 READY = "Ready"

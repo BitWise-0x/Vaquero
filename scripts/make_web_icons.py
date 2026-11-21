@@ -19,7 +19,7 @@ BG = (12, 15, 14)  # the app's background, #0c0f0e
 FG = (231, 236, 232)  # the app's text, #e7ece8
 AMBER = (239, 177, 70)
 FONT = "/System/Library/Fonts/HelveticaNeue.ttc"
-HEADLINE = ("Find and round up", "Photos and Videos", "by Face")
+HEADLINE = ("Find and Round up", "Photos and Videos", "by Face")
 TAGLINE = ("Free, open source, no account,", "100% private")
 
 

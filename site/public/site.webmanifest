@@ -1,7 +1,7 @@
 {
 	"name": "Vaquero",
 	"short_name": "Vaquero",
-	"description": "Find and round up Photos and Videos by Face. Free, open source, no account, 100% private.",
+	"description": "Find and Round up Photos and Videos by Face. Free, open source, no account, 100% private.",
 	"start_url": "/",
 	"display": "browser",
 	"background_color": "#0c0f0e",

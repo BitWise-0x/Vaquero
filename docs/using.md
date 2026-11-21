@@ -70,7 +70,7 @@ Changing the threshold after a scan updates the matches without scanning again. 
 
 - Moved files go back to where they were.
 - Copies go to the Trash.
-- A file an overwrite replaced comes back out of the Trash.
+- A file an overwrite replaced comes back out of the Trash. On a network share without a Trash, an overwrite replaces the file outright and it cannot come back.
 - A file changed since, a copy whose original is gone, or a file already back in its old place is left alone and noted in the log.
 
 Undo again for the copy or move before that. Copies and moves made before Undo existed are in the journal but cannot be undone from the menu. See [Files](files.md#move-journal).

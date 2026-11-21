@@ -1,5 +1,7 @@
 """Renders the screenshots into docs/screenshots from the real window at 2x, fed with sample data: stills as
-PNG, and the runs that show progress (first launch, a scan, a scan through to a copy) as animated WebP.
+PNG (results, the log's right-click menu, help, settings, the Undo confirmation), and the runs that show progress
+(first launch, a scan, a scan through to a copy) as animated WebP. The menu bar ones come from the real menu bar:
+scripts/menubar_screenshots.py.
 
 Settings go to a throwaway file and no log file is written, so the saved folders of whoever runs this are
 neither shown nor changed.
@@ -7,6 +9,7 @@ neither shown nor changed.
 Run: QT_QPA_PLATFORM=offscreen uv run python scripts/screenshots.py
 """
 
+import csv
 import io
 import logging
 import os
@@ -16,8 +19,8 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from PIL import Image
-from PySide6.QtCore import QBuffer, QIODevice, QSettings, QTimer
+from PIL import Image, ImageDraw, ImageFilter
+from PySide6.QtCore import QBuffer, QIODevice, QPoint, QSettings, QTimer
 from PySide6.QtWidgets import QApplication, QDialog
 
 from vaquero import app as ui
@@ -64,6 +67,53 @@ def scan_setup(w: ui.Window) -> None:
     ui.section("Scanning")
     ui.log.info("%d files in %s", TOTAL, SOURCE, extra={"link": SOURCE, "link_text": str(SOURCE)})
     w.scan_root = SOURCE
+
+
+def pil(pixmap: object, mode: str = "RGB") -> Image.Image:
+    buf = QBuffer()
+    buf.open(QIODevice.OpenModeFlag.WriteOnly)
+    pixmap.save(buf, "PNG")  # type: ignore[attr-defined]
+    return Image.open(io.BytesIO(bytes(buf.data()))).convert(mode)
+
+
+def popup(menu_image: Image.Image) -> tuple[Image.Image, Image.Image]:
+    """A menu drawn off screen has no panel: put it on one in the app's menu colors, with the border and soft
+    shadow macOS gives an open menu. Returns the menu and its shadow, both RGBA."""
+    radius, border = 14, 2
+    panel = Image.new("RGBA", menu_image.size, theme.SURFACE)
+    panel.alpha_composite(menu_image)
+    mask = Image.new("L", panel.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, panel.width - 1, panel.height - 1), radius, fill=255)
+    panel.putalpha(mask)
+    ImageDraw.Draw(panel).rounded_rectangle(
+        (0, 0, panel.width - 1, panel.height - 1), radius, outline=theme.LINE_STRONG, width=border
+    )
+    shadow = Image.new("RGBA", (panel.width + 80, panel.height + 80), (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).rounded_rectangle((40, 52, 40 + panel.width, 52 + panel.height), radius, fill=(0, 0, 0, 170))
+    return panel, shadow.filter(ImageFilter.GaussianBlur(18))
+
+
+def log_menu_shot(w: ui.Window, name: str) -> None:
+    """The window with the log's right-click menu open on a match, as the app draws it."""
+    first = SAMPLE[0][0]
+    cursor = w.log_view.document().find(first)
+    rect = w.log_view.cursorRect(cursor)
+    at = QPoint(rect.left() - 40, rect.center().y())
+    menu = w.log_view.link_menu(at)
+    menu.adjustSize()
+    for action in menu.actions():  # macOS never underlines a menu's keyboard hints; the offscreen renderer does
+        action.setText(action.text().replace("&", ""))
+    menu.setActiveAction(menu.actions()[0])  # the pointer on Open
+    QApplication.processEvents()
+    scale = 2  # QT_SCALE_FACTOR
+    shot = pil(w.grab(), "RGBA")
+    corner = w.log_view.viewport().mapTo(w, at)
+    x, y = corner.x() * scale + 6, corner.y() * scale + 6
+    panel, shadow = popup(pil(menu.grab(), "RGBA"))
+    shot.alpha_composite(shadow, (x - 40, y - 40))
+    shot.alpha_composite(panel, (x, y))
+    shot.convert("RGB").save(OUT / name)
+    print(f"wrote {OUT / name}")
 
 
 def grab(_: QApplication, widget: object, name: str) -> None:
@@ -218,6 +268,7 @@ def main() -> None:
         QApplication.processEvents()
         w.log_view.verticalScrollBar().setValue(0)
         grab(qa, w, "results.png")
+        log_menu_shot(w, "log-menu.png")
 
         w.resize(w.width(), w.sizeHint().height())
         animate(w)
@@ -240,6 +291,16 @@ def main() -> None:
         QTimer.singleShot(300, lambda: dialog_shot("settings.png"))
         w.show_settings()
         w.job = None
+
+        # Edit > Undo after the sample copy: the confirmation it asks first
+        journal = Path(tmp) / "vaquero-moves.csv"
+        with journal.open("w", newline="") as fh:
+            rows = csv.writer(fh)
+            for name, _, _ in SAMPLE:
+                rows.writerow([SOURCE / name, DEST / Path(name).name, "copied", "20250301-101500-000000", ""])
+        w.journal, w._undo_cache = journal, None
+        QTimer.singleShot(300, lambda: dialog_shot("undo.png"))
+        w.undo_last()
         w.close()
 
 

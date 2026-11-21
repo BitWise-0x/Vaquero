@@ -30,6 +30,8 @@ macOS asks once for each kind of place Vaquero opens. Click **Allow**.
 | Reads photos on an external drive or network share, or in Desktop, Documents or Downloads | A one-time **Allow** for that place |
 | Copies or moves the matches | The same **Allow** for the destination |
 | Reads photos anywhere else in your home folder, such as Pictures | Nothing |
+| Notifies you when a job finishes in the background | A one-time **Allow** for notifications; optional |
+| Opens at login, when turned on in **Settings** | An OK in **System Settings > General > Login Items**, when macOS asks for one |
 
 Vaquero checks access to the chosen folders at launch and before each scan. If a place was denied, it shows a window with an **Open Settings** button and the steps to turn access back on. **Settings > Access** shows each chosen folder's state and whether Vaquero has Full Disk Access, which covers every place at once.
 

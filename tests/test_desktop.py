@@ -35,15 +35,28 @@ def touch(path: Path, data: bytes = b"x") -> Path:
     return path
 
 
-def test_progress_view_draws_an_amber_bar_and_the_line() -> None:
-    assert menubar.progress_text("scan", 50, 200, "50 of 200 files") == "Scan: 50 of 200 files"
+def test_progress_view_draws_an_amber_bar_and_a_short_line() -> None:
+    assert menubar.progress_text("scan", 1225, 2486) == "Scanning 1,225 of 2,486"
+    assert menubar.progress_text("download", 120_400_000, 288_621_354) == "Downloading 120 of 289 MB"
+    assert menubar.progress_text("move", 3, 6) == "Moving 3 of 6"
     assert menubar.fraction(5, 0) == 0.0 and menubar.fraction(300, 200) == 1.0
     QApplication.instance() or QApplication([])
     view = menubar.ProgressView()
-    view.show_state(0.25, "Scan: 50 of 200 files", dark=True)
+    # the longest likely lines fit beside the time left without being cut: whole, or without their verb
+    from PySide6.QtGui import QFont, QFontMetrics
+
+    font = QFont(view.font())
+    font.setPointSizeF(menubar.ProgressView.TEXT_PT)
+    metrics = QFontMetrics(font)
+    room = view.WIDTH - view.INSET - view.RIGHT - metrics.horizontalAdvance("59 min left") - 12
+    for line in ("Downloading 288 of 289 MB", "Scanning 123,456 of 987,654", "Copying 98,765 of 98,765"):
+        view.line = line
+        assert "…" not in view.fit_line(metrics, room), line
+        assert view.fit_line(metrics, room).endswith(line.split(" ", 1)[1])
+    view.show_state(0.25, "Scanning 50 of 200", "2 min left", dark=True)
     img = view.grab().toImage()
     v = menubar.ProgressView
-    bar_w = v.WIDTH - v.INSET - v.RIGHT - v.PCT_W
+    bar_w = v.WIDTH - v.INSET - v.RIGHT - v.PCT_W - v.GAP
     y = (v.BAR_Y + v.BAR_H // 2) * img.width() // v.WIDTH
     scale = img.width() / v.WIDTH
     filled = img.pixelColor(int((v.INSET + bar_w * 0.1) * scale), y)
@@ -68,18 +81,20 @@ def test_icon_sweeps_while_working_and_holds_still_otherwise(w: "ui.Window") -> 
 
 def test_menu_follows_the_running_job(w: "ui.Window") -> None:
     w.job, w.task = ui.TaskWorker(lambda p, c: None), "a scan"
-    w.progress_state = ("scan", 30, 120, "30 of 120 files")
+    w.progress_state = ("scan", 30, 120, "2 min left")
     w.status.setText("Scanned: <b>30 of 120</b>")
     item = w.status_item
     item.refresh()
 
     assert item.progress_action.isVisible() and not item.status_action.isVisible()
-    assert (item.progress_view.frac, item.progress_view.line) == (0.25, "Scan: 30 of 120 files")
+    view = item.progress_view
+    assert (view.frac, view.line, view.left) == (0.25, "Scanning 30 of 120", "2 min left")
     assert item.cancel_action.isEnabled() and not item.scan_action.isEnabled()
     w.job = w.task = None
+    w._done("scanned 120, 6 matches at threshold 0.35 (1 to review)", short="6 matches in 120 files")
     item.refresh()
     assert item.status_action.isVisible() and not item.progress_action.isVisible()
-    assert item.status_action.text() == "Scanned: 30 of 120"
+    assert item.status_action.text() == "6 matches in 120 files"  # short: one line of the menu
 
 
 def test_time_left() -> None:
@@ -88,6 +103,17 @@ def test_time_left() -> None:
     assert ui.time_left(60, 10, 100) == " · about 9 min left"
     assert ui.time_left(600, 10, 100) == " · about 1.5 h left"
     assert ui.time_left(60, 100, 100) == ""
+    assert ui.time_left(60, 10, 100, short=True) == "9 min left"
+    assert ui.time_left(30, 50, 100, short=True) == "under a minute left"
+
+
+def test_menu_lines_are_short() -> None:
+    from vaquero.logs import shorten
+
+    assert shorten("6 matches in 2,486 files") == "6 matches in 2,486 files"
+    long = "Failed: could not reach GitHub: [Errno 8] nodename nor servname provided"
+    assert len(shorten(long)) <= 44 and shorten(long).endswith("…")
+    assert ui.plural(1, "match") == "1 match" and ui.plural(2486, "file") == "2,486 files"
 
 
 def test_closing_with_the_menu_bar_icon_keeps_vaquero_running(w: "ui.Window", monkeypatch: pytest.MonkeyPatch) -> None:

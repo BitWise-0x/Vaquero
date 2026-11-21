@@ -87,7 +87,7 @@ from PySide6.QtWidgets import (
 )
 
 from vaquero import __version__, access, logs, macos, remote, theme
-from vaquero.logs import FileFormatter
+from vaquero.logs import FileFormatter, shorten
 from vaquero.menubar import StatusItem
 from vaquero.settings import (
     AUTO_UPDATE_KEY,
@@ -297,16 +297,20 @@ def cocoa() -> bool:
     return QGuiApplication.platformName() == "cocoa"
 
 
-def time_left(elapsed: float, done: int, total: int) -> str:
-    """ " · about 3 min left", once a job has run long enough for its pace to mean something."""
+def time_left(elapsed: float, done: int, total: int, short: bool = False) -> str:
+    """ " · about 3 min left" for the log, or "3 min left" for the menu bar menu, once a job has run long enough
+    for its pace to mean something; "" before that."""
     if done <= 0 or done >= total or elapsed < 5:
         return ""
     left = elapsed / done * (total - done)
     if left < 60:
-        return " · under a minute left"
-    if left < 3600:
-        return f" · about {round(left / 60)} min left"
-    return f" · about {left / 3600:.1f} h left"
+        return "under a minute left" if short else " · under a minute left"
+    text = f"{round(left / 60)} min left" if left < 3600 else f"{left / 3600:.1f} h left"
+    return text if short else f" · about {text}"
+
+
+def plural(n: int, word: str) -> str:
+    return f"{n:,} {word}{'' if n == 1 else 'es' if word.endswith('ch') else 's'}"
 
 
 def status_value(text: str) -> str:
@@ -689,7 +693,8 @@ class Window(QMainWindow):
         migrate_settings(self.settings)
         self.quiet_update_check = False
         self.quitting = False  # a real quit, not the window closing into the menu bar
-        self.progress_state: tuple[str, int, int, str] | None = None  # label, done, total, detail of the running job
+        self.progress_state: tuple[str, int, int, str] | None = None  # label, done, total, time left of the running job
+        self.menu_status = READY  # the last result, short enough for one line of the menu bar menu
         self.job_started = 0.0
         self.dropped: list[ScanResult] = []  # results a move took away; an undo brings them back
         self._undo_cache: tuple[tuple[float, int], list[JournalRow]] | None = None
@@ -1164,7 +1169,10 @@ class Window(QMainWindow):
             self.dropped = [r for r in self.dropped if r not in back]
         self._set_busy(False)
         self._update_match_count()
-        self._done(f"undid {counts.done}, {counts.skipped} left alone, {counts.failed} failed", cancelled)
+        self._done(
+            f"undid {counts.done}, {counts.skipped} left alone, {counts.failed} failed", cancelled,
+            f"Undid {plural(counts.done, 'file')}" + (f", {counts.failed:,} failed" if counts.failed else ""),
+        )
 
     def offer_move(self, bundle: Path, reason: str) -> None:
         """Vaquero opened from a disk image, Downloads, or a temporary copy: offer to put it in Applications,
@@ -1270,7 +1278,7 @@ class Window(QMainWindow):
         self.model.addItems(list(self.packs))
         self._set_busy(False)
         log.info("face detection model installed, ready to scan")
-        self._done("face detection model installed")
+        self._done("face detection model installed", short="Face model ready")
 
     def check_updates(self, quiet: bool = False) -> None:
         """Look for a newer release. quiet (the launch check) only speaks up when an update exists."""
@@ -1557,8 +1565,10 @@ class Window(QMainWindow):
         section("Setup")
         log.info("Vaquero %s, log file: %s", __version__, path, extra={"link": path, "link_text": str(path)})
 
-    def _done(self, text: str, cancelled: bool = False) -> None:
+    def _done(self, text: str, cancelled: bool = False, short: str = "") -> None:
+        """A finished job: the full summary in the window's status line, short in the menu bar menu."""
         self.status.setText(f"<b>{'CANCELLED' if cancelled else 'DONE'}</b>: {status_value(text)}")
+        self.menu_status = shorten(f"Cancelled: {short or text}" if cancelled else (short or text))
         self._tell_if_away(f"{'Cancelled' if cancelled else 'Done'}: {text}")
 
     def _tell_if_away(self, text: str, badge: str = "") -> None:
@@ -1598,7 +1608,10 @@ class Window(QMainWindow):
         summary = f"scanned {len(results)}, {len(matches)} matches at threshold {self.threshold.value():.2f}" + (
             f" ({review} to review)" if review else ""
         )
-        self._done(f"Stopped: {stopped}. {summary}" if stopped else summary, cancelled)
+        short = f"{plural(len(matches), 'match')} in {plural(len(results), 'file')}"
+        self._done(
+            f"Stopped: {stopped}. {summary}" if stopped else summary, cancelled, f"Stopped: {short}" if stopped else short
+        )
         if matches and not (self.isVisible() and self.isActiveWindow()) and self.dock_shown() and cocoa():
             macos.set_dock_badge(str(len(matches)))
 
@@ -1611,6 +1624,7 @@ class Window(QMainWindow):
     def _on_failed(self, msg: str) -> None:
         self._drop_moved()
         self._set_busy(False)
+        self.menu_status = shorten(f"Failed: {msg}")
         if self.stopping:  # a stopped download ends this way: it resumes next time
             self._done(msg, cancelled=True)
         elif self.retry:
@@ -1673,7 +1687,10 @@ class Window(QMainWindow):
         self._set_busy(False)
         self._update_match_count()
         summary = f"{verb} {counts.done}{there}, {counts.failed} failed. Undo list in {self.journal.name}"
-        self._done(f"Stopped: {stopped}. {summary}" if stopped else summary, cancelled)
+        short = f"{verb.capitalize()} {plural(counts.done, 'file')}" + (f", {counts.failed:,} failed" if counts.failed else "")
+        self._done(
+            f"Stopped: {stopped}. {summary}" if stopped else summary, cancelled, f"Stopped: {short}" if stopped else short
+        )
 
     def _new_block(self, top: int = 0, bottom: int = 0) -> QTextCursor:
         """A cursor in a fresh block at the end of the log, with the given spacing."""
@@ -1703,8 +1720,9 @@ class Window(QMainWindow):
 
     def _log_progress(self, label: str, done: int, total: int, detail: str) -> None:
         """Draw the job's progress line in the log, then redraw it in place as the percentage moves."""
-        detail += time_left(time.monotonic() - self.job_started, done, total)
-        self.progress_state = (label, done, total, detail)
+        elapsed = time.monotonic() - self.job_started
+        self.progress_state = (label, done, total, time_left(elapsed, done, total, short=True))
+        detail += time_left(elapsed, done, total)
         pct = done * 100 // total if total else 0
         if self.progress_line is not None and pct == self.progress_pct and done != total:
             return

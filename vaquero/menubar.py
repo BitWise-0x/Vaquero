@@ -18,6 +18,7 @@ from PySide6.QtGui import QAction, QColor, QFont, QFontMetrics, QGuiApplication,
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QWidget, QWidgetAction
 
 from vaquero import macos, theme
+from vaquero.logs import shorten
 
 if TYPE_CHECKING:
     from vaquero.app import Window
@@ -70,9 +71,15 @@ def fraction(done: int, total: int) -> float:
     return min(done / total, 1.0) if total > 0 else 0.0
 
 
-def progress_text(label: str, done: int, total: int, detail: str) -> str:
-    """The line under the bar: what is running and how far along."""
-    return f"{label.capitalize()}: {detail}"
+VERBS = {"scan": "Scanning", "download": "Downloading", "copy": "Copying", "move": "Moving", "undo": "Undoing"}
+
+
+def progress_text(label: str, done: int, total: int) -> str:
+    """The line under the bar, short enough never to wrap: what is running and how far along."""
+    verb = VERBS.get(label, label.capitalize())
+    if label == "download":
+        return f"{verb} {done / 1e6:,.0f} of {total / 1e6:,.0f} MB"
+    return f"{verb} {done:,} of {total:,}"
 
 
 def menu_is_dark() -> bool:
@@ -81,22 +88,24 @@ def menu_is_dark() -> bool:
 
 
 class ProgressView(QWidget):
-    """The top of the menu while a job runs: an amber bar with the percentage, then what is running and the time
-    left, lined up with the menu's item text. A fixed size, so the menu keeps its width as the numbers change."""
+    """The top of the menu while a job runs: a wide amber bar with the percentage beside it, and under it what is
+    running on the left and the time left on the right, lined up with the menu's item text. A fixed size, so the
+    menu keeps its width as the numbers change."""
 
-    WIDTH, HEIGHT = 300, 48
+    WIDTH, HEIGHT = 320, 56
     INSET, RIGHT = 30, 18  # the menu's item text starts this far in; room on the right
-    BAR_Y, BAR_H, PCT_W = 12, 6, 44
+    BAR_Y, BAR_H, PCT_W, GAP = 11, 10, 46, 8
+    TEXT_PT, PCT_PT = 12.5, 14
 
     def __init__(self) -> None:
         super().__init__()
         self.setFixedSize(self.WIDTH, self.HEIGHT)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.frac, self.line, self.dark = 0.0, "", True
+        self.frac, self.line, self.left, self.dark = 0.0, "", "", True
 
-    def show_state(self, frac: float, line: str, dark: bool) -> None:
-        if (frac, line, dark) != (self.frac, self.line, self.dark):
-            self.frac, self.line, self.dark = frac, line, dark
+    def show_state(self, frac: float, line: str, left: str, dark: bool) -> None:
+        if (frac, line, left, dark) != (self.frac, self.line, self.left, self.dark):
+            self.frac, self.line, self.left, self.dark = frac, line, left, dark
             self.update()
 
     def paintEvent(self, _: object) -> None:  # noqa: N802 (Qt override)
@@ -105,7 +114,7 @@ class ProgressView(QWidget):
         ink = QColor(255, 255, 255) if self.dark else QColor(0, 0, 0)
         track = QColor(ink)
         track.setAlphaF(0.18)
-        bar_w = self.WIDTH - self.INSET - self.RIGHT - self.PCT_W
+        bar_w = self.WIDTH - self.INSET - self.RIGHT - self.PCT_W - self.GAP
         r = self.BAR_H / 2
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(track)
@@ -113,23 +122,42 @@ class ProgressView(QWidget):
         if self.frac > 0:
             p.setBrush(QColor(theme.SIGNAL))
             p.drawRoundedRect(QRectF(self.INSET, self.BAR_Y, max(self.BAR_H, bar_w * self.frac), self.BAR_H), r, r)
+
         pct = QFont(self.font())
-        pct.setPointSizeF(13)
+        pct.setPointSizeF(self.PCT_PT)
         pct.setBold(True)
         p.setFont(pct)
         p.setPen(QColor(theme.SIGNAL))
-        box = QRectF(self.WIDTH - self.RIGHT - self.PCT_W, self.BAR_Y - 8, self.PCT_W, self.BAR_H + 16)
+        box = QRectF(self.WIDTH - self.RIGHT - self.PCT_W, self.BAR_Y - 6, self.PCT_W, self.BAR_H + 12)
         p.drawText(box, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, f"{self.frac:.0%}")
+
         text = QFont(self.font())
-        text.setPointSizeF(12.5)
+        text.setPointSizeF(self.TEXT_PT)
         p.setFont(text)
-        soft = QColor(ink)
-        soft.setAlphaF(0.72)
-        p.setPen(soft)
+        metrics = QFontMetrics(text)
+        top = self.BAR_Y + self.BAR_H + 9
         width = self.WIDTH - self.INSET - self.RIGHT
-        line = QFontMetrics(text).elidedText(self.line, Qt.TextElideMode.ElideRight, width)
-        p.drawText(QRectF(self.INSET, self.BAR_Y + self.BAR_H + 6, width, 20), Qt.AlignmentFlag.AlignLeft, line)
+        left_w = metrics.horizontalAdvance(self.left) if self.left else 0
+        soft = QColor(ink)
+        soft.setAlphaF(0.55)
+        p.setPen(soft)
+        p.drawText(QRectF(self.INSET, top, width, 20), Qt.AlignmentFlag.AlignRight, self.left)
+        main = QColor(ink)
+        main.setAlphaF(0.85)
+        p.setPen(main)
+        room = width - left_w - (12 if left_w else 0)
+        p.drawText(QRectF(self.INSET, top, room, 20), Qt.AlignmentFlag.AlignLeft, self.fit_line(metrics, room))
         p.end()
+
+    def fit_line(self, metrics: QFontMetrics, room: int) -> str:
+        """The line as it fits beside the time left: whole, else without its verb ("288 of 289 MB"), and cut short
+        only if even that does not fit."""
+        if metrics.horizontalAdvance(self.line) <= room:
+            return self.line
+        rest = self.line.split(" ", 1)[-1]
+        if metrics.horizontalAdvance(rest) <= room:
+            return rest
+        return metrics.elidedText(rest, Qt.TextElideMode.ElideRight, room)
 
 
 class StatusItem(QObject):
@@ -224,15 +252,17 @@ class StatusItem(QObject):
     def refresh(self) -> None:
         """Bring the menu's lines up to date with the window: status, progress, and what can be done now."""
         w = self.window
-        status = w.status_plain()
-        self.status_action.setText(status if len(status) <= 70 else status[:69] + "…")
+        # busy before its progress starts (checking folders, loading references): what the window says; idle: the
+        # last result, short
+        status = shorten(w.status_plain()) if w.busy else w.menu_status
+        self.status_action.setText(status)
         state = w.progress_state if w.busy else None
         # while a job runs, its progress takes the status line's place
         self.progress_action.setVisible(state is not None)
         self.status_action.setVisible(state is None)
         if state is not None:
-            self.progress_view.show_state(fraction(state[1], state[2]), progress_text(*state), menu_is_dark())
-            label, done, total, _ = state
+            label, done, total, left = state
+            self.progress_view.show_state(fraction(done, total), progress_text(label, done, total), left, menu_is_dark())
             pct = f" {done * 100 // total}%" if total > 0 else ""
             self.tray.setToolTip(f"Vaquero: {label}{pct}")
         else:

@@ -141,3 +141,11 @@ def describe(e: BaseException) -> str:
     if isinstance(e, MemoryError):
         return "Ran out of memory. Close other apps, or scan fewer frames per video."
     return f"Something went wrong: {e}. The details are in the log." if str(e) else "Something went wrong. The details are in the log."
+
+
+def shorten(text: str, limit: int = 44) -> str:
+    """text cut at a word to at most limit characters, for the menu bar menu, whose lines never wrap."""
+    if len(text) <= limit:
+        return text
+    cut = text[: limit - 1].rsplit(" ", 1)[0].rstrip(",;:·")
+    return f"{cut}…"

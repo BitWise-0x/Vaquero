@@ -209,12 +209,14 @@ menu opens on the job's progress bar and time left, with Cancel, Scan, Undo and 
 <h3>Reading the results</h3>
 <p>Above the log, <b>Scanned</b> counts files done and <b>Matches found</b> counts matches so far, in amber.
 The line ends with <b>DONE</b> or <b>CANCELLED</b>.</p>
-<p>The log is split into sections: <b>Setup</b>, <b>Scanning</b>, <b>Matches</b>, <b>Result</b>, then
-<b>Move</b> or <b>Copy</b>. Click a file or folder name in the log to open it, Option-click to show it in the
+<p>The log is split into sections: <b>Setup</b>, <b>References</b>, <b>Scanning</b>, <b>Matches</b>,
+<b>Result</b>, then <b>Move</b> or <b>Copy</b>. Click a file or folder name in the log to open it, Option-click to show it in the
 Finder, or right-click it to copy its path. Hover over a name for its full path.</p>
+<p>Each reference photo shows <code>kept</code> and how closely its face matches the other reference photos.
+One showing a different person is dropped, with a warning.</p>
 <p>Each match shows its score and <code>refs N/M</code>: how many of the M reference photos it
 matches on its own. A real match usually matches most of them (13/13); a lookalike only a few (0/13, 1/13).</p>
-<p>Log colors: <span style="color:{match}">green</span> a match,
+<p>Log colors: <span style="color:{match}">green</span> a match or a kept reference photo,
 <span style="color:{warn}">orange</span> a <i>review</i> match (score below {review:.2f}, where lookalikes appear) or a warning,
 <span style="color:{error}">red</span> an error, <b style="color:{done}">amber</b> section headings and a finished scan, move or copy.</p>
 
@@ -367,8 +369,8 @@ def colorize(record: logging.LogRecord) -> str:
     kind = msg.split(" ", 1)[0]
     if record.levelno >= logging.WARNING:
         body = f'<span style="color:{LEVEL_COLORS.get(record.levelno, LEVEL_COLORS[logging.ERROR])}">{level} {text}</span>'
-    elif kind in ("match", "review"):
-        color = MATCH_COLOR if kind == "match" else LEVEL_COLORS[logging.WARNING]
+    elif kind in ("match", "review", "kept"):
+        color = LEVEL_COLORS[logging.WARNING] if kind == "review" else MATCH_COLOR
         body = f'<span style="color:{color}; font-weight:600">{kind}</span>{text[len(kind):]}'
     elif " done:" in msg:
         body = f'<b style="color:{DONE_COLOR}">{text}</b>'
@@ -549,6 +551,7 @@ class ScanWorker(Job):
     def run(self) -> None:
         try:
             matcher = FaceMatcher(self.model_dir)
+            section("References")
             matcher.load_references(self.refs)
             self.ref_count = matcher.ref_count
             if self._cancel:
@@ -1597,7 +1600,12 @@ class Window(QMainWindow):
                 "%s %.3f · refs %d/%d · %s", kind, r.score, r.agree, refs, shown, extra={"link": r.path, "link_text": shown}
             )
         section("Result")
-        log.info("scan done: %d matches of %d%s", len(matches), len(results), " (cancelled)" if cancelled else "")
+        videos = sum(r.kind == "video" for r in matches)
+        log.info(
+            "scan done: %d matches (%s, %s) of %d files%s",
+            len(matches), plural(len(matches) - videos, "photo"), plural(videos, "video"), len(results),
+            " (cancelled)" if cancelled else "",
+        )
         if stopped:
             log.error("scan stopped early: %s; the %d files scanned before that are listed", stopped, len(results))
         if review:
@@ -1656,7 +1664,8 @@ class Window(QMainWindow):
         conflict = Conflict(self.conflict.currentData())
         self.journal.parent.mkdir(parents=True, exist_ok=True)
         section(mode.value.capitalize())
-        log.info("%sing %d files to %s", mode.value, len(matches), dest, extra={"link": dest, "link_text": str(dest)})
+        verb = "moving" if mode is Transfer.MOVE else "copying"
+        log.info("%s %d files to %s", verb, len(matches), dest, extra={"link": dest, "link_text": str(dest)})
         log.info(
             "name conflicts: %s, journal %s",
             "keep both" if conflict is Conflict.KEEP_BOTH else "overwrite",
@@ -1732,12 +1741,12 @@ class Window(QMainWindow):
         def write() -> None:
             if self.progress_line is None:
                 self.progress_line = self._new_block(4, 4)
-                self.progress_line.insertHtml(line)
-                return
-            # the cursor follows its block as later lines are added below it
-            self.progress_line.movePosition(QTextCursor.MoveOperation.StartOfBlock)
-            self.progress_line.movePosition(QTextCursor.MoveOperation.EndOfBlock, QTextCursor.MoveMode.KeepAnchor)
+            else:
+                self.progress_line.movePosition(QTextCursor.MoveOperation.EndOfBlock, QTextCursor.MoveMode.KeepAnchor)
             self.progress_line.insertHtml(line)
+            # parked at the start of its block: a cursor left at the end would be carried into a line added below
+            # it, and the next redraw would overwrite that line instead of the bar
+            self.progress_line.movePosition(QTextCursor.MoveOperation.StartOfBlock)
 
         self._keep_scrolled(write)
 

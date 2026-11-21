@@ -224,9 +224,9 @@ class FaceMatcher:
         A photo whose face differs from the average of the other photos is someone else and is dropped."""
         photos: list[tuple[str, np.ndarray]] = []  # name, that photo's embeddings with the largest face first
         ref_paths: dict[str, Path] = {}  # name to file, so the log can link each photo it mentions
-        for p in sorted(ref_dir.iterdir()):
-            if p.suffix.lower() not in IMAGE_EXTS:
-                continue
+        listed = [p for p in sorted(ref_dir.iterdir()) if p.suffix.lower() in IMAGE_EXTS]
+        log.info("%d photos in %s", len(listed), ref_dir, extra={"link": ref_dir, "link_text": str(ref_dir)})
+        for p in listed:
             try:
                 img = read_image(p)
                 found = sorted(self.embeddings(img), key=lambda fe: -fe[0].area) if img is not None else None
@@ -263,12 +263,13 @@ class FaceMatcher:
                     extra={"link": ref_paths[name], "link_text": name},
                 )
             else:
+                log.info("kept %.3f · %s", sim, name, extra={"link": ref_paths[name], "link_text": name})
                 kept.append(e)
         if not kept:
             raise ValueError("references disagree with each other, no consistent face")
         self.refs = np.stack(kept)
         self.centroid = _unit(self.refs.mean(0))
-        log.info("references: %d kept of %d with a face", len(kept), len(photos))
+        log.info("references: %d kept of %d photos", len(kept), len(listed))
         return len(kept)
 
     @property
@@ -662,7 +663,8 @@ def transfer_matches(
             elif result.trashed:
                 log.info("%s %s, the file it replaced is in the Trash", verb, dst.name, extra=link)
             else:
-                log.info("%s %s", verb, dst.name, extra=link)
+                # the window shows the progress bar for these; the log file keeps each one
+                log.info("%s %s", verb, dst.name, extra={**link, "file_only": True})
     progress(len(paths), len(paths))
     return TransferCounts(done, failed, skipped)
 

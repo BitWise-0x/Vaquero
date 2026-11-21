@@ -274,3 +274,37 @@ def test_the_status_line_in_the_menu_opens_the_window(w: "ui.Window", monkeypatc
     assert item.status_action.isEnabled()  # full contrast, not dimmed
     item.status_action.trigger()
     assert shown == [True]
+
+
+def test_a_move_draws_one_progress_bar_while_lines_are_logged_below_it(w: "ui.Window") -> None:
+    import time
+
+    w.transfer_mode = Transfer.MOVE
+    w.job_started = time.monotonic()
+    w._on_transfer_progress(0, 3)
+    for done in range(1, 4):
+        w._append_log(f"line {done}", False)
+        w._on_transfer_progress(done, 3)
+
+    lines = w.log_view.toPlainText().splitlines()
+    assert sum("of 3 files" in line for line in lines) == 1
+    assert "3 of 3 files" in lines[-4]
+    assert lines[-3:] == ["line 1", "line 2", "line 3"]
+
+
+def test_the_result_counts_photo_and_video_matches(w: "ui.Window", tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    import logging
+
+    from vaquero.engine import ScanResult
+
+    w.scan_root = tmp_path
+    results = [
+        ScanResult(tmp_path / "a.jpg", "image", 0.7, 1, 3),
+        ScanResult(tmp_path / "b.mov", "video", 0.7, 1, 3),
+        ScanResult(tmp_path / "c.jpg", "image", 0.7, 1, 3),
+        ScanResult(tmp_path / "d.jpg", "image", 0.05, 1, 0),
+    ]
+    with caplog.at_level(logging.INFO, logger=ui.log.name):
+        w._on_finished(results, False, 3, "")
+
+    assert "scan done: 3 matches (2 photos, 1 video) of 4 files" in caplog.messages

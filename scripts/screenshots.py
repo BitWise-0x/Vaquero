@@ -42,7 +42,12 @@ SAMPLE = [  # name, score, reference photos agreeing
 ]
 TOTAL = 2486
 FILES_PER_S, BYTES_PER_S = 9, 18e6
-REFS_KEPT = 9
+REF_PHOTOS = [  # name, similarity to the other reference photos
+    ("alex-beach.jpg", 0.742), ("alex-birthday.jpg", 0.718), ("alex-hike.jpg", 0.705), ("alex-kitchen.jpg", 0.731),
+    ("alex-passport.jpg", 0.764), ("alex-portrait.jpg", 0.776), ("alex-wedding.jpg", 0.689), ("alex-window.jpg", 0.722),
+    ("alex-zoo.jpg", 0.697),
+]
+REFS_KEPT = len(REF_PHOTOS)
 
 
 def sandbox(tmp: Path) -> None:
@@ -63,7 +68,11 @@ def fill(w: ui.Window) -> None:
 
 def scan_setup(w: ui.Window) -> None:
     w._start_log(LOG_FILE)
-    ui.log.info("references: %d kept of %d with a face", REFS_KEPT, REFS_KEPT)
+    ui.section("References")
+    ui.log.info("%d photos in %s", REFS_KEPT, REFS, extra={"link": REFS, "link_text": str(REFS)})
+    for name, sim in REF_PHOTOS:
+        ui.log.info("kept %.3f · %s", sim, name, extra={"link": REFS / name, "link_text": name})
+    ui.log.info("references: %d kept of %d photos", REFS_KEPT, REFS_KEPT)
     ui.section("Scanning")
     ui.log.info("%d files in %s", TOTAL, SOURCE, extra={"link": SOURCE, "link_text": str(SOURCE)})
     w.scan_root = SOURCE
@@ -163,7 +172,10 @@ class Recorder:
 
 
 def sample_results() -> list[ScanResult]:
-    results = [ScanResult(SOURCE / name, "image", score, 1, agree) for name, score, agree in SAMPLE]
+    results = [
+        ScanResult(SOURCE / name, "video" if name.endswith(".MOV") else "image", score, 1, agree)
+        for name, score, agree in SAMPLE
+    ]
     return results + [ScanResult(SOURCE / f"IMG_{i:04d}.JPG", "image", 0.05, 1, 0) for i in range(TOTAL - len(SAMPLE))]
 
 
@@ -224,11 +236,15 @@ def animate(w: ui.Window) -> None:
     for _ in range(18):  # the matches stay up a moment before the copy starts
         rec.snap()
     w.transfer_mode = Transfer.COPY
+    w.progress_line = None  # as _run does for each job
     ui.section("Copy")
     ui.log.info("copying %d files to %s", len(SAMPLE), DEST, extra={"link": DEST, "link_text": str(DEST)})
     QApplication.processEvents()
     w._set_busy(True)
     for done in range(len(SAMPLE) + 1):
+        if done:  # each file's own line goes to the log file only, as in a real copy
+            ui.log.info("copied %s", Path(SAMPLE[done - 1][0]).name, extra={"file_only": True})
+            QApplication.processEvents()
         w.job_started = time.monotonic() - done * 2
         w._on_transfer_progress(done, len(SAMPLE))
         rec.snap(160)
@@ -264,7 +280,7 @@ def main() -> None:
         w._set_busy(False)
         w.execute_btn.setEnabled(True)
         # tall enough that the whole log, buffalo banner included, fits without scrolling
-        w.resize(w.width(), 1050)
+        w.resize(w.width(), 1180)
         QApplication.processEvents()
         w.log_view.verticalScrollBar().setValue(0)
         grab(qa, w, "results.png")

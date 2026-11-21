@@ -21,7 +21,7 @@ Any [photo type](using.md#file-types) works, including HEIC.
 3. In each photo, the face closest to that person is used.
 4. Each photo is then compared with the average of the others. A photo of someone else falls far from it and is dropped, with a warning in the log.
 
-The log's **Setup** section shows how many reference photos were kept, and names any photo that was dropped, had no face, or used a face other than the largest.
+The log's **References** section lists each reference photo kept, with how closely its face matches the others, how many were kept, and names any photo that was dropped, had no face, or used a face other than the largest.
 
 ## Messages
 

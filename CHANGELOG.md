@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v0.26.14 (2026-11-21)
+
+### Bug Fixes
+
+- **app**: Execute and follow-on jobs work again after a job ends
+  ([`124f88b`](https://github.com/BitWise-0x/Vaquero/commit/124f88b5ec32c8d318408751887fc64a583ba591))
+
+- **update**: Retried, mirrored downloads; verified update installs; responsive folder checks
+  ([`ca540ae`](https://github.com/BitWise-0x/Vaquero/commit/ca540ae99dd101ce905f93a28d5d7016413fe0b0))
+
+### Documentation
+
+- **site**: Slogan reads Find and round up Photos and Videos by Face
+  ([`2f26065`](https://github.com/BitWise-0x/Vaquero/commit/2f260650f41e8f6860661daaa22ce912ed4a8c0a))
+
+
 ## v0.26.13 (2026-11-21)
 
 

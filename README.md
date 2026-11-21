@@ -3,16 +3,15 @@
 </p>
 
 <h1 align="center">
-  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
-  <img src="https://img.shields.io/badge/Qt-41CD52?style=for-the-badge&logo=qt&logoColor=white" alt="Qt"/>
-  <img src="https://img.shields.io/badge/ONNX_Runtime-efb146?style=for-the-badge&logo=onnx&logoColor=0c0f0e" alt="ONNX Runtime"/>
-  <img src="https://img.shields.io/badge/Core_ML-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Core ML"/>
-  <br>
-  <br>
+
   <code><strong>Vaquero</strong></code>
 </h1>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
+  <img src="https://img.shields.io/badge/Qt-41CD52?style=for-the-badge&logo=qt&logoColor=white" alt="Qt"/>
+  <img src="https://img.shields.io/badge/ONNX_Runtime-efb146?style=for-the-badge&logo=onnx&logoColor=0c0f0e" alt="ONNX Runtime"/>
+  <img src="https://img.shields.io/badge/Core_ML-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Core ML"/>
   <img src="https://img.shields.io/github/v/release/BitWise-0x/Vaquero?style=flat-square&color=efb146" alt="Latest release"/>
   <img src="https://img.shields.io/badge/macOS_14+-Apple_Silicon-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 14 or later on Apple Silicon"/>
   <img src="https://img.shields.io/badge/model-InsightFace_buffalo__l-orange?style=flat-square" alt="InsightFace buffalo_l"/>

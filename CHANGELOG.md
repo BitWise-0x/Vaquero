@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.27.5 (2026-11-21)
+
+### Bug Fixes
+
+- **menubar**: A larger progress bar, and a short line under it that never wraps
+  ([`7a8f0df`](https://github.com/BitWise-0x/Vaquero/commit/7a8f0dfad412cdd4a145cb20a270c9017e35fd92))
+
+
 ## v0.27.4 (2026-11-21)
 
 ### Bug Fixes

@@ -22,7 +22,7 @@ from PySide6.QtWidgets import QApplication, QDialog
 
 from vaquero import app as ui
 from vaquero import remote
-from vaquero import theme
+from vaquero import settings, theme
 from vaquero.engine import ScanResult, Transfer
 
 OUT = Path(__file__).resolve().parent.parent / "docs" / "screenshots"
@@ -38,6 +38,7 @@ SAMPLE = [  # name, score, reference photos agreeing
     ("2023/IMG_8810.JPG", 0.432, 4),
 ]
 TOTAL = 2486
+FILES_PER_S, BYTES_PER_S = 9, 18e6
 REFS_KEPT = 9
 
 
@@ -129,6 +130,7 @@ def scan_frames(w: ui.Window, rec: Recorder, steps: int) -> None:
         target = TOTAL * step // steps
         while done < target:
             done += 1
+            w.job_started = time.monotonic() - done / FILES_PER_S  # a plausible pace for the time left
             w._on_progress(done, TOTAL, 0.6 if done in hits else 0.1)
         rec.snap()
 
@@ -148,6 +150,7 @@ def animate(w: ui.Window) -> None:
     rec = Recorder(w)
     size = remote.MODEL_ARCHIVE.size
     for step in range(31):
+        w.job_started = time.monotonic() - size * step / 30 / BYTES_PER_S
         w._on_bytes(size * step // 30, size)
         rec.snap()
     w._set_busy(False)
@@ -165,7 +168,7 @@ def animate(w: ui.Window) -> None:
     w.resize(w.width(), 1050)
     rec = Recorder(w)
     scan_frames(w, rec, 24)
-    w._on_finished(sample_results(), False, REFS_KEPT)
+    w._on_finished(sample_results(), False, REFS_KEPT, "")
     w.execute_btn.setEnabled(True)
     w.log_view.verticalScrollBar().setValue(0)
     for _ in range(18):  # the matches stay up a moment before the copy starts
@@ -176,6 +179,7 @@ def animate(w: ui.Window) -> None:
     QApplication.processEvents()
     w._set_busy(True)
     for done in range(len(SAMPLE) + 1):
+        w.job_started = time.monotonic() - done * 2
         w._on_transfer_progress(done, len(SAMPLE))
         rec.snap(160)
     ui.log.info("copy done: %d copied, 0 failed", len(SAMPLE))
@@ -206,7 +210,7 @@ def main() -> None:
         scan_setup(w)
         QApplication.processEvents()
         w._on_progress(TOTAL, TOTAL, 0.1)
-        w._on_finished(sample_results(), False, REFS_KEPT)
+        w._on_finished(sample_results(), False, REFS_KEPT, "")
         w._set_busy(False)
         w.execute_btn.setEnabled(True)
         # tall enough that the whole log, buffalo banner included, fits without scrolling
@@ -225,9 +229,14 @@ def main() -> None:
 
         QTimer.singleShot(300, lambda: dialog_shot("help.png"))
         w.show_help()
-        # the settings dialog lists its folders; show the sample home, not the real one
-        ui.LOG_DIR = LOG_FILE.parent
-        ui.MODELS_DIR = Path("/Users/you/Library/Application Support/Vaquero/models")
+        # the settings dialog lists its folders and their state; show the sample home, not the real one
+        ui.LOG_DIR = settings.LOG_DIR = LOG_FILE.parent
+        ui.MODELS_DIR = settings.MODELS_DIR = Path("/Users/you/Library/Application Support/Vaquero/models")
+        settings.JOURNAL = Path("/Users/you/Library/Application Support/Vaquero/vaquero-moves.csv")
+        settings.access.folder_state = lambda text: settings.access.FolderState.OK
+        settings.access.full_disk_access = lambda: False
+        settings.remote.running_bundle = lambda: Path("/Applications/Vaquero.app")
+        settings.macos.login_item_status = lambda: settings.macos.LOGIN_OFF
         QTimer.singleShot(300, lambda: dialog_shot("settings.png"))
         w.show_settings()
         w.job = None

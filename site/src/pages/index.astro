@@ -10,6 +10,8 @@ import firstLaunch from '../../../docs/screenshots/first-launch.webp';
 import scanning from '../../../docs/screenshots/scanning.webp';
 import help from '../../../docs/screenshots/help.png';
 import settings from '../../../docs/screenshots/settings.png';
+import menuBar from '../../../docs/screenshots/menubar.png';
+import results from '../../../docs/screenshots/results.png';
 
 const repo = 'https://github.com/BitWise-0x/Vaquero';
 const download = `${repo}/releases/latest/download/Vaquero-arm64.dmg`;
@@ -35,6 +37,8 @@ const app = {
 const shots = [
 	{ src: scanning, alt: 'A scan in progress', caption: 'Scanning', animated: true },
 	{ src: firstLaunch, alt: 'The face model downloading on first launch', caption: 'First launch', animated: true },
+	{ src: menuBar, alt: 'The menu bar menu during a scan: progress, time left, Cancel and Undo', caption: 'Menu bar', animated: false },
+	{ src: results, alt: 'A finished scan with its matches listed', caption: 'Results', animated: false },
 	{ src: help, alt: 'The built-in help', caption: 'Help', animated: false },
 	{ src: settings, alt: 'Settings', caption: 'Settings', animated: false },
 ];

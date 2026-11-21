@@ -77,6 +77,8 @@ Undo again for the copy or move before that. Copies and moves made before Undo e
 
 ## Menu bar and Dock
 
+![The menu bar menu during a scan](screenshots/menubar.png)
+
 Vaquero shows in the Dock, in the menu bar, or both; choose in **Settings**. One of them is always on.
 
 - With the menu bar icon, closing the window keeps Vaquero running there, with any scan, copy or move still going. Click the Dock icon or **Open Vaquero** in the menu bar menu to bring the window back.

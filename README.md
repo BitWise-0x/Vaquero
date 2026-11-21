@@ -60,9 +60,13 @@ Three to five clear photos of the person are enough. No training.
 |---|---|
 | <img src="docs/screenshots/first-launch.webp" alt="Face model downloading on first launch" width="420"/> | <img src="docs/screenshots/scanning.webp" alt="A scan in progress" width="420"/> |
 
-| Help | Settings |
+| Menu bar | Settings |
 |---|---|
-| <img src="docs/screenshots/help.png" alt="Help" width="420"/> | <img src="docs/screenshots/settings.png" alt="Settings" width="420"/> |
+| <img src="docs/screenshots/menubar.png" alt="The menu bar menu during a scan: progress, time left, Cancel, Undo" width="420"/> | <img src="docs/screenshots/settings.png" alt="Settings" width="420"/> |
+
+| Results | Help |
+|---|---|
+| <img src="docs/screenshots/results.png" alt="A finished scan with its matches listed" width="420"/> | <img src="docs/screenshots/help.png" alt="Help" width="420"/> |
 
 ---
 

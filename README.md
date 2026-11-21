@@ -161,10 +161,13 @@ Also at [vaquero.bitwise0x.com](https://vaquero.bitwise0x.com/docs/install/)
 
 ```sh
 uv sync
-uv run vaquero    # run from source
-uv run pytest     # tests
-./build.sh        # signed, notarized app and DMG in dist/
+uv run vaquero                        # run from source
+uv run pytest                         # tests
+uv run python -m vaquero --self-test  # the menu bar, Dock and native libraries, on the real window system
+./build.sh                            # signed, notarized app and DMG in dist/, after the app's own self-test
 ```
+
+The self-test and `build.sh` open a window and a menu bar icon, so they need a logged-in desktop session.
 
 Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). Detection (SCRFD) and recognition (ArcFace) run directly on the ONNX models.
 
@@ -181,7 +184,7 @@ pnpm build        # site/dist
 
 ## Versioning
 
-Vaquero follows [semantic versioning](https://semver.org/). Every release is listed in [CHANGELOG.md](CHANGELOG.md) and on [Releases](https://github.com/BitWise-0x/Vaquero/releases) with its DMG.
+Vaquero follows [semantic versioning](https://semver.org/). Every app release is listed in [CHANGELOG.md](CHANGELOG.md) and on [Releases](https://github.com/BitWise-0x/Vaquero/releases) with its DMG. The face model has a release of its own there, `model-buffalo_l-1`.
 
 <br>
 

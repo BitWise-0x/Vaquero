@@ -299,7 +299,7 @@ wheels = [
 
 [[package]]
 name = "vaquero"
-version = "0.26.10"
+version = "0.26.11"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },

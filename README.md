@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <strong>Find and round up photos and videos by face.</strong><br><br>
+  <strong>Find and round up Photos and Videos by Face.</strong><br><br>
   Vaquero learns a face from a few photos, then finds every photo & video it appears in <br> and organizes them your way. Runs entirely offline. No photo or face ever leaves your Mac.<br>
   Free, open source, no account, 100% private
 </p>

@@ -19,7 +19,7 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'Vaquero',
-			description: 'Find and round up photos and videos by face. Free, open source, no account, 100% private.',
+			description: 'Find and round up Photos and Videos by Face. Free, open source, no account, 100% private.',
 			favicon: '/favicon.png',
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/BitWise-0x/Vaquero' }],
 			editLink: { baseUrl: 'https://github.com/BitWise-0x/Vaquero/edit/main/site/' },
@@ -49,7 +49,7 @@ addEventListener('gesturestart', (e) => e.preventDefault());`,
 				{ tag: 'meta', attrs: { property: 'og:image', content: ogImage } },
 				{ tag: 'meta', attrs: { property: 'og:image:width', content: '1200' } },
 				{ tag: 'meta', attrs: { property: 'og:image:height', content: '630' } },
-				{ tag: 'meta', attrs: { property: 'og:image:alt', content: 'The Vaquero icon beside the line: Find and round up photos and videos by face' } },
+				{ tag: 'meta', attrs: { property: 'og:image:alt', content: 'The Vaquero icon beside the line: Find and round up Photos and Videos by Face' } },
 				{ tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
 				{ tag: 'meta', attrs: { name: 'theme-color', content: '#0c0f0e' } },
 				{ tag: 'link', attrs: { rel: 'icon', href: '/favicon.ico', sizes: '32x32' } },

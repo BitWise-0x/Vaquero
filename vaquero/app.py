@@ -9,6 +9,7 @@ import logging
 import math
 import os
 import platform
+import shlex
 import shutil
 import subprocess
 import sys
@@ -20,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import (
+    QLockFile,
     QMessageLogContext,
     QObject,
     QRectF,
@@ -28,6 +30,7 @@ from PySide6.QtCore import (
     QtMsgType,
     QThread,
     QTimer,
+    QEvent,
     QUrl,
     Signal,
     SignalInstance,
@@ -38,7 +41,10 @@ from PySide6.QtGui import (
     QImage,
     QCloseEvent,
     QDesktopServices,
+    QGuiApplication,
     QColor,
+    QContextMenuEvent,
+    QCursor,
     QFont,
     QIcon,
     QKeySequence,
@@ -49,6 +55,7 @@ from PySide6.QtGui import (
     QTextCharFormat,
     QTextCursor,
     QTextDocument,
+    QTextDocumentFragment,
 )
 from PySide6.QtWidgets import (
     QApplication,
@@ -66,32 +73,47 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPushButton,
     QRadioButton,
     QSpinBox,
     QTextBrowser,
+    QToolTip,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
-from vaquero import __version__, logs, macos, remote, theme
+from vaquero import __version__, access, logs, macos, remote, theme
 from vaquero.logs import FileFormatter
+from vaquero.menubar import StatusItem
+from vaquero.settings import (
+    AUTO_UPDATE_KEY,
+    KEEP_SCANS_KEY,
+    MENU_BAR_HINT_KEY,
+    NOTIFY_KEY,
+    SHOW_IN_DOCK_KEY,
+    SHOW_IN_MENU_BAR_KEY,
+    SettingsDialog,
+)
 from vaquero.remote import DEFAULT_PACK, JOURNAL, LOG_DIR, MODELS_DIR, RemoteError, parse_version
 from vaquero.engine import (
     DEFAULT_VIDEO_FRAMES,
     Conflict,
     FaceMatcher,
+    JournalRow,
     ScanResult,
     SourceGone,
     Transfer,
     TransferCounts,
     TransferStopped,
+    last_run,
     list_media,
     pack_models,
     scan,
     transfer_matches,
+    undo_run,
 )
 
 log = logging.getLogger("vaquero")
@@ -155,7 +177,7 @@ that many frames spread evenly through it. More frames catch a person who appear
 them out of the scanned folder; Copy leaves the originals where they are.</li>
 <li><span class="term">Name exists</span>: what happens when the destination already has a file with the same name.
 <i>Keep both</i> adds the new file with a number (<code>IMG_1 2.png</code>).
-<i>Overwrite</i> replaces the existing file, which cannot be undone.</li>
+<i>Overwrite</i> replaces the existing file and sends it to the Trash.</li>
 </ul>
 
 <h3>Buttons</h3>
@@ -167,11 +189,27 @@ them out of the scanned folder; Copy leaves the originals where they are.</li>
 it after the current file. A model or update download picks up where it stopped the next time.</li>
 </ul>
 
+<h3>Undo</h3>
+<p><b>Edit &gt; Undo</b> (<b>⌘Z</b>) reverses the last copy or move: moved files go back to where they were, copies go to
+the Trash, and files an overwrite replaced come back out of the Trash. Anything changed since then is left alone.
+Undo again for the copy or move before it.</p>
+
+<h3>Menu bar and Dock</h3>
+<p>Vaquero shows in the Dock, the menu bar, or both (<b>Vaquero &gt; Settings</b>). With the menu bar icon, closing the
+window keeps Vaquero running there: the icon sweeps while a scan, copy, move or download runs, and its menu shows
+the progress, Cancel, Scan, Undo and Quit. <b>Quit</b> or <b>⌘Q</b> quits.</p>
+
+<h3>Shortcuts</h3>
+<ul>
+<li><b>⌘R</b> Scan, <b>⌘E</b> Execute, <b>⌘.</b> Cancel, <b>⌘Z</b> Undo, <b>⌘,</b> Settings, <b>⌘W</b> close the window.</li>
+</ul>
+
 <h3>Reading the results</h3>
 <p>Above the log, <b>Scanned</b> counts files done and <b>Matches found</b> counts matches so far, in amber.
 The line ends with <b>DONE</b> or <b>CANCELLED</b>.</p>
 <p>The log is split into sections: <b>Setup</b>, <b>Scanning</b>, <b>Matches</b>, <b>Result</b>, then
-<b>Move</b> or <b>Copy</b>. Click a file or folder name in the log to open it.</p>
+<b>Move</b> or <b>Copy</b>. Click a file or folder name in the log to open it, Option-click to show it in the
+Finder, or right-click it to copy its path. Hover over a name for its full path.</p>
 <p>Each match shows its score and <code>refs N/M</code>: how many of the M reference photos it
 matches on its own. A real match usually matches most of them (13/13); a lookalike only a few (0/13, 1/13).</p>
 <p>Log colors: <span style="color:{match}">green</span> a match,
@@ -181,12 +219,13 @@ matches on its own. A real match usually matches most of them (13/13); a lookali
 <h3>Files</h3>
 <p>In <code>~/Library/Logs/Vaquero</code> (<b>Show logs folder</b> below, or <b>Vaquero &gt; Settings</b>):</p>
 <ul>
+<li><span class="term">vaquero.log</span>: everything since launch, with the details of any error (<b>Help &gt; Open Log</b>).</li>
 <li><span class="term">vaquero-&lt;time&gt;.log</span>: the log of one scan and its move or copy.</li>
 <li><span class="term">vaquero-scan-&lt;time&gt;.csv</span>: every scanned file with its score.</li>
 </ul>
 <p>In <code>~/Library/Application Support/Vaquero</code>:</p>
 <ul>
-<li><span class="term">vaquero-moves.csv</span>: every moved or copied file's old and new location, for undoing.</li>
+<li><span class="term">vaquero-moves.csv</span>: every moved or copied file's old and new location, for <b>Undo</b>.</li>
 <li><span class="term">models/</span>: the face model, downloaded on first launch.</li>
 </ul>
 
@@ -195,6 +234,31 @@ matches on its own. A real match usually matches most of them (13/13); a lookali
 restarts Vaquero.
 Vaquero also checks when it opens and asks only when an update exists; turn that off in <b>Vaquero &gt; Settings</b>.</p>
 """
+
+
+class LogView(QTextBrowser):
+    """The log, whose file and folder names are links: right-click one to open it, show it in the Finder or copy
+    its path."""
+
+    reveal_requested = Signal(QUrl)
+
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:  # noqa: N802 (Qt override)
+        href = self.anchorAt(event.pos())
+        menu = self.createStandardContextMenu(event.pos())
+        if href:
+            url = QUrl(href)
+            first = menu.actions()[0] if menu.actions() else None
+            items = [
+                ("Open", lambda: self.anchorClicked.emit(url)),
+                ("Show in Finder", lambda: self.reveal_requested.emit(url)),
+                ("Copy Path", lambda: QApplication.clipboard().setText(url.toLocalFile())),
+            ]
+            for text, slot in items:
+                action = QAction(text, menu)
+                action.triggered.connect(slot)
+                menu.insertAction(first, action)
+            menu.insertSeparator(first)
+        menu.exec(event.globalPos())
 
 
 class QtLogHandler(logging.Handler, QObject):
@@ -210,9 +274,9 @@ class QtLogHandler(logging.Handler, QObject):
 
 
 SLOGAN = "Find and round up Photos and Videos by Face"
+ISSUES_URL = "https://github.com/BitWise-0x/Vaquero/issues/new"
 SITE_URL = "https://vaquero.bitwise0x.com"
 READY = "Ready"
-AUTO_UPDATE_KEY = "check_updates_on_launch"
 
 # worker signals reach the window through the event loop, so every widget update runs on the main thread;
 # PySide otherwise calls a Python slot directly on the emitting worker thread, and a widget repaint there crashes
@@ -220,6 +284,23 @@ QUEUED = Qt.ConnectionType.QueuedConnection
 
 BAR_CELLS = 30
 BUFFALO_URL = QUrl("vaquero:buffalo")
+
+
+def cocoa() -> bool:
+    """Running with the real macOS window system (tests run offscreen, without a Dock or menu bar)."""
+    return QGuiApplication.platformName() == "cocoa"
+
+
+def time_left(elapsed: float, done: int, total: int) -> str:
+    """ " · about 3 min left", once a job has run long enough for its pace to mean something."""
+    if done <= 0 or done >= total or elapsed < 5:
+        return ""
+    left = elapsed / done * (total - done)
+    if left < 60:
+        return " · under a minute left"
+    if left < 3600:
+        return f" · about {round(left / 60)} min left"
+    return f" · about {left / 3600:.1f} h left"
 
 
 def status_value(text: str) -> str:
@@ -286,8 +367,9 @@ def colorize(record: logging.LogRecord) -> str:
     return f'<span style="color:{TIME_COLOR}">{stamp}</span>&nbsp; {body}'
 
 
-FILES_AND_FOLDERS_URL = "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders"
-FULL_DISK_ACCESS_URL = "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
+FILES_AND_FOLDERS_URL = access.PRIVACY_URL
+FULL_DISK_ACCESS_URL = access.FULL_DISK_ACCESS_URL
+DONT_OFFER_MOVE_KEY = "dont_offer_move"
 
 
 def blocked_folders(folders: list[Path]) -> list[Path]:
@@ -527,6 +609,28 @@ class TransferWorker(Job):
             self._emit_end(self.failed, logs.describe(e))
 
 
+class UndoWorker(Job):
+    progress = Signal(int, int)
+    finished = Signal(object, bool)  # TransferCounts, cancelled
+    failed = Signal(str)
+
+    def __init__(self, rows: list[JournalRow], journal: Path) -> None:
+        super().__init__()
+        self.rows, self.journal = rows, journal
+        self._cancel = False
+
+    def cancel(self) -> None:
+        self._cancel = True
+
+    def run(self) -> None:
+        try:
+            counts = undo_run(self.rows, self.journal, self.progress.emit, lambda: self._cancel)
+            self._emit_end(self.finished, counts, self._cancel)
+        except Exception as e:  # surfaced in the UI and log, the worker thread must not die silently
+            log.error("undo stopped: %s", logs.describe(e), exc_info=True)
+            self._emit_end(self.failed, logs.describe(e))
+
+
 class TaskWorker(Job):
     """Runs fn(progress, cancelled) on a worker thread: model download, update check, update download."""
 
@@ -577,21 +681,12 @@ class Window(QMainWindow):
         self.setWindowIcon(QIcon(str(asset("Vaquero.png"))))
         self.settings = QSettings("BitWise", "Vaquero")
         migrate_settings(self.settings)
-        # the roles move every item into the macOS application menu; Qt then hides this emptied menu
-        menu = self.menuBar().addMenu("Vaquero")
-        for text, role, keys, slot in (
-            ("About Vaquero", QAction.MenuRole.AboutRole, None, self.show_about),
-            ("Check for Updates…", QAction.MenuRole.ApplicationSpecificRole, None, lambda: self.check_updates()),
-            ("Settings…", QAction.MenuRole.PreferencesRole, QKeySequence.StandardKey.Preferences, self.show_settings),
-            ("Quit Vaquero", QAction.MenuRole.QuitRole, QKeySequence.StandardKey.Quit, self.close),
-        ):
-            action = QAction(text, self)
-            action.setMenuRole(role)
-            if keys:
-                action.setShortcut(keys)
-            action.triggered.connect(slot)
-            menu.addAction(action)
         self.quiet_update_check = False
+        self.quitting = False  # a real quit, not the window closing into the menu bar
+        self.progress_state: tuple[str, int, int, str] | None = None  # label, done, total, detail of the running job
+        self.job_started = 0.0
+        self.dropped: list[ScanResult] = []  # results a move took away; an undo brings them back
+        self._undo_cache: tuple[tuple[float, int], list[JournalRow]] | None = None
         self.results: list[ScanResult] = []
         self.thread: QThread | None = None
         self.job: Job | None = None
@@ -653,11 +748,14 @@ class Window(QMainWindow):
         self.model.currentTextChanged.connect(lambda v: self.settings.setValue("model", v))
         self.subfolders = QCheckBox("Scan subfolders")
         self.subfolders.setChecked(self.settings.value("subfolders", False, type=bool))
+        self.subfolders.toggled.connect(lambda on: self.settings.setValue("subfolders", on))
         self.videos = QCheckBox("Include videos")
         self.videos.setChecked(self.settings.value("videos", True, type=bool))
+        self.videos.toggled.connect(lambda on: self.settings.setValue("videos", on))
         self.frames = QSpinBox()
         self.frames.setRange(1, 60)
         self.frames.setValue(self.settings.value("frames", DEFAULT_VIDEO_FRAMES, type=int))
+        self.frames.valueChanged.connect(lambda n: self.settings.setValue("frames", n))
         self.frames.setSuffix(" frames")
         self.videos.toggled.connect(self.frames.setEnabled)
         self.frames.setEnabled(self.videos.isChecked())
@@ -744,9 +842,11 @@ class Window(QMainWindow):
 
         log_box = QGroupBox("Log")
         log_layout = QVBoxLayout(log_box)
-        self.log_view = QTextBrowser()
+        self.log_view = LogView()
         self.log_view.setOpenLinks(False)
         self.log_view.anchorClicked.connect(self._open_link)
+        self.log_view.reveal_requested.connect(lambda url: self._open_link(url, reveal=True))
+        self.log_view.highlighted.connect(self._hover_link)
         self.log_view.document().setMaximumBlockCount(5000)
         self.log_view.setMinimumHeight(300)
         log_layout.addWidget(self.log_view)
@@ -756,7 +856,7 @@ class Window(QMainWindow):
         bottom.setContentsMargins(0, 8, 0, 0)  # room between the log and Quit
         bottom.addStretch()
         self.quit_btn = QPushButton("Quit")
-        self.quit_btn.clicked.connect(self.close)
+        self.quit_btn.clicked.connect(self.quit_app)
         self.quit_btn.setMinimumHeight(36)
         bottom.addWidget(self.quit_btn)
         outer.addLayout(bottom)
@@ -768,6 +868,10 @@ class Window(QMainWindow):
         self.progress_pct = -1
         self._banner()
         self.resize(960, 860)
+        if geometry := self.settings.value("geometry"):
+            self.restoreGeometry(geometry)
+        self.status_item = StatusItem(self, asset)
+        self._build_menus()
 
     def _folder_row(self, grid: QGridLayout, row: int, label: str, key: str, default: str = "") -> QLineEdit:
         edit = QLineEdit(self.settings.value(key, default, type=str))
@@ -847,6 +951,10 @@ class Window(QMainWindow):
         self.scan_btn.setEnabled(not busy and bool(self.packs))  # no model yet: the download failed or was cancelled
         self.cancel_btn.setEnabled(busy)
         self.execute_btn.setEnabled(not busy and bool(self._matches()))
+        if not busy:
+            self.progress_state = None
+        # a quiet background check is not work the user is waiting on
+        self.status_item.set_working(busy and self.task is not None)
 
     def _run(self, job: Job, task: str | None = None, retry: Callable[[], None] | None = None) -> None:
         """Run job on a fresh thread; both are released on the main thread once it ends. task names it for the
@@ -867,6 +975,7 @@ class Window(QMainWindow):
         # so this queued lambda runs there and drops the last references after the thread has stopped.
         thread.finished.connect(lambda: self._on_thread_finished(thread, job), QUEUED)
         self.thread, self.job, self.task, self.retry = thread, job, task, retry
+        self.job_started = time.monotonic()
         if self.activity:
             self.activity.end()
         # a job the user started keeps the Mac from idle sleep and App Nap; a background check does not need to
@@ -905,34 +1014,231 @@ class Window(QMainWindow):
     def show_logs(self) -> None:
         self._reveal(LOG_DIR)
 
+    def open_app_log(self) -> None:
+        if logs.APP_LOG.exists():
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(logs.APP_LOG)))
+        else:
+            self._reveal(LOG_DIR)
+
+    def open_last_report(self) -> None:
+        reports = sorted(LOG_DIR.glob("vaquero-scan-*.csv"))
+        if reports:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(reports[-1])))
+        else:
+            self.status.setText("No scan report yet")
+
+    def _build_menus(self) -> None:
+        """The menu bar. Items with a role move into the macOS application menu (Qt then drops the empty menu)."""
+        bar = self.menuBar()
+
+        def add(menu: QMenu, text: str, slot: Callable[[], object], keys: QKeySequence | QKeySequence.StandardKey | str | None = None,
+                role: QAction.MenuRole = QAction.MenuRole.NoRole) -> QAction:
+            action = QAction(text, self)
+            action.setMenuRole(role)
+            if keys is not None:
+                action.setShortcut(keys)
+            action.triggered.connect(lambda _=False: slot())
+            menu.addAction(action)
+            return action
+
+        app = bar.addMenu("Vaquero")
+        add(app, "About Vaquero", self.show_about, role=QAction.MenuRole.AboutRole)
+        add(app, "Check for Updates…", self.check_updates, role=QAction.MenuRole.ApplicationSpecificRole)
+        add(app, "Settings…", self.show_settings, QKeySequence.StandardKey.Preferences, QAction.MenuRole.PreferencesRole)
+        add(app, "Quit Vaquero", self.quit_app, QKeySequence.StandardKey.Quit, QAction.MenuRole.QuitRole)
+
+        file = bar.addMenu("File")
+        self.scan_menu_action = add(file, "Scan", self.start_scan, "Ctrl+R")
+        self.execute_menu_action = add(file, "Execute", self.execute, "Ctrl+E")
+        self.cancel_menu_action = add(file, "Cancel", self.cancel_job, "Ctrl+.")
+        file.addSeparator()
+        add(file, "Open Last Scan Report", self.open_last_report)
+        add(file, "Show Logs Folder", self.show_logs)
+        file.addSeparator()
+        add(file, "Close Window", self.close, QKeySequence.StandardKey.Close)
+
+        edit = bar.addMenu("Edit")
+        self.undo_menu_action = add(edit, "Undo", self.undo_last, QKeySequence.StandardKey.Undo)
+        edit.addSeparator()
+        for text, method, keys in (
+            ("Cut", "cut", QKeySequence.StandardKey.Cut),
+            ("Copy", "copy", QKeySequence.StandardKey.Copy),
+            ("Paste", "paste", QKeySequence.StandardKey.Paste),
+            ("Select All", "selectAll", QKeySequence.StandardKey.SelectAll),
+        ):
+            add(edit, text, lambda m=method: getattr(QApplication.focusWidget(), m, lambda: None)(), keys)
+
+        window = bar.addMenu("Window")
+        add(window, "Minimize", self.showMinimized, "Ctrl+M")
+        add(window, "Zoom", lambda: self.showNormal() if self.isMaximized() else self.showMaximized())
+        window.addSeparator()
+        add(window, "Vaquero", self.show_window)
+
+        helps = bar.addMenu("Help")
+        add(helps, "Vaquero Help", self.show_help, QKeySequence.StandardKey.HelpContents)
+        add(helps, "Open Log", self.open_app_log)
+        add(helps, "Show Logs Folder", self.show_logs)
+        helps.addSeparator()
+        add(helps, "Vaquero Website", lambda: QDesktopServices.openUrl(QUrl(SITE_URL)))
+        add(helps, "Report an Issue…", lambda: QDesktopServices.openUrl(QUrl(ISSUES_URL)))
+
+        def refresh() -> None:
+            busy, undo = self.busy, self.undo_text()
+            self.scan_menu_action.setEnabled(not busy and bool(self.packs))
+            self.execute_menu_action.setEnabled(not busy and bool(self._matches()))
+            self.cancel_menu_action.setEnabled(busy)
+            self.undo_menu_action.setText(undo or "Undo")
+            self.undo_menu_action.setEnabled(bool(undo) and not busy)
+
+        for menu in (file, edit):
+            menu.aboutToShow.connect(refresh)
+        refresh()
+
+    def status_plain(self) -> str:
+        return QTextDocumentFragment.fromHtml(self.status.text()).toPlainText().strip()
+
+    def _last_run(self) -> list[JournalRow]:
+        """The journal's newest undoable run, re-read only when the journal changed."""
+        try:
+            st = self.journal.stat()
+        except OSError:
+            return []
+        key = (st.st_mtime, st.st_size)
+        if self._undo_cache is None or self._undo_cache[0] != key:
+            self._undo_cache = (key, last_run(self.journal))
+        return self._undo_cache[1]
+
+    def undo_text(self) -> str:
+        """The Undo item's text for the newest copy or move, "" when there is nothing to undo."""
+        rows = self._last_run()
+        if not rows:
+            return ""
+        verb = "Move" if any(r.action.startswith("moved") for r in rows) else "Copy"
+        return f"Undo {verb} of {len(rows)} File{'' if len(rows) == 1 else 's'}"
+
+    def undo_last(self) -> None:
+        rows = self._last_run()
+        if not rows or self.busy:
+            return
+        self.show_window()
+        moved = any(r.action.startswith("moved") for r in rows)
+        try:
+            when = datetime.strptime(rows[0].run[:15], "%Y%m%d-%H%M%S").strftime("%b %-d at %H:%M")
+        except ValueError:
+            when = "earlier"
+        box = QMessageBox(self)
+        box.setWindowTitle("Undo")
+        box.setText(f"{self.undo_text()} from {when}?")
+        box.setInformativeText(
+            ("Moved files go back. " if moved else "")
+            + ("Copies go to the Trash. " if not moved or any(r.action.startswith("copied") for r in rows) else "")
+            + ("Overwritten files come back from the Trash." if any(r.trashed for r in rows) else "")
+        )
+        undo = box.addButton("Undo", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton(QMessageBox.StandardButton.Cancel)
+        box.exec()
+        if box.clickedButton() is not undo:
+            return
+        section("Undo")
+        log.info("undoing %d files from %s", len(rows), when, extra={"link": rows[0].dst.parent, "link_text": str(rows[0].dst.parent)})
+        job = UndoWorker(rows, self.journal)
+        job.progress.connect(lambda done, total: (
+            self.status.setText(f"Undoing {status_value(f'{done} of {total}')}"),
+            self._log_progress("undo", done, total, f"{done} of {total} files"),
+        ), QUEUED)
+        job.finished.connect(self._on_undo_finished, QUEUED)
+        self._run(job, "the undo")
+
+    def _on_undo_finished(self, counts: TransferCounts, cancelled: bool) -> None:
+        self._undo_cache = None
+        log.info("undo done: %d reversed, %d left alone, %d failed", counts.done, counts.skipped, counts.failed)
+        back = [r for r in self.dropped if r.path.exists()]
+        if back:
+            self.results += back
+            self.dropped = [r for r in self.dropped if r not in back]
+        self._set_busy(False)
+        self._update_match_count()
+        self._done(f"undid {counts.done}, {counts.skipped} left alone, {counts.failed} failed", cancelled)
+
+    def offer_move(self, bundle: Path, reason: str) -> None:
+        """Vaquero opened from a disk image, Downloads, or a temporary copy: offer to put it in Applications,
+        where updates, login items and the privacy settings it is given all stick."""
+        box = QMessageBox(self)
+        box.setWindowTitle("Move to Applications")
+        box.setText("Move Vaquero to the Applications folder?")
+        box.setInformativeText(reason)
+        move = box.addButton("Move to Applications", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton("Not Now", QMessageBox.ButtonRole.RejectRole)
+        never = QCheckBox("Do not ask again")
+        box.setCheckBox(never)
+        box.exec()
+        if never.isChecked():
+            self.settings.setValue(DONT_OFFER_MOVE_KEY, True)
+        if box.clickedButton() is not move:
+            return
+        try:
+            moved = access.move_to_applications(bundle)
+        except (OSError, subprocess.CalledProcessError) as e:
+            log.error("Vaquero was not moved: %s", logs.describe(e), exc_info=True)
+            QMessageBox.warning(self, "Move to Applications", f"Vaquero could not be moved: {logs.describe(e)}")
+            return
+        # the copy opens once this one has quit, so it does not find this one holding the single-copy lock
+        subprocess.Popen(
+            ["/bin/sh", "-c", f"while kill -0 {os.getpid()} 2>/dev/null; do sleep 0.2; done; open {shlex.quote(str(moved))}"],
+            start_new_session=True,
+        )
+        self.quit_app()
+
+    def show_window(self) -> None:
+        if cocoa():
+            macos.activate()
+        if self.isMinimized() or not self.isVisible():
+            self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def dock_shown(self) -> bool:
+        return self.settings.value(SHOW_IN_DOCK_KEY, True, type=bool) or not self.menu_bar_shown()
+
+    def menu_bar_shown(self) -> bool:
+        return self.settings.value(SHOW_IN_MENU_BAR_KEY, True, type=bool)
+
+    def toggle_dock(self) -> None:
+        self.set_presence(dock=not self.dock_shown(), menu_bar=self.menu_bar_shown())
+
+    def set_presence(self, dock: bool, menu_bar: bool) -> None:
+        """Show Vaquero in the Dock, the menu bar, or both; never neither, or it could not be reached."""
+        if not dock and not menu_bar:
+            dock = True
+        self.settings.setValue(SHOW_IN_DOCK_KEY, dock)
+        self.settings.setValue(SHOW_IN_MENU_BAR_KEY, menu_bar)
+        self.apply_presence()
+
+    def apply_presence(self) -> None:
+        dock, menu_bar = self.dock_shown(), self.menu_bar_shown()
+        self.status_item.tray.setVisible(menu_bar)
+        if cocoa() and macos.dock_visible() != dock:
+            macos.set_dock_visible(dock)
+            if self.isVisible():
+                # leaving the Dock deactivates the app; bring the window back in front
+                QTimer.singleShot(200, self.show_window)
+        self.status_item.refresh()
+
+    def _on_app_state(self, state: Qt.ApplicationState) -> None:
+        if state == Qt.ApplicationState.ApplicationActive:
+            if cocoa():
+                macos.set_dock_badge("")
+            # a click on the Dock icon brings back the window closed into the menu bar
+            if self.dock_shown() and not self.isVisible() and not QApplication.activeModalWidget():
+                self.show_window()
+
     @staticmethod
     def _reveal(folder: Path) -> None:
         folder.mkdir(parents=True, exist_ok=True)
         subprocess.run(["open", str(folder)], check=False)
 
     def show_settings(self) -> None:
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Settings")
-        dialog.setModal(True)
-        layout = QVBoxLayout(dialog)
-        auto = QCheckBox("Check for updates when Vaquero opens")
-        auto.setChecked(self.settings.value(AUTO_UPDATE_KEY, True, type=bool))
-        auto.toggled.connect(lambda on: self.settings.setValue(AUTO_UPDATE_KEY, on))
-        layout.addWidget(auto)
-        folders = QGridLayout()
-        for row, (name, folder) in enumerate((("Logs and scan reports", LOG_DIR), ("Face models", MODELS_DIR))):
-            label = QLabel(f"{name}<br><span style='color:{TIME_COLOR}'>{html.escape(str(folder))}</span>")
-            show = QPushButton("Show")
-            show.clicked.connect(lambda _=False, f=folder: self._reveal(f))
-            folders.addWidget(label, row, 0)
-            folders.addWidget(show, row, 1)
-        folders.setColumnStretch(0, 1)
-        layout.addLayout(folders)
-        close = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        close.rejected.connect(dialog.reject)
-        layout.addWidget(close)
-        dialog.resize(520, 0)
-        dialog.exec()
+        SettingsDialog(self).exec()
 
     def ensure_models(self) -> None:
         """First launch, or a damaged pack: fetch the face model pack before anything can be scanned."""
@@ -1061,7 +1367,7 @@ class Window(QMainWindow):
             return
         # the download job has finished; clear it so the quit does not stop to ask about it
         self.task = None
-        QApplication.quit()
+        self.quit_app()
 
     def show_about(self) -> None:
         QMessageBox.about(
@@ -1085,6 +1391,7 @@ class Window(QMainWindow):
         # a job started from the old one's finished handler may already own self.thread
         if self.thread is thread:
             self.thread = self.job = self.task = None
+            self.status_item.set_working(False)
             if self.activity:
                 self.activity.end()
                 self.activity = None
@@ -1166,9 +1473,6 @@ class Window(QMainWindow):
         pack = self.packs.get(self.model.currentText())
         if pack is None:
             return
-        self.settings.setValue("videos", self.videos.isChecked())
-        self.settings.setValue("subfolders", self.subfolders.isChecked())
-        self.settings.setValue("frames", self.frames.value())
         self.results = []
         stamp = f"{datetime.now():%Y%m%d-%H%M%S}"
         LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -1249,6 +1553,19 @@ class Window(QMainWindow):
 
     def _done(self, text: str, cancelled: bool = False) -> None:
         self.status.setText(f"<b>{'CANCELLED' if cancelled else 'DONE'}</b>: {status_value(text)}")
+        self._tell_if_away(f"{'Cancelled' if cancelled else 'Done'}: {text}")
+
+    def _tell_if_away(self, text: str, badge: str = "") -> None:
+        """When a job ends while the window is hidden or another app is in front: bounce the Dock icon, badge it,
+        and show a notification from the menu bar icon, as the settings allow."""
+        if self.isVisible() and self.isActiveWindow():
+            return
+        if self.dock_shown():
+            QApplication.alert(self)
+            if badge and cocoa():
+                macos.set_dock_badge(badge)
+        if self.status_item.tray.isVisible() and self.settings.value(NOTIFY_KEY, True, type=bool):
+            self.status_item.tray.showMessage("Vaquero", text, self.status_item.still, 8000)
 
     def _on_finished(self, results: list[ScanResult], cancelled: bool, refs: int, stopped: str) -> None:
         self.results = results
@@ -1276,10 +1593,13 @@ class Window(QMainWindow):
             f" ({review} to review)" if review else ""
         )
         self._done(f"Stopped: {stopped}. {summary}" if stopped else summary, cancelled)
+        if matches and not (self.isVisible() and self.isActiveWindow()) and self.dock_shown() and cocoa():
+            macos.set_dock_badge(str(len(matches)))
 
     def _drop_moved(self) -> None:
         """Forget results a move took away; without a file system call per result, which stalls on a dead share."""
         if isinstance(self.job, TransferWorker) and self.job.moved:
+            self.dropped += [r for r in self.results if r.path in self.job.moved]
             self.results = [r for r in self.results if r.path not in self.job.moved]
 
     def _on_failed(self, msg: str) -> None:
@@ -1377,6 +1697,8 @@ class Window(QMainWindow):
 
     def _log_progress(self, label: str, done: int, total: int, detail: str) -> None:
         """Draw the job's progress line in the log, then redraw it in place as the percentage moves."""
+        detail += time_left(time.monotonic() - self.job_started, done, total)
+        self.progress_state = (label, done, total, detail)
         pct = done * 100 // total if total else 0
         if self.progress_line is not None and pct == self.progress_pct and done != total:
             return
@@ -1414,15 +1736,46 @@ class Window(QMainWindow):
     def _transfer_verb(self) -> str:
         return "moved" if self.transfer_mode is Transfer.MOVE else "copied"
 
-    def _open_link(self, url: QUrl) -> None:
+    def _open_link(self, url: QUrl, reveal: bool = False) -> None:
+        """A file opens in its app and a folder in the Finder; with Option held, or reveal, the Finder shows where
+        it is instead. Something no longer there points at the nearest folder that is."""
         path = Path(url.toLocalFile())
+        reveal = reveal or bool(QApplication.keyboardModifiers() & Qt.KeyboardModifier.AltModifier)
         if not path.exists():
+            if drive := logs.missing_volume(path):
+                self.status.setText(f"{html.escape(path.name)} is on {html.escape(drive)}, which is not connected")
+                return
+            near = next((p for p in path.parents if p.is_dir()), None)
             self.status.setText(f"No longer there: {html.escape(str(path))}")
+            if near is not None and near != Path("/"):
+                log.info("%s is no longer there; the nearest folder still there is %s", path.name, near, extra={"link": near, "link_text": str(near)})
             return
-        QDesktopServices.openUrl(url)
+        if reveal:
+            subprocess.run(["open", "-R", str(path)], check=False)
+        else:
+            QDesktopServices.openUrl(url)
+
+    def _hover_link(self, url: QUrl) -> None:
+        """The full path of a hovered link, since the log shows names relative to the scanned folder."""
+        if url.isEmpty():
+            QToolTip.hideText()
+            return
+        QToolTip.showText(QCursor.pos(), f"{url.toLocalFile()}\nClick to open, Option-click to show in Finder", self.log_view)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (Qt override)
+        self.settings.setValue("geometry", self.saveGeometry())
+        if not self.quitting and self.status_item.tray.isVisible():
+            # with the menu bar icon, closing the window keeps Vaquero, and any job, running there
+            event.ignore()
+            self.hide()
+            if not self.settings.value(MENU_BAR_HINT_KEY, False, type=bool):
+                self.settings.setValue(MENU_BAR_HINT_KEY, True)
+                self.status_item.tray.showMessage(
+                    "Vaquero", "Vaquero is still running in the menu bar.", self.status_item.still, 6000
+                )
+            return
         if self.busy and not self._confirm_stop("Quit Vaquero", "Quit"):
+            self.quitting = False
             event.ignore()
             return
         if self.job and self.thread:
@@ -1431,12 +1784,27 @@ class Window(QMainWindow):
             self.job.cancel()
             # a running QThread destroyed at exit aborts the process; the job stops after its current file
             if not self.thread.wait(CLOSE_WAIT_MS):
-                self.status.setText("Still finishing the current file; close again in a moment")
+                self.status.setText("Still finishing the current file; quit again in a moment")
+                self.quitting = False
                 event.ignore()
                 return
         if self.file_log:
             self.file_log.close()
+        self.status_item.tray.hide()
         super().closeEvent(event)
+        QApplication.quit()
+
+    def quit_app(self) -> None:
+        """Quit for real: from the menus, the menu bar icon, the Dock, or a logout."""
+        self.quitting = True
+        if not self.close():
+            self.quitting = False
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802 (Qt override)
+        # macOS asks to quit (Dock menu, logout, restart) with a Quit event; the window must not just hide then
+        if event.type() == QEvent.Type.Quit:
+            self.quitting = True
+        return False
 
 
 def _qt_message(kind: QtMsgType, context: QMessageLogContext, message: str) -> None:
@@ -1455,14 +1823,31 @@ def main() -> None:
     logs.start_app_log()
     qInstallMessageHandler(_qt_message)
     log.info("Vaquero %s starting on macOS %s (%s)", __version__, platform.mac_ver()[0], platform.machine())
-    if removed := logs.prune_scan_logs():
+    if removed := logs.prune_scan_logs(QSettings("BitWise", "Vaquero").value(KEEP_SCANS_KEY, logs.SCANS_KEPT, type=int)):
         log.info("removed %d old scan logs and reports", removed)
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)  # the window can close into the menu bar; quitting is explicit
+    lock = QLockFile(str(remote.SUPPORT_DIR / "vaquero.lock"))
+    remote.SUPPORT_DIR.mkdir(parents=True, exist_ok=True)
+    if not lock.tryLock(200):
+        # two copies would share the partial downloads and the undo journal
+        log.warning("Vaquero is already running (%s)", lock.getLockInfo())
+        QMessageBox.information(None, "Vaquero", "Vaquero is already open. Find it in the Dock or the menu bar.")
+        sys.exit(0)
     theme.apply(app, asset("check.svg").as_posix())
     w = Window()
+    app.installEventFilter(w)
+    app.applicationStateChanged.connect(w._on_app_state)
+    w.apply_presence()
     w.show()
+    bundle = remote.running_bundle()
+    if bundle and not w.settings.value(DONT_OFFER_MOVE_KEY, False, type=bool) and (why := access.move_offer_reason(bundle)):
+        QTimer.singleShot(0, lambda: w.offer_move(bundle, why))
     if failed := remote.take_update_failure():
-        log.error("the last update was not installed: %s; see %s", failed, remote.UPDATE_LOG)
+        log.error(
+            "the last update was not installed: %s; see %s", failed, remote.UPDATE_LOG,
+            extra={"link": remote.UPDATE_LOG, "link_text": str(remote.UPDATE_LOG)},
+        )
         w.status.setText(
             f"The last update was not installed: {html.escape(failed)}. Download it from "
             f'<a href="{SITE_URL}" style="color:{theme.SIGNAL}">the website</a>.'

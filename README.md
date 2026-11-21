@@ -93,11 +93,15 @@ Pick the reference photos, a folder to scan and a destination, then **Scan**. Ch
 - **Subfolders**: optional; hidden folders and the destination are skipped
 - **Live threshold**: change it after a scan and the matches update without rescanning
 - **Lookalikes flagged**: borderline matches are marked `review`
-- **Copy or move**: with keep-both or overwrite when a name is taken; every copy and move can be undone from its journal
-- **Progress and cancel**: progress in the log for the scan, the copy or move, and the model download; cancel and quit ask first while one runs
-- **Clickable log**: every file and folder name opens it
+- **Copy or move**: with keep-both or overwrite when a name is taken; overwritten files go to the Trash
+- **Undo**: **Edit > Undo** puts the last copy or move back
+- **Safe copies**: every file is flushed to disk and checked before it takes its place; a full or unplugged drive never leaves a partial file, and a stopped copy or move picks up where it left off
+- **Progress and cancel**: progress with time left for the scan, the copy or move, and the model download; cancel and quit ask first while one runs
+- **Menu bar and Dock**: in the Dock, the menu bar, or both; the menu bar menu shows progress, Cancel and Undo without opening the window
+- **Clickable log**: every file and folder name opens it; Option-click shows it in the Finder
+- **Network shares and external drives**: a disconnected drive or a share that stops answering is reported, never waited on
 - **Apple Silicon native**: Core ML on the Neural Engine and GPU
-- **Updates**: **Vaquero > Check for Updates…**, or automatically at launch
+- **Updates**: **Vaquero > Check for Updates…**, or automatically at launch; each update is checked for Vaquero's own signature before it installs
 - **Built-in help**: the **?** button explains every setting
 
 <br>

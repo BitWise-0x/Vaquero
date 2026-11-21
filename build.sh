@@ -42,6 +42,8 @@ uv run pyinstaller --noconfirm --windowed --name Vaquero \
   --add-data assets/Vaquero.png:assets \
   --add-data assets/check.svg:assets \
   --add-data assets/buffalo.png:assets \
+  --add-data assets/MenuBar-18.png:assets \
+  --add-data assets/MenuBar-36.png:assets \
   --add-data LICENSE:. \
   --add-data THIRD_PARTY_NOTICES.md:. \
   vaquero/__main__.py

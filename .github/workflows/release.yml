@@ -31,7 +31,12 @@ concurrency:
 jobs:
   test:
     if: inputs.dmg_tag == ''
-    runs-on: macos-latest
+    # every Apple Silicon macOS GitHub hosts; macOS 14, the oldest the app supports, has no hosted runner
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -41,6 +46,11 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: uv run pytest -q
+      - name: Menu bar and Dock on the real window system
+        timeout-minutes: 3
+        env:
+          QT_QPA_PLATFORM: cocoa
+        run: uv run python scripts/smoke_cocoa.py
 
   release:
     needs: test
@@ -70,7 +80,7 @@ jobs:
   dmg:
     needs: release
     if: always() && (needs.release.outputs.released == 'true' || inputs.dmg_tag != '')
-    runs-on: macos-latest  # Apple Silicon, the only architecture the app ships for
+    runs-on: macos-26  # Apple Silicon, the only architecture the app ships for; pinned, as macos-latest moves
     env:
       TAG: ${{ inputs.dmg_tag || needs.release.outputs.tag }}
     permissions:

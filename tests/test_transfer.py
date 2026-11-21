@@ -36,7 +36,7 @@ def volume() -> Iterator[Path]:
 
 
 def rows(journal: Path) -> list[list[str]]:
-    return list(csv.reader(journal.open())) if journal.exists() else []
+    return [r[:3] for r in csv.reader(journal.open())] if journal.exists() else []
 
 
 def test_overwrite_keeps_both_same_named_matches_from_one_batch(tmp_path: Path) -> None:
@@ -232,3 +232,81 @@ def test_listing_can_be_cancelled_and_reports_its_count(tmp_path: Path) -> None:
     found = list_media(tmp_path, False, recursive=True, cancelled=lambda: len(counts) >= 2, found_so_far=counts.append)
 
     assert counts[:2] == [0, 1] and len(found) == 1
+
+
+def test_overwrite_sends_the_replaced_file_to_the_trash(tmp_path: Path, fake_trash: Path) -> None:
+    a = touch(tmp_path / "src" / "a.jpg", b"new photo")
+    dest = tmp_path / "dest"
+    touch(dest / "a.jpg", b"old")
+    journal = tmp_path / "moves.csv"
+
+    transfer_matches([a], dest, journal, conflict=Conflict.OVERWRITE)
+
+    (trashed,) = fake_trash.iterdir()
+    assert trashed.read_bytes() == b"old"
+    assert next(csv.reader(journal.open()))[4] == str(trashed)
+
+
+def test_undo_reverses_the_last_run_only(tmp_path: Path) -> None:
+    from vaquero.engine import last_run, undo_run
+
+    journal = tmp_path / "moves.csv"
+    first = touch(tmp_path / "src" / "first.jpg", b"1")
+    transfer_matches([first], tmp_path / "dest", journal, run="run-1")
+    moved = [touch(tmp_path / "src" / "sub" / f"{n}.jpg", n.encode() * 3) for n in "ab"]
+    copied = touch(tmp_path / "src" / "c.jpg", b"ccc")
+    touch(tmp_path / "dest" / "a.jpg", b"was here")
+    transfer_matches(moved, tmp_path / "dest", journal, conflict=Conflict.OVERWRITE, run="run-2")
+    transfer_matches([copied], tmp_path / "dest", journal, mode=Transfer.COPY, run="run-3")
+
+    rows = last_run(journal)
+    assert {r.run for r in rows} == {"run-3"}
+    assert undo_run(rows, journal) == (1, 0, 0)
+    assert copied.exists() and not (tmp_path / "dest" / "c.jpg").exists()
+
+    rows = last_run(journal)
+    assert {r.run for r in rows} == {"run-2"}
+    assert undo_run(rows, journal) == (2, 0, 0)
+    assert [p.read_bytes() for p in moved] == [b"aaa", b"bbb"]
+    assert (tmp_path / "dest" / "a.jpg").read_bytes() == b"was here"  # back out of the Trash
+    assert not (tmp_path / "dest" / "b.jpg").exists()
+
+    assert {r.run for r in last_run(journal)} == {"run-1"}
+    assert (tmp_path / "dest" / "first.jpg").exists()
+
+
+def test_undo_leaves_changed_things_alone(tmp_path: Path) -> None:
+    from vaquero.engine import last_run, undo_run
+
+    journal = tmp_path / "moves.csv"
+    a = touch(tmp_path / "src" / "a.jpg", b"aaa")
+    b = touch(tmp_path / "src" / "b.jpg", b"bbb")
+    transfer_matches([a, b], tmp_path / "dest", journal, mode=Transfer.COPY, run="r")
+    (tmp_path / "dest" / "a.jpg").write_bytes(b"edited after the copy")
+    b.unlink()  # the copy is now the only one
+
+    assert undo_run(last_run(journal), journal) == (0, 0, 2)
+    assert (tmp_path / "dest" / "a.jpg").exists() and (tmp_path / "dest" / "b.jpg").exists()
+
+
+def test_undo_across_volumes_puts_files_back(tmp_path: Path, volume: Path) -> None:
+    from vaquero.engine import last_run, undo_run
+
+    journal = tmp_path / "moves.csv"
+    a = touch(tmp_path / "src" / "a.jpg", b"aaa")
+    transfer_matches([a], volume / "out", journal, run="r")
+    assert not a.exists()
+
+    assert undo_run(last_run(journal), journal) == (1, 0, 0)
+    assert a.read_bytes() == b"aaa" and not (volume / "out" / "a.jpg").exists()
+    assert last_run(journal) == []
+
+
+def test_rows_from_older_versions_are_read_but_not_undone(tmp_path: Path) -> None:
+    from vaquero.engine import last_run, read_journal
+
+    journal = tmp_path / "moves.csv"
+    journal.write_text("/a/x.jpg,/b/x.jpg,moved\n")
+
+    assert read_journal(journal)[0].action == "moved"
+    assert last_run(journal) == []

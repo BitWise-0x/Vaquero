@@ -31,7 +31,13 @@ macOS asks once for each kind of place Vaquero opens. Click **Allow**.
 | Copies or moves the matches | The same **Allow** for the destination |
 | Reads photos anywhere else in your home folder, such as Pictures | Nothing |
 
-Vaquero checks access to the chosen folders at launch and before each scan. If a place was denied, it shows a window with an **Open Settings** button and the steps to turn access back on.
+Vaquero checks access to the chosen folders at launch and before each scan. If a place was denied, it shows a window with an **Open Settings** button and the steps to turn access back on. **Settings > Access** shows each chosen folder's state and whether Vaquero has Full Disk Access, which covers every place at once.
+
+## First launch
+
+Opened from the disk image, the Downloads folder, or a temporary copy macOS makes of an app opened straight from Downloads, Vaquero offers to move itself into the Applications folder (or `~/Applications` for an account that cannot write to `/Applications`) and reopen from there. The copy in Applications keeps its updates, login item and privacy permissions.
+
+Only one copy of Vaquero runs at a time; opening it again brings up a note instead of a second copy.
 
 ## Updates
 

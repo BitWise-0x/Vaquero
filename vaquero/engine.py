@@ -12,6 +12,7 @@ from collections import deque
 from collections.abc import Callable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from functools import partial
 from itertools import islice
@@ -22,6 +23,8 @@ import cv2
 import numpy as np
 import onnxruntime as ort
 import pi_heif
+
+from vaquero import macos
 
 log = logging.getLogger("vaquero")
 # CoreML partition warnings on every session are noise for users
@@ -511,15 +514,29 @@ def _sync(fh: object) -> None:
         os.fsync(fd)
 
 
-def _place(src: Path, dst: Path, mode: Transfer) -> bool:
-    """Put src at dst, replacing what is there; True when a Move kept its source.
+class Placed(NamedTuple):
+    kept_source: bool  # a Move whose source could not be removed after its copy: a copy in effect
+    trashed: str  # where the file it replaced went in the Trash, "" when it replaced nothing or had no Trash
+
+
+def _make_room(dst: Path) -> str:
+    """Send the file about to be replaced to the Trash, so an undo, or the user, can put it back. A volume without
+    a Trash (some network shares) leaves it for the rename to replace, as before."""
+    if not dst.exists():
+        return ""
+    return macos.trash(str(dst)) or ""
+
+
+def _place(src: Path, dst: Path, mode: Transfer) -> Placed:
+    """Put src at dst, replacing what is there (that file goes to the Trash first).
 
     A Move within one volume is a single atomic rename. Anything else is copied to a hidden name beside dst, flushed
     to disk and size-checked, then renamed over dst, so a failed copy never leaves a partial file under the real name
     or touches the file it would replace. A Move removes its source only after that."""
     if mode is Transfer.MOVE and src.stat().st_dev == dst.parent.stat().st_dev:
+        trashed = _make_room(dst)
         os.replace(src, dst)
-        return False
+        return Placed(False, trashed)
     tmp = dst.with_name(f".{dst.name}.vaquero-part")
     try:
         shutil.copy2(src, tmp)
@@ -527,18 +544,19 @@ def _place(src: Path, dst: Path, mode: Transfer) -> bool:
             _sync(fh)
         if (got := tmp.stat().st_size) != (want := src.stat().st_size):
             raise OSError(errno.EIO, f"copy is {got} bytes, the original {want}", str(dst))
+        trashed = _make_room(dst)
         os.replace(tmp, dst)
     except BaseException:
         tmp.unlink(missing_ok=True)
         raise
     if mode is Transfer.COPY:
-        return False
+        return Placed(False, trashed)
     try:
         src.unlink()
     except OSError as e:
         log.error("copied %s but could not remove the original: %s", src, e, extra={"link": src, "link_text": str(src)})
-        return True
-    return False
+        return Placed(True, trashed)
+    return Placed(False, trashed)
 
 
 def _check_space(paths: list[Path], dest: Path, mode: Transfer) -> None:
@@ -574,6 +592,7 @@ def transfer_matches(
     conflict: Conflict = Conflict.KEEP_BOTH,
     mode: Transfer = Transfer.MOVE,
     on_moved: Callable[[Path], None] = lambda src: None,
+    run: str = "",
 ) -> TransferCounts:
     """Move or copy files into dest.
 
@@ -581,13 +600,15 @@ def transfer_matches(
     name was taken and both were kept, or ", overwrote" when the existing file was replaced. Each row is on disk
     before the next file starts. Overwrite replaces only files that were there before this batch: two matches with
     the same name from different subfolders are both kept. Cancelling stops between files, so no file is ever left
-    half moved or copied. A file already in the destination (see _already_there) is skipped, so running a stopped
+    half moved or copied. Rows carry run (a new run id when empty), so Undo can reverse one run, and where a
+    replaced file went in the Trash. A file already in the destination (see _already_there) is skipped, so running a stopped
     batch again does not duplicate what it did. Raises TransferStopped when the destination stops taking files."""
     dest.mkdir(parents=True, exist_ok=True)
     _check_space(paths, dest, mode)
     for stale in dest.glob(".*.vaquero-part"):  # left by a copy the app was quit or killed in the middle of
         stale.unlink(missing_ok=True)
     verb = "moved" if mode is Transfer.MOVE else "copied"
+    run = run or new_run_id()
     done = failed = skipped = 0
     placed: set[str] = set()  # names written by this batch, casefolded as APFS and HFS+ compare them
     with journal.open("a", newline="") as fh:
@@ -609,7 +630,8 @@ def transfer_matches(
                 else:
                     dst, action = _free_name(dst), f"{verb}, renamed"
             try:
-                if _place(src, dst, mode):
+                result = _place(src, dst, mode)
+                if result.kept_source:
                     action = action.replace("moved", "copied", 1)
             except OSError as e:
                 log.error("%s failed %s -> %s: %s", mode.value, src, dst, e, extra={"link": src, "link_text": str(src)})
@@ -625,7 +647,7 @@ def transfer_matches(
                 continue
             placed.add(dst.name.casefold())
             try:
-                w.writerow([str(src), str(dst), action])
+                w.writerow([str(src), str(dst), action, run, result.trashed])
                 fh.flush()
                 _sync(fh)
             except OSError as e:
@@ -636,7 +658,114 @@ def transfer_matches(
             link = {"link": dst, "link_text": dst.name}
             if action.endswith("renamed"):
                 log.info("%s %s, name taken, kept both as %s", verb, src.name, dst.name, extra=link)
+            elif result.trashed:
+                log.info("%s %s, the file it replaced is in the Trash", verb, dst.name, extra=link)
             else:
                 log.info("%s %s", verb, dst.name, extra=link)
     progress(len(paths), len(paths))
     return TransferCounts(done, failed, skipped)
+
+
+def new_run_id() -> str:
+    return datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+
+
+class JournalRow(NamedTuple):
+    src: Path
+    dst: Path
+    action: str
+    run: str  # "" for rows written before runs were recorded
+    trashed: str  # where a replaced file went in the Trash
+
+
+UNDONE = "undone"
+
+
+def read_journal(journal: Path) -> list[JournalRow]:
+    """Every row of the journal; rows from older versions have no run and no Trash location."""
+    if not journal.exists():
+        return []
+    rows = []
+    with journal.open(newline="") as fh:
+        for cells in csv.reader(fh):
+            if len(cells) < 3:
+                continue
+            cells += [""] * (5 - len(cells))
+            rows.append(JournalRow(Path(cells[0]), Path(cells[1]), cells[2], cells[3], cells[4]))
+    return rows
+
+
+def last_run(journal: Path) -> list[JournalRow]:
+    """The rows of the newest copy or move that has not been undone, in the order they were done; [] when there is
+    none (rows from before runs were recorded cannot be undone here)."""
+    rows = read_journal(journal)
+    undone = {r.run for r in rows if r.action == UNDONE}
+    runs = [r.run for r in rows if r.run and r.action != UNDONE and r.run not in undone]
+    if not runs:
+        return []
+    latest = runs[-1]
+    return [r for r in rows if r.run == latest and r.action != UNDONE]
+
+
+def undo_run(
+    rows: list[JournalRow],
+    journal: Path,
+    progress: Callable[[int, int], None] = lambda done, total: None,
+    cancelled: Callable[[], bool] = lambda: False,
+) -> TransferCounts:
+    """Reverse one run, newest file first: moved files go back where they were, copies go to the Trash, and files
+    an overwrite replaced come back out of the Trash. Anything changed since (a file back in its old place, a copy
+    edited, the original of a copy gone) is left alone and logged. Completed, the run is marked undone."""
+    done = failed = skipped = 0
+    for i, row in enumerate(reversed(rows), 1):
+        if cancelled():
+            log.warning("undo cancelled after %d of %d files; Undo again to finish it", i - 1, len(rows))
+            return TransferCounts(done, failed, skipped)
+        progress(i - 1, len(rows))
+        try:
+            if _undo_row(row):
+                done += 1
+            else:
+                skipped += 1
+        except OSError as e:
+            log.error("could not undo %s: %s", row.dst.name, e, extra={"link": row.dst, "link_text": row.dst.name})
+            failed += 1
+    progress(len(rows), len(rows))
+    if not failed:
+        with journal.open("a", newline="") as fh:
+            csv.writer(fh).writerow(["", "", UNDONE, rows[0].run, ""])
+            fh.flush()
+            _sync(fh)
+    return TransferCounts(done, failed, skipped)
+
+
+def _undo_row(row: JournalRow) -> bool:
+    """Reverse one row; False when it was left alone (logged why)."""
+    link = {"link": row.dst, "link_text": row.dst.name}
+    if not row.dst.exists():
+        log.warning("%s is no longer in the destination; nothing to undo", row.dst.name, extra=link)
+        return False
+    if row.action.startswith("moved"):
+        if row.src.exists():
+            log.warning("%s is back in its old place already; left as is", row.src.name, extra=link)
+            return False
+        row.src.parent.mkdir(parents=True, exist_ok=True)
+        _place(row.dst, row.src, Transfer.MOVE)
+        log.info("moved %s back", row.src.name, extra={"link": row.src, "link_text": row.src.name})
+    elif row.action.startswith("copied"):
+        if not row.src.exists():
+            log.warning("kept the copy %s: its original is gone", row.dst.name, extra=link)
+            return False
+        if not _already_there(row.src, row.dst):
+            log.warning("kept the copy %s: it changed after the copy", row.dst.name, extra=link)
+            return False
+        if not macos.trash(str(row.dst)):
+            raise OSError(errno.EPERM, "could not move the copy to the Trash", str(row.dst))
+        log.info("moved the copy %s to the Trash", row.dst.name, extra=link)
+    else:
+        log.warning("cannot undo %s (%s)", row.dst.name, row.action, extra=link)
+        return False
+    if row.trashed and Path(row.trashed).exists() and not row.dst.exists():
+        _place(Path(row.trashed), row.dst, Transfer.MOVE)
+        log.info("put back %s from the Trash", row.dst.name, extra=link)
+    return True

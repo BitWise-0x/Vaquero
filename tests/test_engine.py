@@ -70,7 +70,7 @@ def test_move_keep_both_renames_and_journals(tmp_path: Path) -> None:
     assert (dest / "a 2.jpg").read_bytes() == b"older"
     assert (dest / "a 3.jpg").read_bytes() == b"newer"
     assert not a.exists() and not b.exists()
-    assert list(csv.reader(journal.open())) == [
+    assert [r[:3] for r in csv.reader(journal.open())] == [
         [str(a), str(dest / "a 3.jpg"), "moved, renamed"],
         [str(b), str(dest / "b.jpg"), "moved"],
     ]
@@ -85,7 +85,7 @@ def test_move_overwrite_replaces(tmp_path: Path) -> None:
     assert transfer_matches([a], dest, journal, conflict=Conflict.OVERWRITE) == (1, 0, 0)
     assert (dest / "a.jpg").read_bytes() == b"newer"
     assert sorted(p.name for p in dest.iterdir()) == ["a.jpg"]
-    assert list(csv.reader(journal.open())) == [[str(a), str(dest / "a.jpg"), "moved, overwrote"]]
+    assert [r[:3] for r in csv.reader(journal.open())] == [[str(a), str(dest / "a.jpg"), "moved, overwrote"]]
 
 
 
@@ -99,7 +99,7 @@ def test_copy_keeps_the_source(tmp_path: Path) -> None:
     assert a.read_bytes() == b"newer"
     assert (dest / "a.jpg").read_bytes() == b"old"
     assert (dest / "a 2.jpg").read_bytes() == b"newer"
-    assert list(csv.reader(journal.open())) == [[str(a), str(dest / "a 2.jpg"), "copied, renamed"]]
+    assert [r[:3] for r in csv.reader(journal.open())] == [[str(a), str(dest / "a 2.jpg"), "copied, renamed"]]
 
 
 MODEL_DIR = Path(__file__).resolve().parent.parent / "models" / "buffalo_l"

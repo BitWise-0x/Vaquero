@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v0.28.0 (2026-11-21)
+
+### Continuous Integration
+
+- **release**: Attach only the versioned DMG
+  ([`76438c4`](https://github.com/BitWise-0x/Vaquero/commit/76438c44ceec21e48be5be268634377125532b87))
+
+### Documentation
+
+- Screenshots at 0.27.5, the menu bar menu with its larger bar and short line
+  ([`2444141`](https://github.com/BitWise-0x/Vaquero/commit/2444141bfcfbf40e0954d8f3cd13fbce4b7615c6))
+
+- The self-test in Development, the model's own release in Versioning, vaquero.lock in Files
+  ([`1caf939`](https://github.com/BitWise-0x/Vaquero/commit/1caf9393c2d5cb0606695bfe48553a81ffe54d8f))
+
+### Features
+
+- **log**: A References section, photo and video counts in the result, one bar per move or copy
+  ([`5a776e4`](https://github.com/BitWise-0x/Vaquero/commit/5a776e4e22c370096b57426551491636a39a7b2a))
+
+
 ## v0.27.5 (2026-11-21)
 
 ### Bug Fixes

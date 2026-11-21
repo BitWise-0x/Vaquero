@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.27.3 (2026-11-21)
+
+### Bug Fixes
+
+- **menubar**: The working icon sweeps in amber; the menu's progress line has an amber bar
+  ([`d49318e`](https://github.com/BitWise-0x/Vaquero/commit/d49318ed9ee02e974c681f052bce954cec32162b))
+
+
 ## v0.27.2 (2026-11-21)
 
 

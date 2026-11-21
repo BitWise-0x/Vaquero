@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v0.27.1 (2026-11-21)
+
+### Bug Fixes
+
+- **app**: Confirmations from the menu bar come to the front; undo waits for a disconnected drive
+  ([`62e6e66`](https://github.com/BitWise-0x/Vaquero/commit/62e6e66173fa1c564aefc00d883b9be8f40e74fa))
+
+- **build**: The built app runs a self-test before it ships; CI loads the real face model
+  ([`9a21a72`](https://github.com/BitWise-0x/Vaquero/commit/9a21a72117a480c496b6d2c881d6c11b8ca8b6ce))
+
+### Documentation
+
+- Screenshots of the menu bar menu, results and the new Settings window
+  ([`0830e21`](https://github.com/BitWise-0x/Vaquero/commit/0830e2105f8feefe7f02b61da1bd3369d2c28ed9))
+
+
 ## v0.27.0 (2026-11-21)
 
 ### Features

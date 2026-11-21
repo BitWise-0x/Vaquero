@@ -2,6 +2,30 @@
 
 <!-- version list -->
 
+## v0.27.4 (2026-11-21)
+
+### Bug Fixes
+
+- **menubar**: The menu opens on a full-width amber progress bar that moves while it is open
+  ([`ed314c8`](https://github.com/BitWise-0x/Vaquero/commit/ed314c8b0002a442d6e89af4948955c9a3aaa762))
+
+### Chores
+
+- **selftest**: Leave no throwaway settings folder behind
+  ([`d26cf29`](https://github.com/BitWise-0x/Vaquero/commit/d26cf29b76b6725b7728dff05e6f79dc0bc245bb))
+
+### Documentation
+
+- Screenshots of Undo and the log's right-click menu, all at the current version; new
+  troubleshooting
+  ([`3aa1061`](https://github.com/BitWise-0x/Vaquero/commit/3aa1061cd9fea51a44dc86a94691cb9e2eb02ec8))
+
+### Testing
+
+- The deferred launch update check no longer races its stand-in download
+  ([`cb60cc6`](https://github.com/BitWise-0x/Vaquero/commit/cb60cc68121a9aa7f45c0cb51f508271cfc19e5f))
+
+
 ## v0.27.3 (2026-11-21)
 
 ### Bug Fixes

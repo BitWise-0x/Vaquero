@@ -199,7 +199,7 @@ Undo again for the copy or move before it.</p>
 <h3>Menu bar and Dock</h3>
 <p>Vaquero shows in the Dock, the menu bar, or both (<b>Vaquero &gt; Settings</b>). With the menu bar icon, closing the
 window keeps Vaquero running there: its amber scan line sweeps while a scan, copy, move or download runs, and its
-menu shows the progress with Cancel, Scan, Undo and Quit. <b>Quit</b> or <b>⌘Q</b> quits.</p>
+menu opens on the job's progress bar and time left, with Cancel, Scan, Undo and Quit. <b>Quit</b> or <b>⌘Q</b> quits.</p>
 
 <h3>Shortcuts</h3>
 <ul>

@@ -35,14 +35,21 @@ def touch(path: Path, data: bytes = b"x") -> Path:
     return path
 
 
-def test_progress_line_for_the_menu() -> None:
-    assert menubar.progress_text("scan", 50, 200, "50 of 200 files") == "25%  scan: 50 of 200 files"
-    assert menubar.progress_text("listing", 0, 0, "1,200 found").startswith("0%")
+def test_progress_view_draws_an_amber_bar_and_the_line() -> None:
+    assert menubar.progress_text("scan", 50, 200, "50 of 200 files") == "Scan: 50 of 200 files"
+    assert menubar.fraction(5, 0) == 0.0 and menubar.fraction(300, 200) == 1.0
     QApplication.instance() or QApplication([])
-    bar = menubar.progress_bar(0.25).pixmap(menubar.BAR_SIZE[0] * 2, menubar.BAR_SIZE[1] * 2).toImage()
-    amber, track = bar.pixelColor(bar.width() // 8, bar.height() // 2), bar.pixelColor(bar.width() * 7 // 8, bar.height() // 2)
-    assert amber.name() == ui.theme.SIGNAL  # filled in the accent up to 25%
-    assert track.name() != ui.theme.SIGNAL
+    view = menubar.ProgressView()
+    view.show_state(0.25, "Scan: 50 of 200 files", dark=True)
+    img = view.grab().toImage()
+    v = menubar.ProgressView
+    bar_w = v.WIDTH - v.INSET - v.RIGHT - v.PCT_W
+    y = (v.BAR_Y + v.BAR_H // 2) * img.width() // v.WIDTH
+    scale = img.width() / v.WIDTH
+    filled = img.pixelColor(int((v.INSET + bar_w * 0.1) * scale), y)
+    empty = img.pixelColor(int((v.INSET + bar_w * 0.9) * scale), y)
+    assert filled.name() == ui.theme.SIGNAL  # filled in the accent up to 25%
+    assert empty.name() != ui.theme.SIGNAL
 
 
 def test_icon_sweeps_while_working_and_holds_still_otherwise(w: "ui.Window") -> None:
@@ -63,12 +70,16 @@ def test_menu_follows_the_running_job(w: "ui.Window") -> None:
     w.job, w.task = ui.TaskWorker(lambda p, c: None), "a scan"
     w.progress_state = ("scan", 30, 120, "30 of 120 files")
     w.status.setText("Scanned: <b>30 of 120</b>")
-    w.status_item.refresh()
+    item = w.status_item
+    item.refresh()
 
-    assert w.status_item.status_action.text() == "Scanned: 30 of 120"
-    assert w.status_item.progress_action.isVisible() and "25%" in w.status_item.progress_action.text()
-    assert w.status_item.cancel_action.isEnabled() and not w.status_item.scan_action.isEnabled()
+    assert item.progress_action.isVisible() and not item.status_action.isVisible()
+    assert (item.progress_view.frac, item.progress_view.line) == (0.25, "Scan: 30 of 120 files")
+    assert item.cancel_action.isEnabled() and not item.scan_action.isEnabled()
     w.job = w.task = None
+    item.refresh()
+    assert item.status_action.isVisible() and not item.progress_action.isVisible()
+    assert item.status_action.text() == "Scanned: 30 of 120"
 
 
 def test_time_left() -> None:
@@ -230,12 +241,10 @@ def test_right_click_on_a_log_link_offers_open_show_and_copy(w: "ui.Window", tmp
     assert "Open" not in plain
 
 
-def test_status_lines_in_the_menu_open_the_window(w: "ui.Window", monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_status_line_in_the_menu_opens_the_window(w: "ui.Window", monkeypatch: pytest.MonkeyPatch) -> None:
     shown: list[bool] = []
     monkeypatch.setattr(w, "show_window", lambda: shown.append(True))
     item = menubar.StatusItem(w, ui.asset)
-    item.progress_action.setVisible(True)  # shown while a job runs; Qt counts a hidden action as disabled
-    assert item.status_action.isEnabled() and item.progress_action.isEnabled()
+    assert item.status_action.isEnabled()  # full contrast, not dimmed
     item.status_action.trigger()
-    item.progress_action.trigger()
-    assert shown == [True, True]
+    assert shown == [True]

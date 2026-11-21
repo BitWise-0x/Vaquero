@@ -62,11 +62,15 @@ Three to five clear photos of the person are enough. No training.
 
 | Menu bar | Settings |
 |---|---|
-| <img src="docs/screenshots/menubar.png" alt="The menu bar menu during a scan: progress, time left, Cancel, Undo" width="420"/> | <img src="docs/screenshots/settings.png" alt="Settings" width="420"/> |
+| <img src="docs/screenshots/menubar.webp" alt="The menu bar menu during a scan: an amber progress bar and the time left, moving while the menu stays open" width="420"/> | <img src="docs/screenshots/settings.png" alt="Settings" width="420"/> |
 
 | Results | Help |
 |---|---|
 | <img src="docs/screenshots/results.png" alt="A finished scan with its matches listed" width="420"/> | <img src="docs/screenshots/help.png" alt="Help" width="420"/> |
+
+| Undo | Log links |
+|---|---|
+| <img src="docs/screenshots/undo.png" alt="Edit > Undo asking before it reverses the last copy" width="420"/> | <img src="docs/screenshots/log-menu.png" alt="Right-click on a file in the log: Open, Show in Finder, Copy Path" width="420"/> |
 
 ---
 
@@ -144,10 +148,10 @@ flowchart LR
 
 Also at [vaquero.bitwise0x.com](https://vaquero.bitwise0x.com/docs/install/)
 
-- [Install](docs/install.md): requirements, permissions, updates, uninstall
-- [Using Vaquero](docs/using.md): options, file types, scores and the threshold, the log
+- [Install](docs/install.md): requirements, first launch, permissions, updates, uninstall
+- [Using Vaquero](docs/using.md): options, scores and the threshold, progress, undo, the menu bar and Dock, menus and shortcuts, settings, the log
 - [Reference photos](docs/reference-photos.md): what makes a good set, and how the person is chosen
-- [Files](docs/files.md): logs, scan reports and the move journal
+- [Files](docs/files.md): logs, scan reports, the crash and update logs, and the move journal
 - [How it works](docs/how-it-works.md): detection, recognition, performance and the face model
 - [Troubleshooting](docs/troubleshooting.md)
 

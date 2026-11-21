@@ -66,7 +66,10 @@ Changing the threshold after a scan updates the matches without scanning again. 
 
 ## Undo
 
-**Edit > Undo** (⌘Z) reverses the last copy or move, and is also in the menu bar menu:
+**Edit > Undo** (⌘Z) reverses the last copy or move, and is also in the menu bar menu. It asks first:
+
+![Edit > Undo asking before it reverses the last copy](screenshots/undo.png)
+
 
 - Moved files go back to where they were.
 - Copies go to the Trash.
@@ -77,7 +80,7 @@ Undo again for the copy or move before that. Copies and moves made before Undo e
 
 ## Menu bar and Dock
 
-![The menu bar menu during a scan](screenshots/menubar.png)
+![The menu bar menu during a scan, its progress moving while it stays open](screenshots/menubar.webp)
 
 Vaquero shows in the Dock, in the menu bar, or both; choose in **Settings**. One of them is always on.
 
@@ -86,7 +89,7 @@ Vaquero shows in the Dock, in the menu bar, or both; choose in **Settings**. One
 
   ![The menu bar icon during a scan](screenshots/menubar-icon.webp)
 
-- Its menu shows what is running, with an amber progress bar and the time left that keep moving while the menu is open, then **Cancel**, **Open Vaquero**, **Scan**, **Undo**, **Show in Dock**, **Settings…**, **Check for Updates…**, **Open Log**, **Vaquero Help** and **Quit Vaquero**. Clicking the status or progress line opens the window.
+- Its menu opens on the running job: an amber progress bar with the percentage, then what is running and the time left, all moving while the menu stays open. Below come **Cancel**, **Open Vaquero**, **Scan**, **Undo**, **Show in Dock**, **Settings…**, **Check for Updates…**, **Open Log**, **Vaquero Help** and **Quit Vaquero**. Idle, the first line is the last result; clicking it opens the window.
 - Menu bar only: Vaquero has no Dock icon and no menu bar of its own; everything is in the menu bar menu.
 
 ## Menus and shortcuts
@@ -115,5 +118,7 @@ Vaquero shows in the Dock, in the menu bar, or both; choose in **Settings**. One
 ## The log
 
 The log opens with the version and the engine in use, then splits into sections: **Setup**, **Scanning**, **Matches**, **Result**, then **Move** or **Copy**. Matches are green, review matches and warnings orange, errors red. Every file and folder name is a link: click it to open it, Option-click to show it in the Finder, or right-click for **Open**, **Show in Finder** and **Copy Path**. Hovering shows the full path. A file no longer there is reported in the status line, with the nearest folder that still is in the log.
+
+![Right-click on a file in the log: Open, Show in Finder, Copy Path](screenshots/log-menu.png)
 
 Each **Scan** clears the log view and starts a new log file; the copy or move that follows writes to the same file. See [Files](files.md).

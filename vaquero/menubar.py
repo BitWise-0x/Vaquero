@@ -2,8 +2,11 @@
 
 Idle, the icon is a template image, which macOS tints for whatever is behind the menu bar. While a scan, copy, move
 or download runs, the amber scan line sweeps across it as in the window header: those frames are drawn in color,
-the buffalo and corners in the menu bar's own light or dark, read from the icon's appearance when the job starts.
-The menu's progress line carries an amber bar."""
+the buffalo and corners in the menu bar's own light or dark, read from the icon's appearance each sweep.
+
+The menu opens on the progress of the running job: an amber bar with the percentage, then what is running and the
+time left. It is a view of its own inside the menu: macOS draws menu item images at icon size, and a view keeps
+redrawing while the menu stays open."""
 
 from __future__ import annotations
 
@@ -11,8 +14,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, QRectF, Qt, QTimer
-from PySide6.QtGui import QAction, QColor, QGuiApplication, QIcon, QPainter, QPixmap
-from PySide6.QtWidgets import QMenu, QSystemTrayIcon
+from PySide6.QtGui import QAction, QColor, QFont, QFontMetrics, QGuiApplication, QIcon, QPainter, QPixmap
+from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QWidget, QWidgetAction
 
 from vaquero import macos, theme
 
@@ -21,8 +24,6 @@ if TYPE_CHECKING:
 
 SIZES = (18, 36)  # 18 pt at 1x and 2x
 GLOW_ALPHA = (0.28, 0.55, 1.0)  # the scan line's halo, inner halo and core, as in the window header
-BAR_SIZE = (120, 8)  # the progress bar in the menu, in points
-BAR_TRACK = QColor(128, 128, 128, 90)
 SWEEP_FRAMES, HOLD_FRAMES, FRAME_MS = 16, 8, 125  # a 2 s sweep, then 1 s still, at 8 frames a second
 INSET = 0.14  # the line stays inside the viewfinder corners, as in the window header
 
@@ -57,27 +58,6 @@ def color_icon(pixmaps: list[QPixmap]) -> QIcon:
     return icon
 
 
-def progress_bar(frac: float) -> QIcon:
-    """The amber bar for the menu's progress line, at 1x and 2x."""
-    icon = QIcon()
-    w, h = BAR_SIZE
-    for scale in (1, 2):
-        pix = QPixmap(w * scale, h * scale)
-        pix.setDevicePixelRatio(scale)
-        pix.fill(Qt.GlobalColor.transparent)
-        p = QPainter(pix)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(BAR_TRACK)
-        p.drawRoundedRect(QRectF(0, 0, w, h), h / 2, h / 2)
-        if frac > 0:
-            p.setBrush(QColor(theme.SIGNAL))
-            p.drawRoundedRect(QRectF(0, 0, max(h, w * min(frac, 1.0)), h), h / 2, h / 2)
-        p.end()
-        icon.addPixmap(pix)
-    return icon
-
-
 def template_icon(pixmaps: list[QPixmap]) -> QIcon:
     icon = QIcon()
     for pix in pixmaps:
@@ -91,8 +71,65 @@ def fraction(done: int, total: int) -> float:
 
 
 def progress_text(label: str, done: int, total: int, detail: str) -> str:
-    """The progress line beside its bar: the percentage, what is running and how far along."""
-    return f"{fraction(done, total):.0%}  {label}: {detail}"
+    """The line under the bar: what is running and how far along."""
+    return f"{label.capitalize()}: {detail}"
+
+
+def menu_is_dark() -> bool:
+    """Menus follow the system appearance."""
+    return QGuiApplication.styleHints().colorScheme() != Qt.ColorScheme.Light
+
+
+class ProgressView(QWidget):
+    """The top of the menu while a job runs: an amber bar with the percentage, then what is running and the time
+    left, lined up with the menu's item text. A fixed size, so the menu keeps its width as the numbers change."""
+
+    WIDTH, HEIGHT = 300, 48
+    INSET, RIGHT = 30, 18  # the menu's item text starts this far in; room on the right
+    BAR_Y, BAR_H, PCT_W = 12, 6, 44
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setFixedSize(self.WIDTH, self.HEIGHT)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.frac, self.line, self.dark = 0.0, "", True
+
+    def show_state(self, frac: float, line: str, dark: bool) -> None:
+        if (frac, line, dark) != (self.frac, self.line, self.dark):
+            self.frac, self.line, self.dark = frac, line, dark
+            self.update()
+
+    def paintEvent(self, _: object) -> None:  # noqa: N802 (Qt override)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        ink = QColor(255, 255, 255) if self.dark else QColor(0, 0, 0)
+        track = QColor(ink)
+        track.setAlphaF(0.18)
+        bar_w = self.WIDTH - self.INSET - self.RIGHT - self.PCT_W
+        r = self.BAR_H / 2
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(track)
+        p.drawRoundedRect(QRectF(self.INSET, self.BAR_Y, bar_w, self.BAR_H), r, r)
+        if self.frac > 0:
+            p.setBrush(QColor(theme.SIGNAL))
+            p.drawRoundedRect(QRectF(self.INSET, self.BAR_Y, max(self.BAR_H, bar_w * self.frac), self.BAR_H), r, r)
+        pct = QFont(self.font())
+        pct.setPointSizeF(13)
+        pct.setBold(True)
+        p.setFont(pct)
+        p.setPen(QColor(theme.SIGNAL))
+        box = QRectF(self.WIDTH - self.RIGHT - self.PCT_W, self.BAR_Y - 8, self.PCT_W, self.BAR_H + 16)
+        p.drawText(box, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, f"{self.frac:.0%}")
+        text = QFont(self.font())
+        text.setPointSizeF(12.5)
+        p.setFont(text)
+        soft = QColor(ink)
+        soft.setAlphaF(0.72)
+        p.setPen(soft)
+        width = self.WIDTH - self.INSET - self.RIGHT
+        line = QFontMetrics(text).elidedText(self.line, Qt.TextElideMode.ElideRight, width)
+        p.drawText(QRectF(self.INSET, self.BAR_Y + self.BAR_H + 6, width, 20), Qt.AlignmentFlag.AlignLeft, line)
+        p.end()
 
 
 class StatusItem(QObject):
@@ -105,15 +142,17 @@ class StatusItem(QObject):
         self.frames: list[QIcon] = []
         self._draw_frames(dark=True)
         self.frame = 0
-        self.shown_fraction = -1.0
 
         self.tray = QSystemTrayIcon(self.still, self)
         self.tray.setToolTip("Vaquero")
         self.menu = QMenu()
-        # both open the window; enabled, macOS draws them at full contrast instead of dimmed
-        self.status_action = self._add("Ready", window.show_window)
-        self.progress_action = self._add("", window.show_window)
+        self.progress_view = ProgressView()
+        self.progress_action = QWidgetAction(self.menu)
+        self.progress_action.setDefaultWidget(self.progress_view)
         self.progress_action.setVisible(False)
+        self.menu.addAction(self.progress_action)
+        # opens the window; enabled, macOS draws it at full contrast instead of dimmed
+        self.status_action = self._add("Ready", window.show_window)
         self.cancel_action = self._add("Cancel", lambda: (window.show_window(), window.cancel_job()))
         self.menu.addSeparator()
         self._add("Open Vaquero", window.show_window)
@@ -188,13 +227,11 @@ class StatusItem(QObject):
         status = w.status_plain()
         self.status_action.setText(status if len(status) <= 70 else status[:69] + "…")
         state = w.progress_state if w.busy else None
+        # while a job runs, its progress takes the status line's place
         self.progress_action.setVisible(state is not None)
+        self.status_action.setVisible(state is None)
         if state is not None:
-            self.progress_action.setText(progress_text(*state))
-            frac = round(fraction(state[1], state[2]), 2)
-            if frac != self.shown_fraction:  # a new bar image only when it would look different
-                self.progress_action.setIcon(progress_bar(frac))
-                self.shown_fraction = frac
+            self.progress_view.show_state(fraction(state[1], state[2]), progress_text(*state), menu_is_dark())
             label, done, total, _ = state
             pct = f" {done * 100 // total}%" if total > 0 else ""
             self.tray.setToolTip(f"Vaquero: {label}{pct}")

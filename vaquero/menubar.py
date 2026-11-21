@@ -1,39 +1,81 @@
 """Vaquero's menu bar icon and its menu: what is running, how far along, and the actions that need no window.
 
-The icon is a template image (macOS tints it for a light or dark menu bar). It holds still while Vaquero is idle,
-and the scan line sweeps across it while a scan, copy, move or download runs, as it does in the window header."""
+Idle, the icon is a template image, which macOS tints for whatever is behind the menu bar. While a scan, copy, move
+or download runs, the amber scan line sweeps across it as in the window header: those frames are drawn in color,
+the buffalo and corners in the menu bar's own light or dark, read from the icon's appearance when the job starts.
+The menu's progress line carries an amber bar."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QObject, QRectF, QTimer
-from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
+from PySide6.QtCore import QObject, QRectF, Qt, QTimer
+from PySide6.QtGui import QAction, QColor, QGuiApplication, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
+
+from vaquero import macos, theme
 
 if TYPE_CHECKING:
     from vaquero.app import Window
 
 SIZES = (18, 36)  # 18 pt at 1x and 2x
+GLOW_ALPHA = (0.28, 0.55, 1.0)  # the scan line's halo, inner halo and core, as in the window header
+BAR_SIZE = (120, 8)  # the progress bar in the menu, in points
+BAR_TRACK = QColor(128, 128, 128, 90)
 SWEEP_FRAMES, HOLD_FRAMES, FRAME_MS = 16, 8, 125  # a 2 s sweep, then 1 s still, at 8 frames a second
 INSET = 0.14  # the line stays inside the viewfinder corners, as in the window header
-BAR_CELLS = 12
 
 
-def _frame(base: QPixmap, progress: float) -> QPixmap:
-    """base with the scan line at progress (0 top, 1 bottom). Drawn with XOR, so the line shows as a gap across the
-    buffalo and as a stroke across the empty parts: a template image has only one color."""
+def _frame(base: QPixmap, glyph: QColor, progress: float | None) -> QPixmap:
+    """base, the black template glyph, recolored to glyph, with the amber scan line glowing at progress (0 top,
+    1 bottom) as in the window header; no line when progress is None."""
     pix = base.copy()
+    p = QPainter(pix)
+    p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+    p.fillRect(pix.rect(), glyph)
+    p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+    if progress is None:
+        p.end()
+        return pix
     edge = pix.width()
     lo, hi = edge * INSET, edge * (1 - INSET)
     y = lo + progress * (hi - lo)
-    thick = max(1.0, edge / 18)
-    p = QPainter(pix)
-    p.setCompositionMode(QPainter.CompositionMode.CompositionMode_Xor)
-    p.fillRect(QRectF(lo, y - thick / 2, hi - lo, thick), QColor(0, 0, 0))
+    core = max(1.0, edge / 18)
+    for alpha, thick in zip(GLOW_ALPHA, (core * 3.5, core * 2, core), strict=True):
+        color = QColor(theme.SIGNAL)
+        color.setAlphaF(alpha)
+        p.fillRect(QRectF(lo - core, y - thick / 2, hi - lo + 2 * core, thick), color)
     p.end()
     return pix
+
+
+def color_icon(pixmaps: list[QPixmap]) -> QIcon:
+    icon = QIcon()
+    for pix in pixmaps:
+        icon.addPixmap(pix)
+    return icon
+
+
+def progress_bar(frac: float) -> QIcon:
+    """The amber bar for the menu's progress line, at 1x and 2x."""
+    icon = QIcon()
+    w, h = BAR_SIZE
+    for scale in (1, 2):
+        pix = QPixmap(w * scale, h * scale)
+        pix.setDevicePixelRatio(scale)
+        pix.fill(Qt.GlobalColor.transparent)
+        p = QPainter(pix)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(BAR_TRACK)
+        p.drawRoundedRect(QRectF(0, 0, w, h), h / 2, h / 2)
+        if frac > 0:
+            p.setBrush(QColor(theme.SIGNAL))
+            p.drawRoundedRect(QRectF(0, 0, max(h, w * min(frac, 1.0)), h), h / 2, h / 2)
+        p.end()
+        icon.addPixmap(pix)
+    return icon
 
 
 def template_icon(pixmaps: list[QPixmap]) -> QIcon:
@@ -44,28 +86,33 @@ def template_icon(pixmaps: list[QPixmap]) -> QIcon:
     return icon
 
 
+def fraction(done: int, total: int) -> float:
+    return min(done / total, 1.0) if total > 0 else 0.0
+
+
 def progress_text(label: str, done: int, total: int, detail: str) -> str:
-    """One menu line: a bar of block characters, the percentage and the detail."""
-    frac = min(done / total, 1.0) if total > 0 else 0.0
-    filled = round(frac * BAR_CELLS)
-    return f"{'▮' * filled}{'▯' * (BAR_CELLS - filled)}  {frac:.0%}  {label}: {detail}"
+    """The progress line beside its bar: the percentage, what is running and how far along."""
+    return f"{fraction(done, total):.0%}  {label}: {detail}"
 
 
 class StatusItem(QObject):
     def __init__(self, window: Window, asset: Callable[[str], object]) -> None:
         super().__init__(window)
         self.window = window
-        bases = [QPixmap(str(asset(f"MenuBar-{size}.png"))) for size in SIZES]
-        self.still = template_icon(bases)
-        frames = [i / (SWEEP_FRAMES - 1) for i in range(SWEEP_FRAMES)]
-        self.frames = [template_icon([_frame(b, f) for b in bases]) for f in frames] + [self.still] * HOLD_FRAMES
+        self.bases = [QPixmap(str(asset(f"MenuBar-{size}.png"))) for size in SIZES]
+        self.still = template_icon(self.bases)
+        self.dark: bool | None = None  # the menu bar the working frames were drawn for
+        self.frames: list[QIcon] = []
+        self._draw_frames(dark=True)
         self.frame = 0
+        self.shown_fraction = -1.0
 
         self.tray = QSystemTrayIcon(self.still, self)
         self.tray.setToolTip("Vaquero")
         self.menu = QMenu()
-        self.status_action = self._add("Ready", enabled=False)
-        self.progress_action = self._add("", enabled=False)
+        # both open the window; enabled, macOS draws them at full contrast instead of dimmed
+        self.status_action = self._add("Ready", window.show_window)
+        self.progress_action = self._add("", window.show_window)
         self.progress_action.setVisible(False)
         self.cancel_action = self._add("Cancel", lambda: (window.show_window(), window.cancel_job()))
         self.menu.addSeparator()
@@ -99,8 +146,27 @@ class StatusItem(QObject):
     def working(self) -> bool:
         return self.timer.isActive()
 
+    def _draw_frames(self, dark: bool) -> None:
+        """The sweep, then the glyph held still, in color: white on a dark menu bar, black on a light one."""
+        glyph = QColor(255, 255, 255, 235) if dark else QColor(0, 0, 0, 215)
+        steps = [i / (SWEEP_FRAMES - 1) for i in range(SWEEP_FRAMES)]
+        sweep = [color_icon([_frame(b, glyph, f) for b in self.bases]) for f in steps]
+        hold = color_icon([_frame(b, glyph, None) for b in self.bases])
+        self.frames = sweep + [hold] * HOLD_FRAMES
+        self.dark = dark
+
+    def _match_menu_bar(self) -> None:
+        """Redraw the working frames if the menu bar turned light or dark (on macOS 26 and later it follows the
+        wallpaper)."""
+        dark = macos.menu_bar_dark()
+        if dark is None:
+            dark = QGuiApplication.styleHints().colorScheme() != Qt.ColorScheme.Light
+        if dark != self.dark:
+            self._draw_frames(dark)
+
     def set_working(self, on: bool) -> None:
         if on and not self.timer.isActive():
+            self._match_menu_bar()
             self.frame = 0
             self.timer.start()
         elif not on and self.timer.isActive():
@@ -110,6 +176,8 @@ class StatusItem(QObject):
 
     def _tick(self) -> None:
         self.frame = (self.frame + 1) % len(self.frames)
+        if self.frame == 0:  # each sweep starts matched to the menu bar as it is now
+            self._match_menu_bar()
         self.tray.setIcon(self.frames[self.frame])
         if self.frame % 2 == 0:  # the open menu follows the job four times a second
             self.refresh()
@@ -123,6 +191,10 @@ class StatusItem(QObject):
         self.progress_action.setVisible(state is not None)
         if state is not None:
             self.progress_action.setText(progress_text(*state))
+            frac = round(fraction(state[1], state[2]), 2)
+            if frac != self.shown_fraction:  # a new bar image only when it would look different
+                self.progress_action.setIcon(progress_bar(frac))
+                self.shown_fraction = frac
             label, done, total, _ = state
             pct = f" {done * 100 // total}%" if total > 0 else ""
             self.tray.setToolTip(f"Vaquero: {label}{pct}")

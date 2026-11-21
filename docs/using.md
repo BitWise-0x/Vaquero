@@ -82,11 +82,11 @@ Undo again for the copy or move before that. Copies and moves made before Undo e
 Vaquero shows in the Dock, in the menu bar, or both; choose in **Settings**. One of them is always on.
 
 - With the menu bar icon, closing the window keeps Vaquero running there, with any scan, copy or move still going. Click the Dock icon or **Open Vaquero** in the menu bar menu to bring the window back.
-- The icon holds still while Vaquero is idle, and its scan line sweeps while a scan, copy, move or download runs.
+- The icon holds still while Vaquero is idle, in the menu bar's own color, and its amber scan line sweeps while a scan, copy, move or download runs.
 
   ![The menu bar icon during a scan](screenshots/menubar-icon.webp)
 
-- Its menu shows what is running and how far along, with **Cancel**, **Open Vaquero**, **Scan**, **Undo**, **Show in Dock**, **Settings…**, **Check for Updates…**, **Open Log**, **Vaquero Help** and **Quit Vaquero**.
+- Its menu shows what is running, with an amber progress bar and the time left that keep moving while the menu is open, then **Cancel**, **Open Vaquero**, **Scan**, **Undo**, **Show in Dock**, **Settings…**, **Check for Updates…**, **Open Log**, **Vaquero Help** and **Quit Vaquero**. Clicking the status or progress line opens the window.
 - Menu bar only: Vaquero has no Dock icon and no menu bar of its own; everything is in the menu bar menu.
 
 ## Menus and shortcuts

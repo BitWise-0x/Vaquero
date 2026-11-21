@@ -24,6 +24,7 @@ from PySide6.QtCore import (
     QLockFile,
     QMessageLogContext,
     QObject,
+    QPoint,
     QRectF,
     QSettings,
     Qt,
@@ -197,8 +198,8 @@ Undo again for the copy or move before it.</p>
 
 <h3>Menu bar and Dock</h3>
 <p>Vaquero shows in the Dock, the menu bar, or both (<b>Vaquero &gt; Settings</b>). With the menu bar icon, closing the
-window keeps Vaquero running there: the icon sweeps while a scan, copy, move or download runs, and its menu shows
-the progress, Cancel, Scan, Undo and Quit. <b>Quit</b> or <b>⌘Q</b> quits.</p>
+window keeps Vaquero running there: its amber scan line sweeps while a scan, copy, move or download runs, and its
+menu shows the progress with Cancel, Scan, Undo and Quit. <b>Quit</b> or <b>⌘Q</b> quits.</p>
 
 <h3>Shortcuts</h3>
 <ul>
@@ -244,8 +245,12 @@ class LogView(QTextBrowser):
     reveal_requested = Signal(QUrl)
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:  # noqa: N802 (Qt override)
-        href = self.anchorAt(event.pos())
-        menu = self.createStandardContextMenu(event.pos())
+        self.link_menu(event.pos()).exec(event.globalPos())
+
+    def link_menu(self, pos: QPoint) -> QMenu:
+        """The right-click menu at pos: Open, Show in Finder and Copy Path above the usual items on a link."""
+        href = self.anchorAt(pos)
+        menu = self.createStandardContextMenu(pos)
         if href:
             url = QUrl(href)
             first = menu.actions()[0] if menu.actions() else None
@@ -259,7 +264,7 @@ class LogView(QTextBrowser):
                 action.triggered.connect(slot)
                 menu.insertAction(first, action)
             menu.insertSeparator(first)
-        menu.exec(event.globalPos())
+        return menu
 
 
 class QtLogHandler(logging.Handler, QObject):

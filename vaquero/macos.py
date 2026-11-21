@@ -11,7 +11,7 @@ import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from ctypes import c_bool, c_char_p, c_long, c_uint64, c_void_p
+from ctypes import c_bool, c_char_p, c_long, c_uint64, c_ulong, c_void_p
 
 log = logging.getLogger("vaquero")
 
@@ -195,3 +195,34 @@ def open_login_items_settings() -> None:
         with _pool():
             _login_service()
             _fn(None)(_cls("SMAppService"), _sel("openSystemSettingsLoginItems"))
+
+
+def _status_button() -> int | None:
+    """This app's menu bar item button. AppKit keeps each status item in a window of its own; the app has one."""
+    windows = _fn(c_void_p)(_app(), _sel("windows"))
+    for i in range(_fn(c_ulong)(windows, _sel("count"))):
+        window = _fn(c_void_p, c_ulong)(windows, _sel("objectAtIndex:"), i)
+        if "StatusBar" not in _utf8(_fn(c_void_p)(window, _sel("className"))):
+            continue
+        stack = [_fn(c_void_p)(window, _sel("contentView"))]
+        while stack:
+            view = stack.pop()
+            if view and "Button" in _utf8(_fn(c_void_p)(view, _sel("className"))):
+                return view
+            if view:
+                subviews = _fn(c_void_p)(view, _sel("subviews"))
+                stack += [_fn(c_void_p, c_ulong)(subviews, _sel("objectAtIndex:"), j) for j in range(_fn(c_ulong)(subviews, _sel("count")))]
+    return None
+
+
+def menu_bar_dark() -> bool | None:
+    """Whether the menu bar behind Vaquero's icon is dark. On macOS 26 and later it follows the wallpaper, not just
+    the system appearance; None when it cannot be told (no icon shown, or not macOS)."""
+    if not MAC:
+        return None
+    with _pool():
+        button = _status_button()
+        if not button:
+            return None
+        appearance = _fn(c_void_p)(button, _sel("effectiveAppearance"))
+        return "Dark" in _utf8(_fn(c_void_p)(appearance, _sel("name"))) if appearance else None

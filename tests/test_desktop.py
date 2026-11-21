@@ -36,14 +36,23 @@ def touch(path: Path, data: bytes = b"x") -> Path:
 
 
 def test_progress_line_for_the_menu() -> None:
-    assert menubar.progress_text("scan", 50, 200, "50 of 200 files") == "▮▮▮▯▯▯▯▯▯▯▯▯  25%  scan: 50 of 200 files"
-    assert menubar.progress_text("scan", 0, 0, "listing").startswith("▯" * menubar.BAR_CELLS + "  0%")
+    assert menubar.progress_text("scan", 50, 200, "50 of 200 files") == "25%  scan: 50 of 200 files"
+    assert menubar.progress_text("listing", 0, 0, "1,200 found").startswith("0%")
+    QApplication.instance() or QApplication([])
+    bar = menubar.progress_bar(0.25).pixmap(menubar.BAR_SIZE[0] * 2, menubar.BAR_SIZE[1] * 2).toImage()
+    amber, track = bar.pixelColor(bar.width() // 8, bar.height() // 2), bar.pixelColor(bar.width() * 7 // 8, bar.height() // 2)
+    assert amber.name() == ui.theme.SIGNAL  # filled in the accent up to 25%
+    assert track.name() != ui.theme.SIGNAL
 
 
 def test_icon_sweeps_while_working_and_holds_still_otherwise(w: "ui.Window") -> None:
     item = w.status_item
     assert len(item.frames) == menubar.SWEEP_FRAMES + menubar.HOLD_FRAMES
-    assert all(icon.isMask() for icon in item.frames)
+    assert item.still.isMask()  # idle: a template macOS tints for the menu bar
+    assert not any(icon.isMask() for icon in item.frames)  # working: drawn in color, the amber line included
+    mid = item.frames[menubar.SWEEP_FRAMES // 2].pixmap(36, 36).toImage()
+    colors = {mid.pixelColor(x, y).name() for x in range(36) for y in range(36) if mid.pixelColor(x, y).alpha() > 200}
+    assert any(c.startswith("#e") or c.startswith("#f") for c in colors - {"#ffffff"})  # amber in the frame
     item.set_working(True)
     assert item.working
     item.set_working(False)
@@ -203,3 +212,30 @@ def test_the_quit_button_quits_even_with_the_menu_bar_icon(w: "ui.Window", monke
     w.show()
     w.quit_btn.click()
     assert quits == [True]
+
+
+def test_right_click_on_a_log_link_offers_open_show_and_copy(w: "ui.Window", tmp_path: Path) -> None:
+    from PySide6.QtCore import QPoint
+
+    photo = touch(tmp_path / "a.jpg")
+    w.log_view.setHtml(f'<a href="{QUrl.fromLocalFile(str(photo)).toString()}">a.jpg</a>')
+    w.log_view.resize(400, 200)
+    w.show()
+    QApplication.processEvents()
+
+    texts = [a.text() for a in w.log_view.link_menu(QPoint(8, 8)).actions() if not a.isSeparator()]
+
+    assert texts[:3] == ["Open", "Show in Finder", "Copy Path"]
+    plain = [a.text() for a in w.log_view.link_menu(QPoint(390, 190)).actions() if not a.isSeparator()]
+    assert "Open" not in plain
+
+
+def test_status_lines_in_the_menu_open_the_window(w: "ui.Window", monkeypatch: pytest.MonkeyPatch) -> None:
+    shown: list[bool] = []
+    monkeypatch.setattr(w, "show_window", lambda: shown.append(True))
+    item = menubar.StatusItem(w, ui.asset)
+    item.progress_action.setVisible(True)  # shown while a job runs; Qt counts a hidden action as disabled
+    assert item.status_action.isEnabled() and item.progress_action.isEnabled()
+    item.status_action.trigger()
+    item.progress_action.trigger()
+    assert shown == [True, True]

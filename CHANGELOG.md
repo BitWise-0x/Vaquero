@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.26.12 (2026-11-21)
+
+### Bug Fixes
+
+- **transfer**: Verified copies, batch-aware overwrite, durable journal, one job at a time
+  ([`1955794`](https://github.com/BitWise-0x/Vaquero/commit/19557941df59da783b08644b24ef6c5269f4e126))
+
+
 ## v0.26.11 (2026-11-21)
 
 

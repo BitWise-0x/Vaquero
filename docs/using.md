@@ -89,7 +89,7 @@ Vaquero shows in the Dock, in the menu bar, or both; choose in **Settings**. One
 
   ![The menu bar icon during a scan](screenshots/menubar-icon.webp)
 
-- Its menu opens on the running job: an amber progress bar with the percentage, then what is running and the time left, all moving while the menu stays open. Below come **Cancel**, **Open Vaquero**, **Scan**, **Undo**, **Show in Dock**, **Settings…**, **Check for Updates…**, **Open Log**, **Vaquero Help** and **Quit Vaquero**. Idle, the first line is the last result; clicking it opens the window.
+- Its menu opens on the running job: an amber progress bar with the percentage, and under it what is running with its count (`Scanning 1,225 of 2,486`) and the time left (`2 min left`), all moving while the menu stays open. Below come **Cancel**, **Open Vaquero**, **Scan**, **Undo**, **Show in Dock**, **Settings…**, **Check for Updates…**, **Open Log**, **Vaquero Help** and **Quit Vaquero**. Idle, the first line is a short summary of the last result, such as `6 matches in 2,486 files`; clicking it opens the window.
 - Menu bar only: Vaquero has no Dock icon and no menu bar of its own; everything is in the menu bar menu.
 
 ## Menus and shortcuts

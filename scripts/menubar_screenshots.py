@@ -38,6 +38,7 @@ MENU_FRAMES, MENU_FRAME_MS, HOLD_MS, MAX_REOPENS = 26, 260, 1600, 40
 STEP = (TOTAL - START) // (MENU_FRAMES + 6)
 BAR, BACKDROP = (22, 22, 24), (14, 15, 16)  # a dark menu bar, and the app's own background below it
 SCALE = 2  # screencapture saves Retina pixels
+WEBP_QUALITY = 90  # the menu's glass makes lossless frames heavy; text stays sharp at this quality
 ICON_PAD = 12  # room on either side of the icon in its slot, in pixels
 
 
@@ -168,7 +169,7 @@ def main() -> int:
         frames[MENU_FRAMES // 2].save(OUT / "menubar.png", optimize=True)
         frames[0].save(
             OUT / "menubar.webp", save_all=True, append_images=frames[1:],
-            duration=[MENU_FRAME_MS] * (MENU_FRAMES - 1) + [HOLD_MS], loop=0, lossless=True,
+            duration=[MENU_FRAME_MS] * (MENU_FRAMES - 1) + [HOLD_MS], loop=0, quality=WEBP_QUALITY, method=6,
         )
         print(f"wrote {OUT / 'menubar.png'} and {OUT / 'menubar.webp'} ({MENU_FRAMES} frames)", flush=True)
         end(0)

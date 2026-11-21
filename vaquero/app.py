@@ -1797,6 +1797,8 @@ class Window(QMainWindow):
     def quit_app(self) -> None:
         """Quit for real: from the menus, the menu bar icon, the Dock, or a logout."""
         self.quitting = True
+        if self.busy:  # the question about the running job needs the window in front, even from the menu bar
+            self.show_window()
         if not self.close():
             self.quitting = False
 

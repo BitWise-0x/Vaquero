@@ -67,7 +67,7 @@ class StatusItem(QObject):
         self.status_action = self._add("Ready", enabled=False)
         self.progress_action = self._add("", enabled=False)
         self.progress_action.setVisible(False)
-        self.cancel_action = self._add("Cancel", window.cancel_job)
+        self.cancel_action = self._add("Cancel", lambda: (window.show_window(), window.cancel_job()))
         self.menu.addSeparator()
         self._add("Open Vaquero", window.show_window)
         self.scan_action = self._add("Scan", lambda: (window.show_window(), window.start_scan()))

@@ -25,6 +25,7 @@ import onnxruntime as ort
 import pi_heif
 
 from vaquero import macos
+from vaquero.logs import missing_volume
 
 log = logging.getLogger("vaquero")
 # CoreML partition warnings on every session are noise for users
@@ -742,6 +743,9 @@ def undo_run(
 def _undo_row(row: JournalRow) -> bool:
     """Reverse one row; False when it was left alone (logged why)."""
     link = {"link": row.dst, "link_text": row.dst.name}
+    for side in (row.dst, row.src):
+        if drive := missing_volume(side):  # not gone, just not connected: fail, so the run can be undone later
+            raise OSError(errno.ENXIO, f"the drive {drive} is not connected", str(side))
     if not row.dst.exists():
         log.warning("%s is no longer in the destination; nothing to undo", row.dst.name, extra=link)
         return False

@@ -310,3 +310,15 @@ def test_rows_from_older_versions_are_read_but_not_undone(tmp_path: Path) -> Non
 
     assert read_journal(journal)[0].action == "moved"
     assert last_run(journal) == []
+
+
+def test_undo_with_the_drive_disconnected_fails_and_can_be_done_later(tmp_path: Path) -> None:
+    from vaquero.engine import JournalRow, last_run, undo_run
+
+    journal = tmp_path / "moves.csv"
+    away = Path("/Volumes/NoSuchDriveXYZ/out/a.jpg")
+    journal.write_text(f"{tmp_path / 'a.jpg'},{away},moved,r,\n")
+
+    assert undo_run(last_run(journal), journal) == (0, 1, 0)
+    assert [r.run for r in last_run(journal)] == ["r"]  # still there to undo once the drive is back
+    assert isinstance(last_run(journal)[0], JournalRow)

@@ -2,6 +2,28 @@
 
 <!-- version list -->
 
+## v0.29.0 (2026-11-22)
+
+### Bug Fixes
+
+- **transfer**: Say why an identical file in the destination is left in place
+  ([`edb6c3c`](https://github.com/BitWise-0x/Vaquero/commit/edb6c3c68ee2b2f2503deb9f1adee4de9aeb16e8))
+
+### Documentation
+
+- Menu bar screenshots at 0.28.0
+  ([`7d28070`](https://github.com/BitWise-0x/Vaquero/commit/7d28070877230167813eab8aac6cc75ae39bf33a))
+
+- Screenshots at 0.28.0, the log with its References section, photo and video counts and one copy
+  bar
+  ([`ee79501`](https://github.com/BitWise-0x/Vaquero/commit/ee79501cad3adde0e7a2b07e8b9e6e825924ddc3))
+
+### Features
+
+- **report**: Result, threshold and full path columns in the scan report
+  ([`0e16e91`](https://github.com/BitWise-0x/Vaquero/commit/0e16e91b56cf1308e441c97eb36bec98bc0f7b6d))
+
+
 ## v0.28.0 (2026-11-21)
 
 ### Continuous Integration

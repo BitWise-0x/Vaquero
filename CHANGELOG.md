@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v0.31.1 (2026-11-22)
+
+### Bug Fixes
+
+- **transfer**: A file the destination already has byte for byte is never kept twice
+  ([`ec27b96`](https://github.com/BitWise-0x/Vaquero/commit/ec27b9628a704203b8725ea4aded1fe1a2f75251))
+
+### Documentation
+
+- Screenshots at 0.31.0, help with the scan report's dispositions
+  ([`4a3d4d5`](https://github.com/BitWise-0x/Vaquero/commit/4a3d4d5c675e0c52c029ca295838484fa0d55fb6))
+
+- The site's Undo card and the README name the Trash fallback and the scan report
+  ([`71e1889`](https://github.com/BitWise-0x/Vaquero/commit/71e18891a8b857a9a904b8d1adb11703a142922c))
+
+
 ## v0.31.0 (2026-11-22)
 
 ### Features

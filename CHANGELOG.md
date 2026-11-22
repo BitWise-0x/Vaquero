@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.31.0 (2026-11-22)
+
+### Features
+
+- **report**: The scan report records what Round up did with each match
+  ([`903fd6a`](https://github.com/BitWise-0x/Vaquero/commit/903fd6a9b6e588638f3edb3767e5b8fc4422aec8))
+
+
 ## v0.30.3 (2026-11-22)
 
 ### Bug Fixes

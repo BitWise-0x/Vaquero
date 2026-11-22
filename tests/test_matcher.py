@@ -282,3 +282,28 @@ def test_report_verdicts_follow_the_threshold() -> None:
         return ui.verdict(ScanResult(Path("a.jpg"), "image", score, faces), 0.35)
 
     assert [row(0.6, 1), row(0.4, 1), row(0.2, 1), row(0.0, 0)] == ["match", "review", "no match", "no face"]
+
+
+def test_the_scan_report_records_what_round_up_did(tmp_path: Path) -> None:
+    from vaquero import app as ui
+    from vaquero.engine import Outcome
+
+    report, src = tmp_path / "scan.csv", tmp_path / "src"
+    a, b, c = src / "a.jpg", src / "b.jpg", src / "c.jpg"
+    with report.open("w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(["result", "score", "file", "kind", "faces", "ref_agree", "threshold", "path"])
+        for p, result in ((a, "match"), (b, "match"), (c, "no match")):
+            w.writerow([result, "0.6", p.name, "image", "1", "4/4", "0.35", str(p)])
+
+    ui.record_dispositions(report, [a, b], {a: Outcome("moved, replaced existing", "/dest/a.jpg", "/Trash/a.jpg")})
+    rows = {r["file"]: r for r in csv.DictReader(report.open())}
+    assert (rows["a.jpg"]["disposition"], rows["a.jpg"]["destination"], rows["a.jpg"]["trashed"]) == (
+        "moved, replaced existing", "/dest/a.jpg", "/Trash/a.jpg"
+    )
+    assert rows["b.jpg"]["disposition"] == "not done"
+    assert rows["c.jpg"]["disposition"] == ""
+
+    ui.record_dispositions(report, [b], {b: Outcome("moved", "/dest/b.jpg")})
+    rows = {r["file"]: r for r in csv.DictReader(report.open())}
+    assert (rows["a.jpg"]["disposition"], rows["b.jpg"]["disposition"]) == ("moved, replaced existing", "moved")

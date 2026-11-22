@@ -375,3 +375,28 @@ def test_a_file_that_cannot_go_to_the_trash_is_never_replaced(
     assert (dest / "a 2.jpg").read_bytes() == b"new photo"
     assert a.exists() is (mode is Transfer.COPY)
     assert rows(journal)[0][2] == f"{'moved' if mode is Transfer.MOVE else 'copied'}, renamed"
+
+
+def test_each_file_hears_what_was_done_with_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_trash: Path) -> None:
+    """other.jpg matches the old file's name, size and date but not its bytes: it is not taken for a copy."""
+    src, dest = tmp_path / "src", tmp_path / "dest"
+    plain = touch(src / "plain.jpg")
+    same = touch(src / "same.jpg", b"same")
+    other = touch(src / "other.jpg", b"new")
+    dest.mkdir()
+    shutil.copy2(same, dest / "same.jpg")
+    touch(dest / "other.jpg", b"old")
+    outcomes: dict[Path, engine.Outcome] = {}
+
+    transfer_matches([plain, same, other], dest, tmp_path / "moves.csv", on_file=outcomes.__setitem__)
+
+    assert {p.name: o.disposition for p, o in outcomes.items()} == {
+        "plain.jpg": "moved", "same.jpg": "moved, replaced existing", "other.jpg": "moved, kept both"
+    }
+    assert outcomes[other].dst == str(dest / "other 2.jpg")
+    assert outcomes[same].trashed and Path(outcomes[same].trashed).parent == fake_trash
+
+    monkeypatch.setattr(engine.macos, "trash", lambda path: None)
+    again = touch(src / "other.jpg", b"newer")
+    transfer_matches([again], dest, tmp_path / "moves.csv", conflict=Conflict.OVERWRITE, on_file=outcomes.__setitem__)
+    assert outcomes[again].disposition == "moved, kept both (the existing file could not go to the Trash)"

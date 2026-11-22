@@ -105,6 +105,7 @@ from vaquero.engine import (
     Conflict,
     FaceMatcher,
     JournalRow,
+    Outcome,
     ScanResult,
     SourceGone,
     Transfer,
@@ -131,6 +132,26 @@ def verdict(r: ScanResult, threshold: float) -> str:
     if r.score >= threshold:
         return "review" if r.score < REVIEW_BELOW else "match"
     return "no match" if r.faces else "no face"
+
+
+def record_dispositions(report: Path, paths: list[Path], outcomes: dict[Path, Outcome]) -> None:
+    """Add what a copy or move did with each of its files to the scan report, in disposition, destination and
+    trashed columns: "not done" for a file a cancel or stop never reached. A later copy or move of the same scan
+    rewrites only its own files' rows."""
+    with report.open(newline="") as fh:
+        reader = csv.DictReader(fh)
+        fields, rows = list(reader.fieldnames or []), list(reader)
+    fields += [c for c in ("disposition", "destination", "trashed") if c not in fields]
+    done = {str(p): outcomes.get(p, Outcome("not done")) for p in paths}
+    for row in rows:
+        if (o := done.get(row.get("path", ""))) is not None:
+            row.update(disposition=o.disposition, destination=o.dst, trashed=o.trashed)
+    tmp = report.with_name(f".{report.name}.tmp")
+    with tmp.open("w", newline="") as fh:
+        w = csv.DictWriter(fh, fields, restval="")
+        w.writeheader()
+        w.writerows(rows)
+    os.replace(tmp, report)
 
 
 def asset(name: str) -> Path:
@@ -185,7 +206,7 @@ that many frames spread evenly through it. More frames catch a person who appear
 <li><span class="term">Move</span> or <span class="term">Copy</span>: what Round up does with the matches. Move takes
 them out of the scanned folder; Copy leaves the originals where they are.</li>
 <li><span class="term">Name exists</span>: what happens when the destination already has a file with the same name.
-<i>Keep both</i> adds the new file with a number (<code>IMG_1 2.png</code>); an identical file (same size and date)
+<i>Keep both</i> adds the new file with a number (<code>IMG_1 2.png</code>); a file already there byte for byte
 is not copied again, and a move replaces it.
 <i>Overwrite</i> replaces the existing file and sends it to the Trash; one that cannot go to the Trash (a network
 share without one) is kept, and the new file numbered.</li>
@@ -234,7 +255,7 @@ matches on its own. A real match usually matches most of them (13/13); a lookali
 <ul>
 <li><span class="term">vaquero.log</span>: everything since launch, with the details of any error (<b>Help &gt; Open Log</b>).</li>
 <li><span class="term">vaquero-&lt;time&gt;.log</span>: the log of one scan and its move or copy.</li>
-<li><span class="term">vaquero-scan-&lt;time&gt;.csv</span>: every scanned file with its result, score and full path.</li>
+<li><span class="term">vaquero-scan-&lt;time&gt;.csv</span>: every scanned file with its result, score and full path, and what Round up did with each match.</li>
 </ul>
 <p>In <code>~/Library/Application Support/Vaquero</code>:</p>
 <ul>
@@ -618,6 +639,7 @@ class TransferWorker(Job):
         self.paths, self.dest, self.journal, self.conflict, self.mode = paths, dest, journal, conflict, mode
         self._cancel = False
         self.moved: set[Path] = set()  # sources no longer where the scan found them
+        self.outcomes: dict[Path, Outcome] = {}  # what was done with each file, for the scan report
 
     def cancel(self) -> None:
         self._cancel = True
@@ -626,7 +648,7 @@ class TransferWorker(Job):
         try:
             counts = transfer_matches(
                 self.paths, self.dest, self.journal, self.progress.emit, lambda: self._cancel, self.conflict, self.mode,
-                self.moved.add,
+                self.moved.add, on_file=self.outcomes.__setitem__,
             )
             self._emit_end(self.finished, counts, self._cancel, "")
         except TransferStopped as e:
@@ -731,6 +753,7 @@ class Window(QMainWindow):
         self.bytes_text = ""
         self.transfer_mode = Transfer.MOVE
         self.scan_root: Path | None = None
+        self.scan_report: Path | None = None  # the newest scan's CSV, which each copy or move adds its dispositions to
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -1522,7 +1545,7 @@ class Window(QMainWindow):
             "on" if self.subfolders.isChecked() else "off",
             f"{self.frames.value()} frames each" if self.videos.isChecked() else "off",
         )
-        self.scan_root = source
+        self.scan_root, self.scan_report = source, report
         job = ScanWorker(
             pack,
             refs,
@@ -1643,6 +1666,18 @@ class Window(QMainWindow):
         if matches and not (self.isVisible() and self.isActiveWindow()) and self.dock_shown() and cocoa():
             macos.set_dock_badge(str(len(matches)))
 
+    def _record_dispositions(self) -> None:
+        job, report = self.job, self.scan_report
+        if not isinstance(job, TransferWorker) or report is None:
+            return
+        link = {"link": report, "link_text": str(report)}
+        try:
+            record_dispositions(report, job.paths, job.outcomes)
+        except (OSError, csv.Error) as e:
+            log.warning("the scan report %s could not record what was done: %s", report, logs.describe(e), extra=link)
+            return
+        log.info("scan report updated with what was done with each match: %s", report, extra=link)
+
     def _drop_moved(self) -> None:
         """Forget results a move took away; without a file system call per result, which stalls on a dead share."""
         if isinstance(self.job, TransferWorker) and self.job.moved:
@@ -1650,6 +1685,7 @@ class Window(QMainWindow):
             self.results = [r for r in self.results if r.path not in self.job.moved]
 
     def _on_failed(self, msg: str) -> None:
+        self._record_dispositions()
         self._drop_moved()
         self._set_busy(False)
         self.menu_status = shorten(f"Failed: {msg}")
@@ -1726,6 +1762,7 @@ class Window(QMainWindow):
                 "%s could not go to the Trash and stayed, each beside the new file, numbered (name 2.jpg)",
                 plural(counts.kept, "existing file"),
             )
+        self._record_dispositions()
         self._drop_moved()
         self._set_busy(False)
         self._update_match_count()

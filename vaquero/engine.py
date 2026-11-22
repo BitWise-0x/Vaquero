@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import errno
 import fcntl
+import filecmp
 import logging
 import os
 import shutil
@@ -486,6 +487,14 @@ class TransferCounts(NamedTuple):
     kept: int = 0  # existing files that could not go to the Trash, kept beside the new file
 
 
+class Outcome(NamedTuple):
+    """What a copy or move did with one file, as the scan report records it."""
+
+    disposition: str  # e.g. "moved", "moved, replaced existing", "copied, kept both", "failed: ..."
+    dst: str = ""  # where the file is now, "" when it was not placed
+    trashed: str = ""  # where the file it replaced went in the Trash
+
+
 class TransferStopped(RuntimeError):
     """The destination stopped taking files (disk full, read-only, unmounted); the batch ended early."""
 
@@ -506,6 +515,14 @@ def _already_there(src: Path, dst: Path) -> bool:
     except OSError:
         return False
     return a.st_size == b.st_size and abs(a.st_mtime - b.st_mtime) <= MTIME_SLACK_S
+
+
+def _identical(src: Path, dst: Path) -> bool:
+    """The same file, byte for byte. The quick check comes first, so only a likely copy is read in full."""
+    try:
+        return _already_there(src, dst) and filecmp.cmp(src, dst, shallow=False)
+    except OSError:
+        return False
 
 
 def _sync(fh: object) -> None:
@@ -604,6 +621,7 @@ def transfer_matches(
     mode: Transfer = Transfer.MOVE,
     on_moved: Callable[[Path], None] = lambda src: None,
     run: str = "",
+    on_file: Callable[[Path, Outcome], None] = lambda src, outcome: None,
 ) -> TransferCounts:
     """Move or copy files into dest.
 
@@ -611,8 +629,8 @@ def transfer_matches(
     name was taken and both were kept, or ", overwrote" when the existing file was replaced. Each row is on disk
     before the next file starts. Overwrite replaces only files that were there before this batch: two matches with
     the same name from different subfolders are both kept. Cancelling stops between files, so no file is ever left
-    half moved or copied. Rows carry run (a new run id when empty), so Undo can reverse one run, and where a
-    replaced file went in the Trash. A Copy with Keep both skips a file already in the destination (see _already_there),
+    half moved or copied. on_file hears each file's Outcome, failures included. Rows carry run (a new run id when empty), so Undo can reverse one run, and where a
+    replaced file went in the Trash. A Copy with Keep both skips a file already in the destination (see _identical),
     so running a stopped copy again does not duplicate what it did. A Move never leaves its source behind: an identical
     file in the destination is replaced like an overwrite, its old copy in the Trash. Raises TransferStopped when the
     destination stops taking files."""
@@ -633,24 +651,32 @@ def transfer_matches(
             progress(i - 1, len(paths))
             dst, action = dest / src.name, verb
             earlier = dst.name.casefold() not in placed  # there before this batch, not written by it
-            identical = earlier and _already_there(src, dst)
+            identical = earlier and _identical(src, dst)
             if identical and mode is Transfer.COPY and conflict is Conflict.KEEP_BOTH:
                 log.info(
-                    "%s is already in the destination with the same size and date, not copied again",
+                    "%s is already in the destination, byte for byte, not copied again",
                     src.name, extra={"link": dst, "link_text": dst.name},
                 )
                 skipped += 1
+                on_file(src, Outcome("already there, not copied", str(dst)))
                 continue
             if dst.exists():
                 if earlier and (conflict is Conflict.OVERWRITE or identical):
                     action = f"{verb}, overwrote"
-                    log.warning("overwriting existing %s", dst, extra={"link": dst, "link_text": str(dst)})
+                    log.warning(
+                        "%s is already in the destination, byte for byte; replacing it, the old copy goes to the Trash"
+                        if identical
+                        else "overwriting existing %s; the old file goes to the Trash",
+                        dst.name if identical else dst, extra={"link": dst, "link_text": dst.name if identical else str(dst)},
+                    )
                 else:
                     dst, action = _free_name(dst), f"{verb}, renamed"
+            no_trash = False
             try:
                 try:
                     result = _place(src, dst, mode)
                 except CannotTrash:
+                    no_trash = True
                     log.warning(
                         "%s could not go to the Trash, so it is kept and the new file numbered", dst.name,
                         extra={"link": dst, "link_text": dst.name},
@@ -663,6 +689,7 @@ def transfer_matches(
             except OSError as e:
                 log.error("%s failed %s -> %s: %s", mode.value, src, dst, e, extra={"link": src, "link_text": str(src)})
                 failed += 1
+                on_file(src, Outcome(f"failed: {e.strerror or e}"))
                 if e.errno in FATAL_ERRNOS or not dest.is_dir():
                     reason = (
                         f"{dest} is no longer available"
@@ -673,6 +700,7 @@ def transfer_matches(
                     raise TransferStopped(reason, TransferCounts(done, failed, skipped, replaced, kept)) from e
                 continue
             placed.add(dst.name.casefold())
+            on_file(src, _outcome(action, result, dst, no_trash))
             try:
                 w.writerow([str(src), str(dst), action, run, result.trashed])
                 fh.flush()
@@ -693,6 +721,17 @@ def transfer_matches(
                 log.info("%s %s", verb, dst.name, extra={**link, "file_only": True})
     progress(len(paths), len(paths))
     return TransferCounts(done, failed, skipped, replaced, kept)
+
+
+def _outcome(action: str, result: Placed, dst: Path, no_trash: bool) -> Outcome:
+    parts = [action.split(",")[0]]
+    if result.trashed:
+        parts.append("replaced existing")
+    elif action.endswith("renamed"):
+        parts.append("kept both (the existing file could not go to the Trash)" if no_trash else "kept both")
+    if result.kept_source:
+        parts.append("original could not be removed")
+    return Outcome(", ".join(parts), str(dst), result.trashed)
 
 
 def new_run_id() -> str:

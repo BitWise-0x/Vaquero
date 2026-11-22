@@ -603,8 +603,10 @@ def transfer_matches(
     before the next file starts. Overwrite replaces only files that were there before this batch: two matches with
     the same name from different subfolders are both kept. Cancelling stops between files, so no file is ever left
     half moved or copied. Rows carry run (a new run id when empty), so Undo can reverse one run, and where a
-    replaced file went in the Trash. A file already in the destination (see _already_there) is skipped, so running a stopped
-    batch again does not duplicate what it did. Raises TransferStopped when the destination stops taking files."""
+    replaced file went in the Trash. A Copy with Keep both skips a file already in the destination (see _already_there),
+    so running a stopped copy again does not duplicate what it did. A Move never leaves its source behind: an identical
+    file in the destination is replaced like an overwrite, its old copy in the Trash. Raises TransferStopped when the
+    destination stops taking files."""
     dest.mkdir(parents=True, exist_ok=True)
     _check_space(paths, dest, mode)
     for stale in dest.glob(".*.vaquero-part"):  # left by a copy the app was quit or killed in the middle of
@@ -621,15 +623,17 @@ def transfer_matches(
                 return TransferCounts(done, failed, skipped)
             progress(i - 1, len(paths))
             dst, action = dest / src.name, verb
-            if dst.name.casefold() not in placed and _already_there(src, dst):
+            earlier = dst.name.casefold() not in placed  # there before this batch, not written by it
+            identical = earlier and _already_there(src, dst)
+            if identical and mode is Transfer.COPY and conflict is Conflict.KEEP_BOTH:
                 log.info(
-                    "%s is already in the destination with the same size and date, left in place",
+                    "%s is already in the destination with the same size and date, not copied again",
                     src.name, extra={"link": dst, "link_text": dst.name},
                 )
                 skipped += 1
                 continue
             if dst.exists():
-                if conflict is Conflict.OVERWRITE and dst.name.casefold() not in placed:
+                if earlier and (conflict is Conflict.OVERWRITE or identical):
                     action = f"{verb}, overwrote"
                     log.warning("overwriting existing %s", dst, extra={"link": dst, "link_text": str(dst)})
                 else:

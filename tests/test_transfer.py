@@ -322,3 +322,37 @@ def test_undo_with_the_drive_disconnected_fails_and_can_be_done_later(tmp_path: 
     assert undo_run(last_run(journal), journal) == (0, 1, 0)
     assert [r.run for r in last_run(journal)] == ["r"]  # still there to undo once the drive is back
     assert isinstance(last_run(journal)[0], JournalRow)
+
+
+@pytest.mark.parametrize("conflict", [Conflict.KEEP_BOTH, Conflict.OVERWRITE])
+def test_a_move_never_leaves_its_source_behind(tmp_path: Path, fake_trash: Path, conflict: Conflict) -> None:
+    """An identical file already in the destination once left the source in place, skipped, on a move."""
+    a = touch(tmp_path / "src" / "a.jpg", b"the person")
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    shutil.copy2(a, dest / "a.jpg")
+    journal = tmp_path / "moves.csv"
+
+    assert transfer_matches([a], dest, journal, conflict=conflict) == TransferCounts(1, 0, 0)
+
+    assert not a.exists()
+    assert sorted(p.name for p in dest.iterdir()) == ["a.jpg"]
+    (trashed,) = fake_trash.iterdir()
+    assert trashed.read_bytes() == b"the person"
+    assert rows(journal) == [[str(a), str(dest / "a.jpg"), "moved, overwrote"]]
+
+    engine.undo_run(engine.last_run(journal), journal)
+    assert a.read_bytes() == (dest / "a.jpg").read_bytes() == b"the person"
+
+
+def test_overwrite_replaces_an_identical_copy_too(tmp_path: Path, fake_trash: Path) -> None:
+    a = touch(tmp_path / "src" / "a.jpg", b"the person")
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    shutil.copy2(a, dest / "a.jpg")
+    journal = tmp_path / "moves.csv"
+
+    assert transfer_matches([a], dest, journal, conflict=Conflict.OVERWRITE, mode=Transfer.COPY) == TransferCounts(1, 0, 0)
+
+    assert a.exists() and len(list(fake_trash.iterdir())) == 1
+    assert rows(journal) == [[str(a), str(dest / "a.jpg"), "copied, overwrote"]]

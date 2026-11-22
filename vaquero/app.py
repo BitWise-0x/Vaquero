@@ -185,7 +185,8 @@ that many frames spread evenly through it. More frames catch a person who appear
 <li><span class="term">Move</span> or <span class="term">Copy</span>: what Round up does with the matches. Move takes
 them out of the scanned folder; Copy leaves the originals where they are.</li>
 <li><span class="term">Name exists</span>: what happens when the destination already has a file with the same name.
-<i>Keep both</i> adds the new file with a number (<code>IMG_1 2.png</code>).
+<i>Keep both</i> adds the new file with a number (<code>IMG_1 2.png</code>); an identical file (same size and date)
+is not copied again, and a move replaces it.
 <i>Overwrite</i> replaces the existing file and sends it to the Trash; on a network share without a Trash it is
 replaced outright.</li>
 </ul>

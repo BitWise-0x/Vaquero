@@ -252,6 +252,8 @@ class StatusItem(QObject):
     def refresh(self) -> None:
         """Bring the menu's lines up to date with the window: status, progress, and what can be done now."""
         w = self.window
+        # as wide idle as with the progress view, so no title is cut short and the menu does not change width
+        macos.set_status_menu_width(ProgressView.WIDTH)
         # busy before its progress starts (checking folders, loading references): what the window says; idle: the
         # last result, short
         status = shorten(w.status_plain()) if w.busy else w.menu_status

@@ -11,7 +11,7 @@ import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from ctypes import c_bool, c_char_p, c_long, c_uint64, c_ulong, c_void_p
+from ctypes import c_bool, c_char_p, c_double, c_long, c_uint64, c_ulong, c_void_p
 
 log = logging.getLogger("vaquero")
 
@@ -213,6 +213,23 @@ def _status_button() -> int | None:
                 subviews = _fn(c_void_p)(view, _sel("subviews"))
                 stack += [_fn(c_void_p, c_ulong)(subviews, _sel("objectAtIndex:"), j) for j in range(_fn(c_ulong)(subviews, _sel("count")))]
     return None
+
+
+def set_status_menu_width(width: float) -> None:
+    """Keep this app's menu bar menu at least width points wide. Sized from its item titles alone, the menu comes out
+    narrower than macOS draws them and the longest are cut short ("Check fo...pdates..."); Qt does not pass a
+    QMenu's minimum width on to the native menu."""
+    if not MAC:
+        return
+    with _pool():
+        button = _status_button()
+        window = _fn(c_void_p)(button, _sel("window")) if button else None
+        if not window or not _fn(c_bool, c_void_p)(window, _sel("respondsToSelector:"), _sel("statusItem")):
+            return
+        item = _fn(c_void_p)(window, _sel("statusItem"))
+        menu = _fn(c_void_p)(item, _sel("menu")) if item else None
+        if menu:
+            _fn(None, c_double)(menu, _sel("setMinimumWidth:"), width)
 
 
 def menu_bar_dark() -> bool | None:

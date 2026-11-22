@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 from vaquero import engine
-from vaquero.engine import Face, FaceMatcher, list_media, scan, transfer_matches
+from vaquero.engine import Face, FaceMatcher, TransferCounts, list_media, scan, transfer_matches
 
 DIM = 512
 SPREAD = 0.8  # per-photo noise: two photos of one person land near 1 / (1 + SPREAD**2) similarity
@@ -235,7 +235,7 @@ def test_references_to_moved_matches_end_to_end(photos, tmp_path: Path) -> None:
     assert sorted(p.name for p in matches) == ["alex_in_group.jpg", "alex_nested.jpg", "alex_solo.jpg"]
 
     journal = tmp_path / "moves.csv"
-    assert transfer_matches(matches, dest, journal) == (3, 0, 0)
+    assert transfer_matches(matches, dest, journal) == TransferCounts(3, 0, 0)
     assert sorted(p.name for p in dest.iterdir()) == [
         "alex_already_found.jpg",
         "alex_in_group.jpg",

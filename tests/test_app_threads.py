@@ -272,3 +272,20 @@ def test_folder_problems_are_found_before_a_scan(tmp_path: Path) -> None:
         assert "no permission to add files" in ui.folder_problem({**named, "Destination": locked}, [""])[0]
     finally:
         locked.chmod(0o755)
+
+
+def test_the_move_summary_points_out_replaced_and_kept_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    ini = str(tmp_path / "vaquero.ini")
+    monkeypatch.setattr(ui, "QSettings", lambda *_: QSettings(ini, QSettings.Format.IniFormat))
+    QApplication.instance() or QApplication([])
+    w = ui.Window()
+    caplog.set_level("INFO", logger="vaquero")
+
+    w._on_transfer_finished(ui.TransferCounts(5, 0, 0, replaced=2, kept=1), False, "")
+
+    warned = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert any(m.startswith("2 existing files replaced: the old ones are in the Trash") for m in warned)
+    assert any(m.startswith("1 existing file could not go to the Trash and stayed") for m in warned)
+    assert "move done: 5 moved, 2 replaced, 1 kept beside the new file, 0 failed" in caplog.text

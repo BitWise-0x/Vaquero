@@ -1707,11 +1707,25 @@ class Window(QMainWindow):
 
     def _on_transfer_finished(self, counts: TransferCounts, cancelled: bool, stopped: str) -> None:
         verb = self._transfer_verb()
-        there = f", {counts.skipped} already there" if counts.skipped else ""
+        there = (
+            (f", {counts.skipped} already there" if counts.skipped else "")
+            + (f", {counts.replaced} replaced" if counts.replaced else "")
+            + (f", {counts.kept} kept beside the new file" if counts.kept else "")
+        )
         log.info(
             "%s done: %d %s%s, %d failed%s",
             self.transfer_mode.value, counts.done, verb, there, counts.failed, " (cancelled)" if cancelled else "",
         )
+        if counts.replaced:
+            log.warning(
+                "%s replaced: the old ones are in the Trash, and Undo puts them back until the Trash is emptied",
+                plural(counts.replaced, "existing file"),
+            )
+        if counts.kept:
+            log.warning(
+                "%s could not go to the Trash and stayed, each beside the new file, numbered (name 2.jpg)",
+                plural(counts.kept, "existing file"),
+            )
         self._drop_moved()
         self._set_busy(False)
         self._update_match_count()

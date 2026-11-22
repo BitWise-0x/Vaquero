@@ -482,6 +482,8 @@ class TransferCounts(NamedTuple):
     done: int
     failed: int
     skipped: int = 0  # already in the destination, as from a run that stopped part way
+    replaced: int = 0  # existing files an overwrite replaced, now in the Trash
+    kept: int = 0  # existing files that could not go to the Trash, kept beside the new file
 
 
 class TransferStopped(RuntimeError):
@@ -620,14 +622,14 @@ def transfer_matches(
         stale.unlink(missing_ok=True)
     verb = "moved" if mode is Transfer.MOVE else "copied"
     run = run or new_run_id()
-    done = failed = skipped = 0
+    done = failed = skipped = replaced = kept = 0
     placed: set[str] = set()  # names written by this batch, casefolded as APFS and HFS+ compare them
     with journal.open("a", newline="") as fh:
         w = csv.writer(fh)
         for i, src in enumerate(paths, 1):
             if cancelled():
                 log.warning("%s cancelled after %d of %d files", mode.value, i - 1, len(paths))
-                return TransferCounts(done, failed, skipped)
+                return TransferCounts(done, failed, skipped, replaced, kept)
             progress(i - 1, len(paths))
             dst, action = dest / src.name, verb
             earlier = dst.name.casefold() not in placed  # there before this batch, not written by it
@@ -655,6 +657,7 @@ def transfer_matches(
                     )
                     dst, action = _free_name(dst), f"{verb}, renamed"
                     result = _place(src, dst, mode)
+                    kept += 1
                 if result.kept_source:
                     action = action.replace("moved", "copied", 1)
             except OSError as e:
@@ -667,7 +670,7 @@ def transfer_matches(
                         else f"{dest} cannot take more files: {os.strerror(e.errno or 0)}"
                     )
                     log.error("%s stopped after %d of %d files: %s", mode.value, i, len(paths), reason)
-                    raise TransferStopped(reason, TransferCounts(done, failed, skipped)) from e
+                    raise TransferStopped(reason, TransferCounts(done, failed, skipped, replaced, kept)) from e
                 continue
             placed.add(dst.name.casefold())
             try:
@@ -677,6 +680,7 @@ def transfer_matches(
             except OSError as e:
                 raise OSError(e.errno, f"{dst.name} was {verb} but the undo list {journal} could not be written: {e}") from e
             done += 1
+            replaced += bool(result.trashed)
             if action.startswith("moved"):
                 on_moved(src)
             link = {"link": dst, "link_text": dst.name}
@@ -688,7 +692,7 @@ def transfer_matches(
                 # the window shows the progress bar for these; the log file keeps each one
                 log.info("%s %s", verb, dst.name, extra={**link, "file_only": True})
     progress(len(paths), len(paths))
-    return TransferCounts(done, failed, skipped)
+    return TransferCounts(done, failed, skipped, replaced, kept)
 
 
 def new_run_id() -> str:

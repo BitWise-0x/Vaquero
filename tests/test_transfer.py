@@ -48,7 +48,7 @@ def test_overwrite_keeps_both_same_named_matches_from_one_batch(tmp_path: Path) 
     touch(dest / "a.jpg", b"old")
     journal = tmp_path / "moves.csv"
 
-    assert transfer_matches([a1, a2], dest, journal, conflict=Conflict.OVERWRITE) == (2, 0, 0)
+    assert transfer_matches([a1, a2], dest, journal, conflict=Conflict.OVERWRITE) == TransferCounts(2, 0, 0, replaced=1)
 
     assert (dest / "a.jpg").read_bytes() == b"first"
     assert (dest / "A 2.JPG").read_bytes() == b"second"
@@ -59,7 +59,7 @@ def test_cross_volume_move(tmp_path: Path, volume: Path) -> None:
     a = touch(tmp_path / "src" / "a.jpg", b"new")
     journal = tmp_path / "moves.csv"
 
-    assert transfer_matches([a], volume / "out", journal) == (1, 0, 0)
+    assert transfer_matches([a], volume / "out", journal) == TransferCounts(1, 0, 0)
 
     assert (volume / "out" / "a.jpg").read_bytes() == b"new"
     assert not a.exists()
@@ -85,7 +85,7 @@ def test_full_destination_keeps_the_old_file_and_the_source(
     with pytest.raises(TransferStopped) as stopped:
         transfer_matches([big, later], dest, journal, conflict=conflict, mode=mode)
 
-    assert stopped.value.counts == (0, 1, 0)
+    assert stopped.value.counts == TransferCounts(0, 1, 0)
     assert "cannot take more files" in str(stopped.value)
     assert (dest / "a.jpg").read_bytes() == b"old"
     assert big.stat().st_size == DISK_MB * 2 << 20 and later.exists()
@@ -105,7 +105,7 @@ def test_vanished_destination_stops_the_batch(tmp_path: Path) -> None:
     with pytest.raises(TransferStopped) as stopped:
         transfer_matches(files, dest, journal, unplug, mode=Transfer.COPY)
 
-    assert stopped.value.counts == (1, 1, 0)
+    assert stopped.value.counts == TransferCounts(1, 1, 0)
     assert "no longer available" in str(stopped.value)
     assert all(f.exists() for f in files)
 
@@ -125,7 +125,7 @@ def test_move_whose_source_cannot_be_removed_is_journaled_as_a_copy(tmp_path: Pa
     journal = tmp_path / "moves.csv"
     a.parent.chmod(0o555)
     try:
-        assert transfer_matches([a], volume / "out", journal) == (1, 0, 0)
+        assert transfer_matches([a], volume / "out", journal) == TransferCounts(1, 0, 0)
     finally:
         a.parent.chmod(0o755)
 
@@ -161,7 +161,7 @@ def test_a_different_photo_with_the_same_name_is_not_taken_for_a_copy(tmp_path: 
     dest = tmp_path / "dest"
     touch(dest / "a.jpg", b"someone else entirely")
 
-    assert transfer_matches([a], dest, tmp_path / "moves.csv", mode=Transfer.COPY) == (1, 0, 0)
+    assert transfer_matches([a], dest, tmp_path / "moves.csv", mode=Transfer.COPY) == TransferCounts(1, 0, 0)
 
     assert (dest / "a 2.jpg").read_bytes() == b"the person"
 
@@ -218,7 +218,7 @@ def test_a_destination_too_small_stops_before_the_first_file(tmp_path: Path, vol
     with pytest.raises(TransferStopped, match="nothing was moved or copied") as stopped:
         transfer_matches(files, volume / "out", journal)
 
-    assert stopped.value.counts == (0, 0, 0)
+    assert stopped.value.counts == TransferCounts(0, 0, 0)
     assert all(f.exists() for f in files) and not list((volume / "out").iterdir())
 
 
@@ -261,12 +261,12 @@ def test_undo_reverses_the_last_run_only(tmp_path: Path) -> None:
 
     rows = last_run(journal)
     assert {r.run for r in rows} == {"run-3"}
-    assert undo_run(rows, journal) == (1, 0, 0)
+    assert undo_run(rows, journal) == TransferCounts(1, 0, 0)
     assert copied.exists() and not (tmp_path / "dest" / "c.jpg").exists()
 
     rows = last_run(journal)
     assert {r.run for r in rows} == {"run-2"}
-    assert undo_run(rows, journal) == (2, 0, 0)
+    assert undo_run(rows, journal) == TransferCounts(2, 0, 0)
     assert [p.read_bytes() for p in moved] == [b"aaa", b"bbb"]
     assert (tmp_path / "dest" / "a.jpg").read_bytes() == b"was here"  # back out of the Trash
     assert not (tmp_path / "dest" / "b.jpg").exists()
@@ -285,7 +285,7 @@ def test_undo_leaves_changed_things_alone(tmp_path: Path) -> None:
     (tmp_path / "dest" / "a.jpg").write_bytes(b"edited after the copy")
     b.unlink()  # the copy is now the only one
 
-    assert undo_run(last_run(journal), journal) == (0, 0, 2)
+    assert undo_run(last_run(journal), journal) == TransferCounts(0, 0, 2)
     assert (tmp_path / "dest" / "a.jpg").exists() and (tmp_path / "dest" / "b.jpg").exists()
 
 
@@ -297,7 +297,7 @@ def test_undo_across_volumes_puts_files_back(tmp_path: Path, volume: Path) -> No
     transfer_matches([a], volume / "out", journal, run="r")
     assert not a.exists()
 
-    assert undo_run(last_run(journal), journal) == (1, 0, 0)
+    assert undo_run(last_run(journal), journal) == TransferCounts(1, 0, 0)
     assert a.read_bytes() == b"aaa" and not (volume / "out" / "a.jpg").exists()
     assert last_run(journal) == []
 
@@ -319,7 +319,7 @@ def test_undo_with_the_drive_disconnected_fails_and_can_be_done_later(tmp_path: 
     away = Path("/Volumes/NoSuchDriveXYZ/out/a.jpg")
     journal.write_text(f"{tmp_path / 'a.jpg'},{away},moved,r,\n")
 
-    assert undo_run(last_run(journal), journal) == (0, 1, 0)
+    assert undo_run(last_run(journal), journal) == TransferCounts(0, 1, 0)
     assert [r.run for r in last_run(journal)] == ["r"]  # still there to undo once the drive is back
     assert isinstance(last_run(journal)[0], JournalRow)
 
@@ -333,7 +333,7 @@ def test_a_move_never_leaves_its_source_behind(tmp_path: Path, fake_trash: Path,
     shutil.copy2(a, dest / "a.jpg")
     journal = tmp_path / "moves.csv"
 
-    assert transfer_matches([a], dest, journal, conflict=conflict) == TransferCounts(1, 0, 0)
+    assert transfer_matches([a], dest, journal, conflict=conflict) == TransferCounts(1, 0, 0, replaced=1)
 
     assert not a.exists()
     assert sorted(p.name for p in dest.iterdir()) == ["a.jpg"]
@@ -352,7 +352,7 @@ def test_overwrite_replaces_an_identical_copy_too(tmp_path: Path, fake_trash: Pa
     shutil.copy2(a, dest / "a.jpg")
     journal = tmp_path / "moves.csv"
 
-    assert transfer_matches([a], dest, journal, conflict=Conflict.OVERWRITE, mode=Transfer.COPY) == TransferCounts(1, 0, 0)
+    assert transfer_matches([a], dest, journal, conflict=Conflict.OVERWRITE, mode=Transfer.COPY) == TransferCounts(1, 0, 0, replaced=1)
 
     assert a.exists() and len(list(fake_trash.iterdir())) == 1
     assert rows(journal) == [[str(a), str(dest / "a.jpg"), "copied, overwrote"]]
@@ -369,7 +369,7 @@ def test_a_file_that_cannot_go_to_the_trash_is_never_replaced(
     touch(dest / "a.jpg", b"old photo")
     journal = tmp_path / "moves.csv"
 
-    assert transfer_matches([a], dest, journal, conflict=Conflict.OVERWRITE, mode=mode) == TransferCounts(1, 0, 0)
+    assert transfer_matches([a], dest, journal, conflict=Conflict.OVERWRITE, mode=mode) == TransferCounts(1, 0, 0, kept=1)
 
     assert (dest / "a.jpg").read_bytes() == b"old photo"
     assert (dest / "a 2.jpg").read_bytes() == b"new photo"

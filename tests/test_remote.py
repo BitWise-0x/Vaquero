@@ -215,3 +215,43 @@ def test_a_failed_swap_keeps_the_old_app_and_says_why_next_launch(tmp_path: Path
     assert opened.read_text().strip() == str(bundle)
     assert remote.take_update_failure() == "the app could not be replaced in its folder"
     assert remote.take_update_failure() is None
+
+
+def test_an_update_that_never_gets_to_swap_removes_its_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+    import time
+
+    monkeypatch.setattr(remote, "LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(remote, "UPDATE_LOG", tmp_path / "logs" / "vaquero-update.log")
+    monkeypatch.setattr(remote, "UPDATE_FAILED", tmp_path / "update-failed.txt")
+    monkeypatch.setattr(remote, "QUIT_WAIT_S", 1)
+    bundle = _fake_app(tmp_path / "Apps" / "Vaquero.app", "1.0.0")
+    work = bundle.parent / ".vaquero-update-x"
+    staged = _fake_app(work / "Vaquero.app", "2.0.0")
+    stays_open = subprocess.Popen(["sleep", "10"])
+    try:
+        remote.install_and_relaunch(staged, bundle, stays_open.pid, opener="true")
+        for _ in range(100):
+            if not work.exists():
+                break
+            time.sleep(0.05)
+    finally:
+        stays_open.kill()
+    assert not work.exists()
+    assert remote.take_update_failure() == "Vaquero did not quit in time"
+
+
+def test_old_update_downloads_go_and_the_current_one_stays(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(remote, "DOWNLOADS_DIR", tmp_path)
+    for name in ("Vaquero-0.28.0-arm64.dmg", "Vaquero-0.29.0-arm64.dmg.part", "Vaquero-0.30.0-arm64.dmg.part", "buffalo_l.zip.part"):
+        (tmp_path / name).write_bytes(b"x")
+    remote.clear_stale_downloads(remote.Asset("Vaquero-0.30.0-arm64.dmg", 1, "https://example.invalid", ""))
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["Vaquero-0.30.0-arm64.dmg.part", "buffalo_l.zip.part"]
+
+
+def test_update_folders_left_beside_the_app_are_removed(tmp_path: Path) -> None:
+    _fake_app(tmp_path / "Vaquero.app", "1.0.0")
+    _fake_app(tmp_path / ".vaquero-update-abc" / "Vaquero.app", "2.0.0")
+    (tmp_path / "Other.app").mkdir()
+    remote.clear_stale_staging(tmp_path)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["Other.app", "Vaquero.app"]

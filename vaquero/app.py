@@ -1362,18 +1362,22 @@ class Window(QMainWindow):
             return
 
         def fetch(progress: Callable[[int, int], None], cancelled: Callable[[], bool]) -> Path:
-            dmg = remote.download(rel.assets[dmgs[0]], progress, cancelled)
-            running = remote.running_bundle()
-            if running is None:
-                raise RemoteError("not running from an app bundle")
-            # staged beside the installed app: the swap is then a rename on one volume
-            workdir = Path(tempfile.mkdtemp(prefix=".vaquero-update-", dir=running.parent))
+            dmg_asset = rel.assets[dmgs[0]]
+            remote.clear_stale_downloads(dmg_asset)
+            dmg = remote.download(dmg_asset, progress, cancelled)
+            # the DMG goes once its app is copied out, or as soon as it cannot be
             try:
-                staged = remote.stage_update(dmg, workdir)
-                remote.verify_update(staged, running, rel.version)
-            except BaseException:
-                shutil.rmtree(workdir, ignore_errors=True)
-                raise
+                running = remote.running_bundle()
+                if running is None:
+                    raise RemoteError("not running from an app bundle")
+                # staged beside the installed app: the swap is then a rename on one volume
+                workdir = Path(tempfile.mkdtemp(prefix=remote.STAGING_PREFIX, dir=running.parent))
+                try:
+                    staged = remote.stage_update(dmg, workdir)
+                    remote.verify_update(staged, running, rel.version)
+                except BaseException:
+                    shutil.rmtree(workdir, ignore_errors=True)
+                    raise
             finally:
                 dmg.unlink(missing_ok=True)
             return staged
@@ -1891,6 +1895,8 @@ def main() -> None:
     w.apply_presence()
     w.show()
     bundle = remote.running_bundle()
+    if bundle:
+        remote.clear_stale_staging(bundle.parent)
     if bundle and not w.settings.value(DONT_OFFER_MOVE_KEY, False, type=bool) and (why := access.move_offer_reason(bundle)):
         QTimer.singleShot(0, lambda: w.offer_move(bundle, why))
     if failed := remote.take_update_failure():

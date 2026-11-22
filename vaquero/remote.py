@@ -259,6 +259,32 @@ def _download_once(asset: Asset, url: str, progress: Callable[[int, int], None],
     return target
 
 
+def clear_stale_downloads(keep: Asset) -> None:
+    """Remove app update DMGs, finished or partial, other than keep's: a paused download of a release that a newer
+    one has since replaced would otherwise stay in DOWNLOADS_DIR for good."""
+    keep_names = {keep.name, f"{keep.name}.part"}
+    for f in DOWNLOADS_DIR.glob("Vaquero-*.dmg*"):
+        if f.name in keep_names:
+            continue
+        try:
+            f.unlink(missing_ok=True)
+        except OSError as e:
+            log.warning("could not remove the old download %s: %s", f, e.strerror or e)
+
+
+def clear_stale_staging(folder: Path) -> None:
+    """Remove update folders left beside the app by an update stopped before its swap (a crash, a forced quit)."""
+
+    def failed(_fn: object, path: str, e: BaseException) -> None:
+        # the install script of the update just installed may be removing the same folder
+        if not isinstance(e, FileNotFoundError):
+            log.warning("could not remove the old update folder %s: %s", path, e)
+
+    for d in folder.glob(f"{STAGING_PREFIX}*"):
+        if d.is_dir():
+            shutil.rmtree(d, onexc=failed)
+
+
 def _digest_ok(path: Path, asset: Asset) -> bool:
     algo, _, expected = asset.digest.partition(":")
     if algo != "sha256" or not expected:
@@ -348,6 +374,7 @@ APP_ID = "com.bitwise0x.vaquero"
 UPDATE_LOG = LOG_DIR / "vaquero-update.log"
 # written by the install script when it could not swap the app, read and removed at the next launch
 UPDATE_FAILED = SUPPORT_DIR / "update-failed.txt"
+STAGING_PREFIX = ".vaquero-update-"  # the folder beside the app an update is copied into before the swap
 QUIT_WAIT_S = 120  # how long the install script waits for the old app to quit
 
 
@@ -441,7 +468,7 @@ def install_and_relaunch(staged: Path, bundle: Path, pid: int, opener: str = "op
     so each move is a rename on one volume. The old app is put back if the new one cannot be moved in; either way
     the script logs to vaquero-update.log, and a failure leaves its reason in UPDATE_FAILED for the next launch."""
     q = shlex.quote
-    b, old, marker = q(str(bundle)), q(f"{bundle}.old"), q(str(UPDATE_FAILED))
+    b, old, marker, work = q(str(bundle)), q(f"{bundle}.old"), q(str(UPDATE_FAILED)), q(str(staged.parent))
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     script = staged.parent / "install.sh"
     script.write_text(
@@ -451,7 +478,8 @@ def install_and_relaunch(staged: Path, bundle: Path, pid: int, opener: str = "op
         "n=0\n"
         f"while kill -0 {pid} 2>/dev/null; do\n"
         f"  n=$((n + 1)); if [ $n -gt {QUIT_WAIT_S * 2} ]; then\n"
-        f"    echo 'Vaquero did not quit; update not installed'; echo 'Vaquero did not quit in time' > {marker}; exit 1\n"
+        f"    echo 'Vaquero did not quit; update not installed'; echo 'Vaquero did not quit in time' > {marker}\n"
+        f"    rm -rf {work}; exit 1\n"
         "  fi; sleep 0.5\n"
         "done\n"
         f"rm -rf {old}\n"
@@ -463,7 +491,7 @@ def install_and_relaunch(staged: Path, bundle: Path, pid: int, opener: str = "op
         "fi\n"
         f"xattr -dr com.apple.quarantine {b} 2>/dev/null\n"
         f"{q(opener)} {b}\n"
-        f"rm -rf {q(str(staged.parent))}\n"
+        f"rm -rf {work}\n"
     )
     script.chmod(0o755)
     subprocess.Popen(["/bin/sh", str(script)], start_new_session=True)

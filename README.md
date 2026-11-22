@@ -103,6 +103,7 @@ Pick the reference photos, a folder to scan and a destination, then **Scan**. Ch
 - **Lookalikes flagged**: borderline matches are marked `review`
 - **Copy or move**: with keep-both or overwrite when a name is taken; an overwritten file goes to the Trash, and one that cannot is kept beside the new one
 - **Undo**: **Edit > Undo** puts the last copy or move back
+- **Scan report**: a CSV of every scanned file with its score and result, and what Round up did with each match
 - **Safe copies**: every file is flushed to disk and checked before it takes its place; a full or unplugged drive never leaves a partial file, and a stopped copy or move picks up where it left off
 - **Progress and cancel**: progress with time left for the scan, the copy or move, and the model download; cancel and quit ask first while one runs
 - **Menu bar and Dock**: in the Dock, the menu bar, or both; the menu bar menu shows progress, Cancel and Undo without opening the window

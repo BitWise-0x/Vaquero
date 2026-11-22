@@ -131,7 +131,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$TAG" "dist/Vaquero-${TAG#v}-arm64.dmg" --clobber
-      # the site's download link names the newest DMG, read when the site builds
+      # the site's download links are built with the newest DMG, the fallback for the lookup each page makes
       - name: Rebuild the site
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

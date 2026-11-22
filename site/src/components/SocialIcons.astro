@@ -4,11 +4,29 @@ import { Icon } from '@astrojs/starlight/components';
 import { download } from '../download.mjs';
 ---
 
-<a class="download" href={download}>
+<a class="download" href={download} data-dmg>
 	<Icon name="download" />
 	<span>Download</span>
 </a>
 <Default />
+
+<script>
+	// on every page, as the header link is: the links marked data-dmg follow the newest DMG GitHub has now, so a
+	// release made since the site was built, or since the browser cached this page, is the one downloaded
+	import { RELEASES_API, newestDmgUrl } from '../release.mjs';
+
+	fetch(RELEASES_API, { headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(5000) })
+		.then((response) => {
+			if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
+			return response.json();
+		})
+		.then((releases) => {
+			const url = newestDmgUrl(releases);
+			if (!url) throw new Error('no app release has a DMG');
+			document.querySelectorAll('a[data-dmg]').forEach((a) => (a.href = url));
+		})
+		.catch((error) => console.warn(`download links keep the DMG the site was built with: ${error.message}`));
+</script>
 
 <style>
 	.download {

@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.31.2 (2026-11-22)
+
+### Bug Fixes
+
+- **app**: A quit from the Dock, a logout or an update no longer crashes on the way out
+  ([`cb67638`](https://github.com/BitWise-0x/Vaquero/commit/cb67638ba9eff0d88c3eff7e2f08abe37333c812))
+
+### Documentation
+
+- Screenshots at 0.31.1, help on files already in the destination
+  ([`66e4e7d`](https://github.com/BitWise-0x/Vaquero/commit/66e4e7d15ab9e6a40a3a985d7d7c9bb4613b2e11))
+
+
 ## v0.31.1 (2026-11-22)
 
 ### Bug Fixes

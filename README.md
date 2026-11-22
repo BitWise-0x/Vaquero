@@ -88,7 +88,7 @@ Vaquero runs on an open-source AI model, right on your machine. No photo, face o
 
 Requires an Apple Silicon Mac with macOS 14 or later. The first launch downloads the face model (about 290 MB).
 
-Pick the reference photos, a folder to scan and a destination, then **Scan**. Check the matches, choose **Copy** or **Move**, then **Execute**.
+Pick the reference photos, a folder to scan and a destination, then **Scan**. Check the matches, choose **Copy** or **Move**, then **Round up**.
 
 <br>
 

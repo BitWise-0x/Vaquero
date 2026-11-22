@@ -13,7 +13,7 @@ Everything runs on your Mac. No photo, face or log leaves it. The network is use
 2. **Detection**: in each photo, or each sampled video frame, SCRFD finds every face and five landmarks (eyes, nose, mouth corners). When it finds none, it tries once more on the image with a border added, which catches faces that fill the frame.
 3. **Recognition**: each face is aligned on its landmarks and embedded with ArcFace.
 4. **Scoring**: a file's score is its best face's cosine similarity to the reference face. A video takes the best across its sampled frames.
-5. **Copy or move**: files at or above the threshold are copied or moved when you click **Execute**.
+5. **Copy or move**: files at or above the threshold are copied or moved when you click **Round up**.
 
 ## Performance
 

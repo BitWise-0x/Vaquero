@@ -217,7 +217,7 @@ def test_scan_stops_when_cancelled(photos, tmp_path: Path) -> None:
 
 
 def test_references_to_moved_matches_end_to_end(photos, tmp_path: Path) -> None:
-    """References, scan, threshold, then Execute (move) with its undo journal."""
+    """References, scan, threshold, then Round up (move) with its undo journal."""
     refs, src, dest = tmp_path / "refs", tmp_path / "src", tmp_path / "src" / "Found"
     for i in range(4):
         photos(refs, f"alex{i}.jpg", [(900.0, "alex")])

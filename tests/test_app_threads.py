@@ -74,7 +74,7 @@ def test_scan_stays_off_without_a_face_model(tmp_path: Path, monkeypatch: pytest
 
 
 def test_a_second_job_does_not_start_while_one_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Changing the threshold during a move once re-enabled Execute, and a second transfer orphaned the first."""
+    """Changing the threshold during a move once re-enabled Round up, and a second transfer orphaned the first."""
     ini = str(tmp_path / "vaquero.ini")
     monkeypatch.setattr(ui, "QSettings", lambda *_: QSettings(ini, QSettings.Format.IniFormat))
     QApplication.instance() or QApplication([])

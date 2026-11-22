@@ -27,6 +27,7 @@ from PySide6.QtCore import (
     QPoint,
     QRectF,
     QSettings,
+    QSize,
     Qt,
     QtMsgType,
     QThread,
@@ -120,7 +121,7 @@ from vaquero.engine import (
 log = logging.getLogger("vaquero")
 
 DEFAULT_THRESHOLD = 0.35
-# matches below this are lookalike territory: logged as "review" so they get a look before Execute
+# matches below this are lookalike territory: logged as "review" so they get a look before Round up
 REVIEW_BELOW = 0.45
 CLOSE_WAIT_MS = 30_000
 
@@ -154,7 +155,7 @@ HELP_HTML = """
 <h2>Vaquero {version}</h2>
 <p>Vaquero finds every photo and video of one person in a folder and moves or copies them to another folder.
 You give it a few photos of the person. It learns their face from those, checks every face in the scanned
-files against it, and lists the matches. Nothing moves until you click <b>Execute</b>.</p>
+files against it, and lists the matches. Nothing moves until you click <b>Round up</b>.</p>
 
 <h3>Folders</h3>
 <ul>
@@ -181,7 +182,7 @@ that many frames spread evenly through it. More frames catch a person who appear
 
 <h3>Output</h3>
 <ul>
-<li><span class="term">Move</span> or <span class="term">Copy</span>: what Execute does with the matches. Move takes
+<li><span class="term">Move</span> or <span class="term">Copy</span>: what Round up does with the matches. Move takes
 them out of the scanned folder; Copy leaves the originals where they are.</li>
 <li><span class="term">Name exists</span>: what happens when the destination already has a file with the same name.
 <i>Keep both</i> adds the new file with a number (<code>IMG_1 2.png</code>).
@@ -193,7 +194,7 @@ replaced outright.</li>
 <ul>
 <li><span class="term">Scan</span>: checks every file and lists the matches. Moves nothing.</li>
 <li><span class="term">Cancel</span>: stops a scan, move or copy after the current file, once you confirm.</li>
-<li><span class="term">Execute</span>: moves or copies the matches to the destination, per <b>Move</b> / <b>Copy</b>.</li>
+<li><span class="term">Round up</span>: moves or copies the matches to the destination, per <b>Move</b> / <b>Copy</b>.</li>
 <li><span class="term">Quit</span>: closes Vaquero. With a scan, move, copy or download running, it asks first, then stops
 it after the current file. A model or update download picks up where it stopped the next time.</li>
 </ul>
@@ -210,7 +211,7 @@ menu opens on the job's progress bar and time left, with Cancel, Scan, Undo and 
 
 <h3>Shortcuts</h3>
 <ul>
-<li><b>⌘R</b> Scan, <b>⌘E</b> Execute, <b>⌘.</b> Cancel, <b>⌘Z</b> Undo, <b>⌘,</b> Settings, <b>⌘W</b> close the window.</li>
+<li><b>⌘R</b> Scan, <b>⌘E</b> Round up, <b>⌘.</b> Cancel, <b>⌘Z</b> Undo, <b>⌘,</b> Settings, <b>⌘W</b> close the window.</li>
 </ul>
 
 <h3>Reading the results</h3>
@@ -840,7 +841,8 @@ class Window(QMainWindow):
         buttons = QHBoxLayout()
         self.scan_btn = QPushButton("Scan")
         self.cancel_btn = QPushButton("Cancel")
-        self.execute_btn = QPushButton("Execute")
+        self.execute_btn = QPushButton(QIcon(str(asset("Vaquero.png"))), "Round up")
+        self.execute_btn.setIconSize(QSize(18, 18))
         self.cancel_btn.setEnabled(False)
         self.execute_btn.setEnabled(False)
         for b in (self.scan_btn, self.cancel_btn, self.execute_btn):
@@ -1075,7 +1077,7 @@ class Window(QMainWindow):
 
         file = bar.addMenu("File")
         self.scan_menu_action = add(file, "Scan", self.start_scan, "Ctrl+R")
-        self.execute_menu_action = add(file, "Execute", self.execute, "Ctrl+E")
+        self.execute_menu_action = add(file, "Round up", self.execute, "Ctrl+E")
         self.cancel_menu_action = add(file, "Cancel", self.cancel_job, "Ctrl+.")
         file.addSeparator()
         add(file, "Open Last Scan Report", self.open_last_report)

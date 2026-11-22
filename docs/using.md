@@ -12,7 +12,7 @@ description: Pick the folders, scan, check the matches, then copy or move them.
 3. **Destination**: pick where the matches go. It is created if missing and never scanned.
 4. Click **Scan**. Nothing moves yet.
 5. Check the matches in the log. Click any file name to open it.
-6. Choose **Copy** or **Move**, then click **Execute**.
+6. Choose **Copy** or **Move**, then click **Round up**.
 7. Changed your mind? **Edit > Undo** puts the files back.
 
 ## Options
@@ -22,7 +22,7 @@ description: Pick the folders, scan, check the matches, then copy or move them.
 | Reference faces | | Folder of photos of the person to find |
 | Folder to scan | | Folder searched for that person |
 | Destination | | Where matches go; created if missing |
-| Move / Copy | Move | What **Execute** does with the matches |
+| Move / Copy | Move | What **Round up** does with the matches |
 | Name exists | Keep both | A name already in the destination: keep both, the new file numbered (`IMG_1 2.png`), or overwrite. Overwrite replaces only files that were there before the run; two matches with the same name are both kept. A file with the same name, size and modification time is skipped under either setting |
 | Model | `buffalo_l` | Installed model pack |
 | Scan subfolders | off | Also scan subfolders; hidden folders and the destination are skipped, and matches land flat in the destination |
@@ -97,7 +97,7 @@ Vaquero shows in the Dock, in the menu bar, or both; choose in **Settings**. One
 | Menu | Items |
 |---|---|
 | Vaquero | About Vaquero, Check for Updates…, Settings… (⌘,), Quit Vaquero (⌘Q) |
-| File | Scan (⌘R), Execute (⌘E), Cancel (⌘.), Open Last Scan Report, Show Logs Folder, Close Window (⌘W) |
+| File | Scan (⌘R), Round up (⌘E), Cancel (⌘.), Open Last Scan Report, Show Logs Folder, Close Window (⌘W) |
 | Edit | Undo (⌘Z), Cut, Copy, Paste, Select All |
 | Window | Minimize (⌘M), Zoom, Vaquero |
 | Help | Vaquero Help, Open Log, Show Logs Folder, Vaquero Website, Report an Issue… |

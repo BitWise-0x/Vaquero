@@ -289,3 +289,24 @@ def test_the_move_summary_points_out_replaced_and_kept_files(
     assert any(m.startswith("2 existing files replaced: the old ones are in the Trash") for m in warned)
     assert any(m.startswith("1 existing file could not go to the Trash and stayed") for m in warned)
     assert "move done: 5 moved, 2 replaced, 1 kept beside the new file, 0 failed" in caplog.text
+
+
+def test_a_quit_from_macos_does_not_quit_again_from_the_close(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A Dock Quit or logout closed the window inside Qt's own quit; the second quit made AppKit end the process on
+    the spot, and PySide crashed tearing down the widgets."""
+    from PySide6.QtCore import QEvent
+
+    ini = str(tmp_path / "vaquero.ini")
+    monkeypatch.setattr(ui, "QSettings", lambda *_: QSettings(ini, QSettings.Format.IniFormat))
+    app = QApplication.instance() or QApplication([])
+    quits: list[bool] = []
+    monkeypatch.setattr(ui.QApplication, "quit", staticmethod(lambda: quits.append(True)))
+    w = ui.Window()
+
+    w.eventFilter(app, QEvent(QEvent.Type.Quit))
+    w.close()
+    assert quits == []
+
+    w.show()
+    w.quit_app()
+    assert quits == [True]

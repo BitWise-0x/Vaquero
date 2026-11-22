@@ -732,6 +732,7 @@ class Window(QMainWindow):
         migrate_settings(self.settings)
         self.quiet_update_check = False
         self.quitting = False  # a real quit, not the window closing into the menu bar
+        self.quit_event = False  # Qt is handling a Quit (from macOS or QApplication.quit) and ends the loop itself
         self.progress_state: tuple[str, int, int, str] | None = None  # label, done, total, time left of the running job
         self.menu_status = READY  # the last result, short enough for one line of the menu bar menu
         self.job_started = 0.0
@@ -1868,6 +1869,7 @@ class Window(QMainWindow):
         QToolTip.showText(QCursor.pos(), f"{url.toLocalFile()}\nClick to open, Option-click to show in Finder", self.log_view)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (Qt override)
+        in_quit, self.quit_event = self.quit_event, False
         self.settings.setValue("geometry", self.saveGeometry())
         if not self.quitting and self.status_item.tray.isVisible():
             # with the menu bar icon, closing the window keeps Vaquero, and any job, running there
@@ -1897,7 +1899,10 @@ class Window(QMainWindow):
             self.file_log.close()
         self.status_item.tray.hide()
         super().closeEvent(event)
-        QApplication.quit()
+        # inside a Quit from macOS (Dock, logout, an Apple event) a second quit makes AppKit end the process on the
+        # spot, and the widgets torn down then crash PySide; Qt ends the event loop itself once this close is accepted
+        if not in_quit:
+            QApplication.quit()
 
     def quit_app(self) -> None:
         """Quit for real: from the menus, the menu bar icon, the Dock, or a logout."""
@@ -1910,7 +1915,7 @@ class Window(QMainWindow):
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802 (Qt override)
         # macOS asks to quit (Dock menu, logout, restart) with a Quit event; the window must not just hide then
         if event.type() == QEvent.Type.Quit:
-            self.quitting = True
+            self.quitting = self.quit_event = True
         return False
 
 

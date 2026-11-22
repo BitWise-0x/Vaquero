@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.30.3 (2026-11-22)
+
+### Bug Fixes
+
+- **transfer**: The log calls out every replaced file and every file kept for want of a Trash
+  ([`ea645d1`](https://github.com/BitWise-0x/Vaquero/commit/ea645d16f61222465102326aa69be76210fe2497))
+
+
 ## v0.30.2 (2026-11-22)
 
 ### Bug Fixes

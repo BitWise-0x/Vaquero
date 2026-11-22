@@ -622,7 +622,10 @@ def transfer_matches(
             progress(i - 1, len(paths))
             dst, action = dest / src.name, verb
             if dst.name.casefold() not in placed and _already_there(src, dst):
-                log.info("%s is already in the destination, skipped", src.name, extra={"link": dst, "link_text": dst.name})
+                log.info(
+                    "%s is already in the destination with the same size and date, left in place",
+                    src.name, extra={"link": dst, "link_text": dst.name},
+                )
                 skipped += 1
                 continue
             if dst.exists():

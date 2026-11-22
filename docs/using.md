@@ -23,7 +23,7 @@ description: Pick the folders, scan, check the matches, then copy or move them.
 | Folder to scan | | Folder searched for that person |
 | Destination | | Where matches go; created if missing |
 | Move / Copy | Move | What **Execute** does with the matches |
-| Name exists | Keep both | A name already in the destination: keep both, the new file numbered (`IMG_1 2.png`), or overwrite. Overwrite replaces only files that were there before the run; two matches with the same name are both kept |
+| Name exists | Keep both | A name already in the destination: keep both, the new file numbered (`IMG_1 2.png`), or overwrite. Overwrite replaces only files that were there before the run; two matches with the same name are both kept. A file with the same name, size and modification time is skipped under either setting |
 | Model | `buffalo_l` | Installed model pack |
 | Scan subfolders | off | Also scan subfolders; hidden folders and the destination are skipped, and matches land flat in the destination |
 | Include videos | on | Also scan videos |

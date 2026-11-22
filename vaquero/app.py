@@ -125,6 +125,13 @@ REVIEW_BELOW = 0.45
 CLOSE_WAIT_MS = 30_000
 
 
+def verdict(r: ScanResult, threshold: float) -> str:
+    """match, review (a match in lookalike territory), no match, or no face."""
+    if r.score >= threshold:
+        return "review" if r.score < REVIEW_BELOW else "match"
+    return "no match" if r.faces else "no face"
+
+
 def asset(name: str) -> Path:
     """A file from assets/: bundled into the app by build.sh, read from the repo when run from source."""
     root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
@@ -225,7 +232,7 @@ matches on its own. A real match usually matches most of them (13/13); a lookali
 <ul>
 <li><span class="term">vaquero.log</span>: everything since launch, with the details of any error (<b>Help &gt; Open Log</b>).</li>
 <li><span class="term">vaquero-&lt;time&gt;.log</span>: the log of one scan and its move or copy.</li>
-<li><span class="term">vaquero-scan-&lt;time&gt;.csv</span>: every scanned file with its score.</li>
+<li><span class="term">vaquero-scan-&lt;time&gt;.csv</span>: every scanned file with its result, score and full path.</li>
 </ul>
 <p>In <code>~/Library/Application Support/Vaquero</code>:</p>
 <ul>
@@ -537,10 +544,12 @@ class ScanWorker(Job):
         recursive: bool,
         frames: int,
         report: Path,
+        threshold: float,
     ) -> None:
         super().__init__()
         self.model_dir, self.refs, self.folder, self.dest = model_dir, refs, folder, dest
         self.include_videos, self.recursive, self.frames, self.report = include_videos, recursive, frames, report
+        self.threshold = threshold
         self._cancel = False
         self.ref_count = 0
         self.results: list[ScanResult] = []  # filled as the scan runs, so an early stop still hands back what it found
@@ -571,14 +580,17 @@ class ScanWorker(Job):
             results = self.results
             with self.report.open("w", newline="") as fh:
                 w = csv.writer(fh)
-                w.writerow(["file", "kind", "score", "faces", "ref_agree"])
+                w.writerow(["result", "score", "file", "kind", "faces", "ref_agree", "threshold", "path"])
                 results_iter = scan(
                     matcher, paths, lambda: self._cancel, video_samples=self.frames, gone=lambda: not self.folder.is_dir()
                 )
                 for r in results_iter:
                     results.append(r)
                     w.writerow(
-                        [r.path.relative_to(self.folder), r.kind, f"{r.score:.3f}", r.faces, f"{r.agree}/{self.ref_count}"]
+                        [
+                            verdict(r, self.threshold), f"{r.score:.3f}", r.path.relative_to(self.folder), r.kind, r.faces,
+                            f"{r.agree}/{self.ref_count}", f"{self.threshold:.2f}", r.path,
+                        ]
                     )
                     self.progress.emit(len(results), total, r.score)
             if self._cancel:
@@ -1513,6 +1525,7 @@ class Window(QMainWindow):
             self.subfolders.isChecked(),
             self.frames.value(),
             report,
+            self.threshold.value(),
         )
         job.progress.connect(self._on_progress, QUEUED)
         job.listing.connect(self._on_listing, QUEUED)
@@ -1594,7 +1607,7 @@ class Window(QMainWindow):
         review = sum(r.score < REVIEW_BELOW for r in matches)
         section(f"Matches ({len(matches)})")
         for r in sorted(matches, key=lambda r: -r.score):
-            kind = "review" if r.score < REVIEW_BELOW else "match"
+            kind = verdict(r, self.threshold.value())
             shown = str(r.path.relative_to(self.scan_root)) if self.scan_root and r.path.is_relative_to(self.scan_root) else str(r.path)
             log.info(
                 "%s %.3f · refs %d/%d · %s", kind, r.score, r.agree, refs, shown, extra={"link": r.path, "link_text": shown}

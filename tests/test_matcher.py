@@ -258,7 +258,7 @@ def test_scan_worker_writes_the_report(photos, tmp_path: Path, monkeypatch: pyte
     photos(dest, "old.jpg", [(900.0, "alex")])
     monkeypatch.setattr(ui, "FaceMatcher", lambda _model_dir: matcher())
 
-    worker = ui.ScanWorker(tmp_path / "models", refs, src, dest, False, True, 10, report)
+    worker = ui.ScanWorker(tmp_path / "models", refs, src, dest, False, True, 10, report, 0.35)
     done: list[tuple[list, bool, int]] = []
     worker.finished.connect(lambda results, cancelled, kept: done.append((results, cancelled, kept)))
     worker.failed.connect(pytest.fail)
@@ -267,4 +267,18 @@ def test_scan_worker_writes_the_report(photos, tmp_path: Path, monkeypatch: pyte
     results, cancelled, kept = done[0]
     assert (len(results), cancelled, kept) == (2, False, 4)
     rows = list(csv.DictReader(report.open()))
-    assert [(r["file"], r["faces"], r["ref_agree"]) for r in rows] == [("2024/sam.jpg", "1", "0/4"), ("alex.jpg", "1", "4/4")]
+    assert [(r["result"], r["file"], r["faces"], r["ref_agree"], r["threshold"]) for r in rows] == [
+        ("no match", "2024/sam.jpg", "1", "0/4", "0.35"),
+        ("match", "alex.jpg", "1", "4/4", "0.35"),
+    ]
+    assert [r["path"] for r in rows] == [str(src / "2024" / "sam.jpg"), str(src / "alex.jpg")]
+
+
+def test_report_verdicts_follow_the_threshold() -> None:
+    from vaquero import app as ui
+    from vaquero.engine import ScanResult
+
+    def row(score: float, faces: int) -> str:
+        return ui.verdict(ScanResult(Path("a.jpg"), "image", score, faces), 0.35)
+
+    assert [row(0.6, 1), row(0.4, 1), row(0.2, 1), row(0.0, 0)] == ["match", "review", "no match", "no face"]

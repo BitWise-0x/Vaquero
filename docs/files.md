@@ -13,7 +13,9 @@ In `~/Library/Logs/Vaquero`. Open it with **Show logs folder** in the help windo
 | `vaquero-update.log` | Each update install: the swap of the old app for the new one, or why it could not be made |
 | `vaquero-crash.log` | A crash inside the face model, OpenCV or Qt, with the stack of every thread |
 | `vaquero-<timestamp>.log` | The log of one scan and the copy or move that follows it; each scan starts a new one |
-| `vaquero-scan-<timestamp>.csv` | Every scanned file with its score, face count and reference agreement (`ref_agree`, `N/M`) |
+| `vaquero-scan-<timestamp>.csv` | One row per scanned file: `result,score,file,kind,faces,ref_agree,threshold,path` |
+
+`result` is `match`, `review` (a match below 0.45), `no match` or `no face`, at the threshold the scan ran with; changing the threshold afterwards does not rewrite the report. `file` is relative to the scanned folder, `path` is the full path, `ref_agree` is `N/M` reference photos matched.
 
 The log files are plain text, with `== Section ==` lines between sections. The newest 50 scan logs and scan reports are kept; older ones are removed when Vaquero opens.
 

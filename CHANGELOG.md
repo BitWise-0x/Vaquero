@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.30.0 (2026-11-22)
+
+### Features
+
+- **app**: Round up replaces Execute, with the app icon on the button
+  ([`00959e5`](https://github.com/BitWise-0x/Vaquero/commit/00959e561d9463c34f4f57eee7289a312045b373))
+
+
 ## v0.29.0 (2026-11-22)
 
 ### Bug Fixes

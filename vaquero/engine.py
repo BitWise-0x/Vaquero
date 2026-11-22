@@ -521,16 +521,23 @@ class Placed(NamedTuple):
     trashed: str  # where the file it replaced went in the Trash, "" when it replaced nothing or had no Trash
 
 
+class CannotTrash(OSError):
+    """The file an overwrite would replace could not go to the Trash; it is left as it is."""
+
+
 def _make_room(dst: Path) -> str:
-    """Send the file about to be replaced to the Trash, so an undo, or the user, can put it back. A volume without
-    a Trash (some network shares) leaves it for the rename to replace, as before."""
+    """Send the file about to be replaced to the Trash, so an undo, or the user, can put it back. A file that cannot
+    go there (a volume without a Trash, as some network shares are) is never replaced: CannotTrash is raised."""
     if not dst.exists():
         return ""
-    return macos.trash(str(dst)) or ""
+    if trashed := macos.trash(str(dst)):
+        return trashed
+    raise CannotTrash(errno.EPERM, "could not go to the Trash", str(dst))
 
 
 def _place(src: Path, dst: Path, mode: Transfer) -> Placed:
-    """Put src at dst, replacing what is there (that file goes to the Trash first).
+    """Put src at dst, replacing what is there (that file goes to the Trash first; when it cannot, CannotTrash is
+    raised and neither file is changed).
 
     A Move within one volume is a single atomic rename. Anything else is copied to a hidden name beside dst, flushed
     to disk and size-checked, then renamed over dst, so a failed copy never leaves a partial file under the real name
@@ -639,7 +646,15 @@ def transfer_matches(
                 else:
                     dst, action = _free_name(dst), f"{verb}, renamed"
             try:
-                result = _place(src, dst, mode)
+                try:
+                    result = _place(src, dst, mode)
+                except CannotTrash:
+                    log.warning(
+                        "%s could not go to the Trash, so it is kept and the new file numbered", dst.name,
+                        extra={"link": dst, "link_text": dst.name},
+                    )
+                    dst, action = _free_name(dst), f"{verb}, renamed"
+                    result = _place(src, dst, mode)
                 if result.kept_source:
                     action = action.replace("moved", "copied", 1)
             except OSError as e:

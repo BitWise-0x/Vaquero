@@ -101,7 +101,7 @@ Pick the reference photos, a folder to scan and a destination, then **Scan**. Ch
 - **Subfolders**: optional; hidden folders and the destination are skipped
 - **Live threshold**: change it after a scan and the matches update without rescanning
 - **Lookalikes flagged**: borderline matches are marked `review`
-- **Copy or move**: with keep-both or overwrite when a name is taken; overwritten files go to the Trash where the volume has one
+- **Copy or move**: with keep-both or overwrite when a name is taken; an overwritten file goes to the Trash, and one that cannot is kept beside the new one
 - **Undo**: **Edit > Undo** puts the last copy or move back
 - **Safe copies**: every file is flushed to disk and checked before it takes its place; a full or unplugged drive never leaves a partial file, and a stopped copy or move picks up where it left off
 - **Progress and cancel**: progress with time left for the scan, the copy or move, and the model download; cancel and quit ask first while one runs

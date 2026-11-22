@@ -356,3 +356,22 @@ def test_overwrite_replaces_an_identical_copy_too(tmp_path: Path, fake_trash: Pa
 
     assert a.exists() and len(list(fake_trash.iterdir())) == 1
     assert rows(journal) == [[str(a), str(dest / "a.jpg"), "copied, overwrote"]]
+
+
+@pytest.mark.parametrize("mode", [Transfer.MOVE, Transfer.COPY])
+def test_a_file_that_cannot_go_to_the_trash_is_never_replaced(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: Transfer
+) -> None:
+    """On a volume without a Trash an overwrite once replaced the old file outright, losing it."""
+    monkeypatch.setattr(engine.macos, "trash", lambda path: None)
+    a = touch(tmp_path / "src" / "a.jpg", b"new photo")
+    dest = tmp_path / "dest"
+    touch(dest / "a.jpg", b"old photo")
+    journal = tmp_path / "moves.csv"
+
+    assert transfer_matches([a], dest, journal, conflict=Conflict.OVERWRITE, mode=mode) == TransferCounts(1, 0, 0)
+
+    assert (dest / "a.jpg").read_bytes() == b"old photo"
+    assert (dest / "a 2.jpg").read_bytes() == b"new photo"
+    assert a.exists() is (mode is Transfer.COPY)
+    assert rows(journal)[0][2] == f"{'moved' if mode is Transfer.MOVE else 'copied'}, renamed"

@@ -28,7 +28,7 @@ In `~/Library/Application Support/Vaquero`:
 | `vaquero-moves.csv` | One line per copied or moved file: `source,destination,action,run,trashed` |
 | `vaquero.lock` | Held while Vaquero runs, so only one copy runs at a time |
 
-The action is `moved` or `copied`, plus `, renamed` when the name was taken and both were kept, or `, overwrote` when the existing file was replaced. `run` groups the files of one copy or move, and `trashed` is where an overwritten file went in the Trash (empty on a volume without a Trash, such as some network shares, where it was replaced outright). **Edit > Undo** reverses the newest run and adds an `undone` line for it. Lines from older versions have only the first three columns.
+The action is `moved` or `copied`, plus `, renamed` when the name was taken and both were kept, or `, overwrote` when the existing file was replaced. `run` groups the files of one copy or move, and `trashed` is where an overwritten file went in the Trash. **Edit > Undo** reverses the newest run and adds an `undone` line for it. Lines from older versions have only the first three columns.
 
 ## Face model
 

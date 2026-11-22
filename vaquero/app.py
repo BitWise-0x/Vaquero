@@ -187,8 +187,8 @@ them out of the scanned folder; Copy leaves the originals where they are.</li>
 <li><span class="term">Name exists</span>: what happens when the destination already has a file with the same name.
 <i>Keep both</i> adds the new file with a number (<code>IMG_1 2.png</code>); an identical file (same size and date)
 is not copied again, and a move replaces it.
-<i>Overwrite</i> replaces the existing file and sends it to the Trash; on a network share without a Trash it is
-replaced outright.</li>
+<i>Overwrite</i> replaces the existing file and sends it to the Trash; one that cannot go to the Trash (a network
+share without one) is kept, and the new file numbered.</li>
 </ul>
 
 <h3>Buttons</h3>

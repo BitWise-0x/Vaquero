@@ -23,7 +23,7 @@ description: Pick the folders, scan, check the matches, then copy or move them.
 | Folder to scan | | Folder searched for that person |
 | Destination | | Where matches go; created if missing |
 | Move / Copy | Move | What **Round up** does with the matches |
-| Name exists | Keep both | A name already in the destination: keep both, the new file numbered (`IMG_1 2.png`), or overwrite. Overwrite replaces only files that were there before the run; two matches with the same name are both kept. A copy with Keep both skips a file already there byte for byte; a move replaces it, its old copy in the Trash |
+| Name exists | Keep both | A name already in the destination: keep both, the new file numbered (`IMG_1 2.png`), or overwrite. Overwrite replaces only files that were there before the run; two matches with the same name are both kept. A file already there byte for byte is never copied or kept twice: a copy skips it, a move only removes the original |
 | Model | `buffalo_l` | Installed model pack |
 | Scan subfolders | off | Also scan subfolders; hidden folders and the destination are skipped, and matches land flat in the destination |
 | Include videos | on | Also scan videos |
@@ -59,7 +59,7 @@ Changing the threshold after a scan updates the matches without scanning again. 
 - While a scan, copy, move or download runs, the Mac does not go to sleep on its own.
 - **Cancel** stops a scan, copy or move after the current file. A cancelled scan keeps the results it reached, and its matches can still be copied or moved. A cancelled copy or move leaves every file either fully done and journaled or untouched.
 - A copy, or a move to another drive, writes each file under a hidden name, flushes it to disk and checks its size before it takes the real name. A full or unplugged drive never leaves a partial file or damages the file it would replace, and a move removes the original only after its copy is complete.
-- When the destination fills up, turns read-only or disappears, the copy or move stops and says why. Files already done stay done and journaled. Running the copy or move again picks up where it stopped: a copy with Keep both skips the files it already copied, a move finds only what it had not moved yet.
+- When the destination fills up, turns read-only or disappears, the copy or move stops and says why. Files already done stay done and journaled. Running the copy or move again picks up where it stopped: a copy skips the files it already copied, a move finds only what it had not moved yet.
 - While it runs, the status line and the menu bar menu show the time left once the pace is clear.
 - **Cancel** and **Quit** ask before stopping a scan, copy, move or download. Quitting during a run cancels it and waits up to 30 seconds for the current file.
 - A job that finishes while Vaquero is in the background bounces its Dock icon, badges it with the number of matches, and shows a notification. Turn notifications off in **Settings**.

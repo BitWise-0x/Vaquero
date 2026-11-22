@@ -207,7 +207,7 @@ that many frames spread evenly through it. More frames catch a person who appear
 them out of the scanned folder; Copy leaves the originals where they are.</li>
 <li><span class="term">Name exists</span>: what happens when the destination already has a file with the same name.
 <i>Keep both</i> adds the new file with a number (<code>IMG_1 2.png</code>); a file already there byte for byte
-is not copied again, and a move replaces it.
+is not copied again, and a move only removes the original.
 <i>Overwrite</i> replaces the existing file and sends it to the Trash; one that cannot go to the Trash (a network
 share without one) is kept, and the new file numbered.</li>
 </ul>
@@ -1745,6 +1745,7 @@ class Window(QMainWindow):
         verb = self._transfer_verb()
         there = (
             (f", {counts.skipped} already there" if counts.skipped else "")
+            + (f", {counts.already} already there, originals removed" if counts.already else "")
             + (f", {counts.replaced} replaced" if counts.replaced else "")
             + (f", {counts.kept} kept beside the new file" if counts.kept else "")
         )

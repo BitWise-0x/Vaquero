@@ -485,6 +485,7 @@ class TransferCounts(NamedTuple):
     skipped: int = 0  # already in the destination, as from a run that stopped part way
     replaced: int = 0  # existing files an overwrite replaced, now in the Trash
     kept: int = 0  # existing files that could not go to the Trash, kept beside the new file
+    already: int = 0  # moved files the destination already had byte for byte: only the original was removed
 
 
 class Outcome(NamedTuple):
@@ -630,45 +631,65 @@ def transfer_matches(
     before the next file starts. Overwrite replaces only files that were there before this batch: two matches with
     the same name from different subfolders are both kept. Cancelling stops between files, so no file is ever left
     half moved or copied. on_file hears each file's Outcome, failures included. Rows carry run (a new run id when empty), so Undo can reverse one run, and where a
-    replaced file went in the Trash. A Copy with Keep both skips a file already in the destination (see _identical),
-    so running a stopped copy again does not duplicate what it did. A Move never leaves its source behind: an identical
-    file in the destination is replaced like an overwrite, its old copy in the Trash. Raises TransferStopped when the
-    destination stops taking files."""
+    replaced file went in the Trash. A file the destination already has byte for byte (see _identical) is never
+    copied twice or kept twice: a Copy skips it, so running a stopped copy again does not duplicate what it did, and a
+    Move only removes the original, journaled as "moved, already there". Raises TransferStopped when the destination
+    stops taking files."""
     dest.mkdir(parents=True, exist_ok=True)
     _check_space(paths, dest, mode)
     for stale in dest.glob(".*.vaquero-part"):  # left by a copy the app was quit or killed in the middle of
         stale.unlink(missing_ok=True)
     verb = "moved" if mode is Transfer.MOVE else "copied"
     run = run or new_run_id()
-    done = failed = skipped = replaced = kept = 0
+    done = failed = skipped = replaced = kept = already = 0
     placed: set[str] = set()  # names written by this batch, casefolded as APFS and HFS+ compare them
     with journal.open("a", newline="") as fh:
         w = csv.writer(fh)
+
+        def record(row: list[str]) -> None:
+            try:
+                w.writerow(row)
+                fh.flush()
+                _sync(fh)
+            except OSError as e:
+                raise OSError(e.errno, f"{Path(row[1]).name} was {verb} but the undo list {journal} could not be written: {e}") from e
+
         for i, src in enumerate(paths, 1):
             if cancelled():
                 log.warning("%s cancelled after %d of %d files", mode.value, i - 1, len(paths))
-                return TransferCounts(done, failed, skipped, replaced, kept)
+                return TransferCounts(done, failed, skipped, replaced, kept, already)
             progress(i - 1, len(paths))
             dst, action = dest / src.name, verb
             earlier = dst.name.casefold() not in placed  # there before this batch, not written by it
-            identical = earlier and _identical(src, dst)
-            if identical and mode is Transfer.COPY and conflict is Conflict.KEEP_BOTH:
-                log.info(
-                    "%s is already in the destination, byte for byte, not copied again",
-                    src.name, extra={"link": dst, "link_text": dst.name},
-                )
-                skipped += 1
-                on_file(src, Outcome("already there, not copied", str(dst)))
+            if earlier and _identical(src, dst):
+                link = {"link": dst, "link_text": dst.name}
+                if mode is Transfer.COPY:
+                    log.info("%s is already in the destination, byte for byte, not copied again", src.name, extra=link)
+                    skipped += 1
+                    on_file(src, Outcome("already there, not copied", str(dst)))
+                    continue
+                try:
+                    src.unlink()
+                except OSError as e:
+                    log.error(
+                        "%s is already in the destination, byte for byte, but the original could not be removed: %s",
+                        src, e.strerror or e, extra={"link": src, "link_text": str(src)},
+                    )
+                    failed += 1
+                    on_file(src, Outcome(f"failed: already there, the original could not be removed: {e.strerror or e}", str(dst)))
+                    continue
+                placed.add(dst.name.casefold())
+                on_file(src, Outcome("already there, original removed", str(dst)))
+                record([str(src), str(dst), ALREADY_THERE, run, ""])
+                done += 1
+                already += 1
+                on_moved(src)
+                log.info("%s is already in the destination, byte for byte; removed the original", src.name, extra=link)
                 continue
             if dst.exists():
-                if earlier and (conflict is Conflict.OVERWRITE or identical):
+                if earlier and conflict is Conflict.OVERWRITE:
                     action = f"{verb}, overwrote"
-                    log.warning(
-                        "%s is already in the destination, byte for byte; replacing it, the old copy goes to the Trash"
-                        if identical
-                        else "overwriting existing %s; the old file goes to the Trash",
-                        dst.name if identical else dst, extra={"link": dst, "link_text": dst.name if identical else str(dst)},
-                    )
+                    log.warning("overwriting existing %s; the old file goes to the Trash", dst, extra={"link": dst, "link_text": str(dst)})
                 else:
                     dst, action = _free_name(dst), f"{verb}, renamed"
             no_trash = False
@@ -697,16 +718,11 @@ def transfer_matches(
                         else f"{dest} cannot take more files: {os.strerror(e.errno or 0)}"
                     )
                     log.error("%s stopped after %d of %d files: %s", mode.value, i, len(paths), reason)
-                    raise TransferStopped(reason, TransferCounts(done, failed, skipped, replaced, kept)) from e
+                    raise TransferStopped(reason, TransferCounts(done, failed, skipped, replaced, kept, already)) from e
                 continue
             placed.add(dst.name.casefold())
             on_file(src, _outcome(action, result, dst, no_trash))
-            try:
-                w.writerow([str(src), str(dst), action, run, result.trashed])
-                fh.flush()
-                _sync(fh)
-            except OSError as e:
-                raise OSError(e.errno, f"{dst.name} was {verb} but the undo list {journal} could not be written: {e}") from e
+            record([str(src), str(dst), action, run, result.trashed])
             done += 1
             replaced += bool(result.trashed)
             if action.startswith("moved"):
@@ -720,7 +736,7 @@ def transfer_matches(
                 # the window shows the progress bar for these; the log file keeps each one
                 log.info("%s %s", verb, dst.name, extra={**link, "file_only": True})
     progress(len(paths), len(paths))
-    return TransferCounts(done, failed, skipped, replaced, kept)
+    return TransferCounts(done, failed, skipped, replaced, kept, already)
 
 
 def _outcome(action: str, result: Placed, dst: Path, no_trash: bool) -> Outcome:
@@ -747,6 +763,7 @@ class JournalRow(NamedTuple):
 
 
 UNDONE = "undone"
+ALREADY_THERE = "moved, already there"  # the destination had the file byte for byte; only the original was removed
 
 
 def read_journal(journal: Path) -> list[JournalRow]:
@@ -782,7 +799,8 @@ def undo_run(
     cancelled: Callable[[], bool] = lambda: False,
 ) -> TransferCounts:
     """Reverse one run, newest file first: moved files go back where they were, copies go to the Trash, and files
-    an overwrite replaced come back out of the Trash. Anything changed since (a file back in its old place, a copy
+    an overwrite replaced come back out of the Trash. An original a move removed because the destination already had
+    it is copied back, the destination keeping its copy. Anything changed since (a file back in its old place, a copy
     edited, the original of a copy gone) is left alone and logged. Completed, the run is marked undone."""
     done = failed = skipped = 0
     for i, row in enumerate(reversed(rows), 1):
@@ -816,6 +834,14 @@ def _undo_row(row: JournalRow) -> bool:
     if not row.dst.exists():
         log.warning("%s is no longer in the destination; nothing to undo", row.dst.name, extra=link)
         return False
+    if row.action == ALREADY_THERE:
+        if row.src.exists():
+            log.warning("%s is back in its old place already; left as is", row.src.name, extra=link)
+            return False
+        row.src.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(row.dst, row.src)  # the destination had it before the move, so it stays there too
+        log.info("put back the original %s", row.src.name, extra={"link": row.src, "link_text": row.src.name})
+        return True
     if row.action.startswith("moved"):
         if row.src.exists():
             log.warning("%s is back in its old place already; left as is", row.src.name, extra=link)

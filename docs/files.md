@@ -17,7 +17,7 @@ In `~/Library/Logs/Vaquero`. Open it with **Show logs folder** in the help windo
 
 `result` is `match`, `review` (a match below 0.45), `no match` or `no face`, at the threshold the scan ran with; changing the threshold afterwards does not rewrite the report. `file` is relative to the scanned folder, `path` is the full path, `ref_agree` is `N/M` reference photos matched.
 
-`disposition` says what Round up did with each match: `moved` or `copied`, plus `replaced existing` (the old file is at `trashed`, in the Trash), `kept both` (the new file numbered, at `destination`), or `kept both (the existing file could not go to the Trash)`, and `original could not be removed` when a move had to leave its source; `already there, not copied` for a copy with Keep both, `failed: <reason>`, or `not done` when a cancel or stop came first. A second Round up after the same scan updates its own files' rows.
+`disposition` says what Round up did with each match: `moved` or `copied`, plus `replaced existing` (the old file is at `trashed`, in the Trash), `kept both` (the new file numbered, at `destination`), or `kept both (the existing file could not go to the Trash)`, and `original could not be removed` when a move had to leave its source; `already there, not copied` for a copy, `already there, original removed` for a move, `failed: <reason>`, or `not done` when a cancel or stop came first. A second Round up after the same scan updates its own files' rows.
 
 The log files are plain text, with `== Section ==` lines between sections. The newest 50 scan logs and scan reports are kept; older ones are removed when Vaquero opens.
 
@@ -30,7 +30,7 @@ In `~/Library/Application Support/Vaquero`:
 | `vaquero-moves.csv` | One line per copied or moved file: `source,destination,action,run,trashed` |
 | `vaquero.lock` | Held while Vaquero runs, so only one copy runs at a time |
 
-The action is `moved` or `copied`, plus `, renamed` when the name was taken and both were kept, or `, overwrote` when the existing file was replaced. `run` groups the files of one copy or move, and `trashed` is where an overwritten file went in the Trash. **Edit > Undo** reverses the newest run and adds an `undone` line for it. Lines from older versions have only the first three columns.
+The action is `moved` or `copied`, plus `, renamed` when the name was taken and both were kept, or `, overwrote` when the existing file was replaced; `moved, already there` when the destination already had the file byte for byte and only the original was removed (Undo copies it back). `run` groups the files of one copy or move, and `trashed` is where an overwritten file went in the Trash. **Edit > Undo** reverses the newest run and adds an `undone` line for it. Lines from older versions have only the first three columns.
 
 ## Face model
 

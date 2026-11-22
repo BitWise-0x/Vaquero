@@ -324,38 +324,43 @@ def test_undo_with_the_drive_disconnected_fails_and_can_be_done_later(tmp_path: 
     assert isinstance(last_run(journal)[0], JournalRow)
 
 
+@pytest.mark.parametrize("trash", [True, False])
 @pytest.mark.parametrize("conflict", [Conflict.KEEP_BOTH, Conflict.OVERWRITE])
-def test_a_move_never_leaves_its_source_behind(tmp_path: Path, fake_trash: Path, conflict: Conflict) -> None:
-    """An identical file already in the destination once left the source in place, skipped, on a move."""
+def test_a_move_never_leaves_its_source_behind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_trash: Path, conflict: Conflict, trash: bool
+) -> None:
+    """A file the destination already had byte for byte once stayed behind, skipped, on a move; on a share without
+    a Trash it was then moved in a second time, numbered. Only the original goes now, and Undo copies it back."""
+    if not trash:
+        monkeypatch.setattr(engine.macos, "trash", lambda path: None)
     a = touch(tmp_path / "src" / "a.jpg", b"the person")
     dest = tmp_path / "dest"
     dest.mkdir()
     shutil.copy2(a, dest / "a.jpg")
     journal = tmp_path / "moves.csv"
 
-    assert transfer_matches([a], dest, journal, conflict=conflict) == TransferCounts(1, 0, 0, replaced=1)
+    assert transfer_matches([a], dest, journal, conflict=conflict) == TransferCounts(1, 0, 0, already=1)
 
     assert not a.exists()
     assert sorted(p.name for p in dest.iterdir()) == ["a.jpg"]
-    (trashed,) = fake_trash.iterdir()
-    assert trashed.read_bytes() == b"the person"
-    assert rows(journal) == [[str(a), str(dest / "a.jpg"), "moved, overwrote"]]
+    assert not list(fake_trash.iterdir())
+    assert rows(journal) == [[str(a), str(dest / "a.jpg"), "moved, already there"]]
 
-    engine.undo_run(engine.last_run(journal), journal)
+    assert engine.undo_run(engine.last_run(journal), journal) == TransferCounts(1, 0, 0)
     assert a.read_bytes() == (dest / "a.jpg").read_bytes() == b"the person"
 
 
-def test_overwrite_replaces_an_identical_copy_too(tmp_path: Path, fake_trash: Path) -> None:
+def test_a_copy_already_there_byte_for_byte_is_not_copied_again(tmp_path: Path, fake_trash: Path) -> None:
     a = touch(tmp_path / "src" / "a.jpg", b"the person")
     dest = tmp_path / "dest"
     dest.mkdir()
     shutil.copy2(a, dest / "a.jpg")
     journal = tmp_path / "moves.csv"
 
-    assert transfer_matches([a], dest, journal, conflict=Conflict.OVERWRITE, mode=Transfer.COPY) == TransferCounts(1, 0, 0, replaced=1)
+    assert transfer_matches([a], dest, journal, conflict=Conflict.OVERWRITE, mode=Transfer.COPY) == TransferCounts(0, 0, 1)
 
-    assert a.exists() and len(list(fake_trash.iterdir())) == 1
-    assert rows(journal) == [[str(a), str(dest / "a.jpg"), "copied, overwrote"]]
+    assert a.exists() and not list(fake_trash.iterdir())
+    assert sorted(p.name for p in dest.iterdir()) == ["a.jpg"]
 
 
 @pytest.mark.parametrize("mode", [Transfer.MOVE, Transfer.COPY])
@@ -391,10 +396,9 @@ def test_each_file_hears_what_was_done_with_it(tmp_path: Path, monkeypatch: pyte
     transfer_matches([plain, same, other], dest, tmp_path / "moves.csv", on_file=outcomes.__setitem__)
 
     assert {p.name: o.disposition for p, o in outcomes.items()} == {
-        "plain.jpg": "moved", "same.jpg": "moved, replaced existing", "other.jpg": "moved, kept both"
+        "plain.jpg": "moved", "same.jpg": "already there, original removed", "other.jpg": "moved, kept both"
     }
     assert outcomes[other].dst == str(dest / "other 2.jpg")
-    assert outcomes[same].trashed and Path(outcomes[same].trashed).parent == fake_trash
 
     monkeypatch.setattr(engine.macos, "trash", lambda path: None)
     again = touch(src / "other.jpg", b"newer")

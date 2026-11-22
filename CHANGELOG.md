@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.30.2 (2026-11-22)
+
+### Bug Fixes
+
+- **transfer**: A move never leaves its source behind, and overwrite always overwrites
+  ([`3af0f0e`](https://github.com/BitWise-0x/Vaquero/commit/3af0f0e330ea6a1eb1ed2593cce7921184dcc7db))
+
+
 ## v0.30.1 (2026-11-22)
 
 ### Bug Fixes

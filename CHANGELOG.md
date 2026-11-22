@@ -2,6 +2,32 @@
 
 <!-- version list -->
 
+## v0.30.1 (2026-11-22)
+
+### Bug Fixes
+
+- **menubar**: The menu keeps its full width when idle, so no item is cut short
+  ([`25fa5a1`](https://github.com/BitWise-0x/Vaquero/commit/25fa5a1bd32d79e2869be5cb3910c021434e3bbe))
+
+- **update**: No update download or staging folder is left behind
+  ([`ec8d596`](https://github.com/BitWise-0x/Vaquero/commit/ec8d596d8ddc24aff3fade030890e8fae5925c57))
+
+### Chores
+
+- **site**: Download links ask GitHub for the newest DMG on every page load
+  ([`9494376`](https://github.com/BitWise-0x/Vaquero/commit/9494376d5cf3722a804d6e234702b020ab946f9c))
+
+### Continuous Integration
+
+- **site**: Workflow comments name the download lookup each page makes
+  ([`c625b50`](https://github.com/BitWise-0x/Vaquero/commit/c625b501a8a0f604e5a55dabe59edba6ad7e91a3))
+
+### Documentation
+
+- Screenshots at 0.30.0, Round up with the app icon
+  ([`ae9e283`](https://github.com/BitWise-0x/Vaquero/commit/ae9e28323bf88be56dd47c74b92e03dc5dbd9b84))
+
+
 ## v0.30.0 (2026-11-22)
 
 ### Features
